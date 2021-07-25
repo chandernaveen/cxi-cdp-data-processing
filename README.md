@@ -1,15 +1,10 @@
 # Introduction 
-TODO: Give a short introduction of your project. Let this section explain the objectives or the motivation behind this project. 
+The following repo is to store all databricks notebook/config/functions/code that will be used to interact with the Lake. This will not be the only repo we will use but it should be the main one for all "data engineering" tasks. 
 
-# Getting Started
-TODO: Guide users through getting your code up and running on their own system. In this section you can talk about:
-1.	Installation process
-2.	Software dependencies
-3.	Latest releases
-4.	API references
+
 
 # Build and Test
-TODO: Describe and show how to build your code and run the tests. 
+TODO: Describe and show how to build your code and run the tests. This needs to be defined 
 
 # Contribute
 TODO: Explain how other users and developers can contribute to make your code better. 
