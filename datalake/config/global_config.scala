@@ -1,5 +1,4 @@
 // Databricks notebook source
-// Databricks notebook source
 import java.time.Instant
 import java.time._
 import org.apache.spark.sql.types._
