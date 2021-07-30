@@ -15,5 +15,6 @@ steps:
 
 - script: |
     echo Add other tasks to build, test, and deploy your project.
+    echo | host myip.opendns.com resolver1.opendns.com | grep 'myip' | awk '{print $4}'
     echo See https://aka.ms/yaml
   displayName: 'Run a multi-line script'
