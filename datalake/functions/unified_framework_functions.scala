@@ -64,6 +64,24 @@ catch {
 
 // COMMAND ----------
 
+/**
+ * Generic 
+ * @function-desc - Generates spark configuration based on contract configuration
+ */
+
+
+def applySparkConfigOptions(configOptions: Map[String, Any]): Unit = {
+  configOptions.foreach {
+    case (key, value: String) => spark.conf.set(key, value)
+    case (key, value: Boolean) => spark.conf.set(key, value)
+    case (key, value: Long) => spark.conf.set(key, value)
+    case (key, value: Integer) => spark.conf.set(key, value.toLong)
+    case _ =>
+  }
+}
+
+// COMMAND ----------
+
 object logs {
 
 import io.delta.tables._
@@ -241,4 +259,51 @@ def getKvScopeForCurrentEnv(): String = {
   val env = wsProps("envType")
   val region = wsProps("region")
   s"$env-$region-keyvault-scope"
+}
+
+// COMMAND ----------
+
+/**
+ * Generic
+ * @function-desc - This function identifies unique value for given Data Frame using the provided control columns and adds them to a where condition.
+ */
+
+def replaceWhereForSingleColumnWriteOption(df: DataFrame, params: Map[String, String]): Map[String, String] = {
+  val controlCol = params("controlCol")
+
+  val controlColValuesProcessed = df.select(controlCol)
+    .distinct
+    .collect
+    .map(_ (0))
+    .map(r => s"'$r'")
+    .mkString(",")
+
+  val replaceWhereCondition = s"$controlCol in ($controlColValuesProcessed)"
+
+  Map[String, String]("replaceWhere" -> replaceWhereCondition)
+}
+
+val writeOptionsFunctionsMap = Map[String, (DataFrame, Map[String, String]) => Map[String, String]](
+  "replaceWhereForSingleColumn" -> replaceWhereForSingleColumnWriteOption
+)
+
+
+// COMMAND ----------
+
+/**
+ * Generic
+ * @function-desc - Provide a list of all files including those in sub-directories
+ */
+
+def getAllFiles(path: String):Seq[String] =
+{
+  val files = dbutils.fs.ls(path)
+  if(files.isEmpty)
+    List()
+  else
+    files.map(file => {
+      val path: String = file.path
+      if (file.isDir) getAllFiles(path)
+      else List(path)
+    }).reduce(_ ++ _)
 }
