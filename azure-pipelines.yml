@@ -9,12 +9,36 @@ trigger:
 pool:
   vmImage: ubuntu-latest
 
+variables:
+- name: kvnm
+  value: 'kvdeveastus2cxizrjtbfjlf'
+- name: kvrg
+  value: 'rg-dev-eastus2-network'
+
 steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+
+- task: DownloadPipelineArtifact@2
+  inputs:
+    source: 'current' 
+    # Options: current, specific
+    #project: # Required when source == Specific
+    #pipeline: # Required when source == Specific
+    #preferTriggeringPipeline: false # Optional
+    #runVersion: 'latest' # Required when source == Specific# Options: latest, latestFromBranch, specific
+    runBranch: 'refs/heads/master' # Required when source == Specific && RunVersion == LatestFromBranch
+    #runId: # Required when source == Specific && RunVersion == Specific
+    #tags: # Optional
+    #artifact: # Optional
+    #patterns: '**' # Optional
+    path: '$(Pipeline.Workspace)' 
 
 - script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo | host myip.opendns.com resolver1.opendns.com | grep 'myip' | awk '{print $4}'
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+    ip=$(host myip.opendns.com resolver1.opendns.com | grep 'myip' | awk '{print $4}')
+
+    if [  -z "$ip" ] 
+    then 
+    	az keyvault network-rule add -n $(kvnm) -g $(kvrg) --ip-address $ip 
+    else 
+	    exit 1
+    fi
+  displayName: 'Adding dynamic IP to Azure Keyvault'
