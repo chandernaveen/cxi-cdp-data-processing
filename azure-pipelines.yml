@@ -14,8 +14,8 @@ variables:
   value: 'kvdeveastus2cxizrjtbfjlf'
 - name: kvrg
   value: 'rg-dev-eastus2-network'
-- name: subs
-  value: 'CustomerXi'
+- name: sp
+  value: 'cxi-devops'
 
 steps:
 
@@ -37,7 +37,7 @@ steps:
 - task: AzureCLI@2
   displayName: Adding dynamic IP to Azure Keyvault
   inputs:
-    azureSubscription: $(subs)
+    azureSubscription: $(sp)
     scriptType: bash
     scriptLocation: inlineScript
     inlineScript: |
