@@ -43,3 +43,20 @@ steps:
     inlineScript: |
       ip=$(host myip.opendns.com resolver1.opendns.com | grep 'myip' | awk '{print $4}')
       az keyvault network-rule add -n $(kvnm) -g $(kvrg) --ip-address $ip
+
+- task: AzureKeyVault@2
+  inputs:
+    azureSubscription: $(sp)
+    KeyVaultName: $(kvnm)
+    SecretsFilter: 'databricks-workspace-token'
+    RunAsPreJob: false
+
+- task: AzureCLI@2
+  displayName: Removing dynamic IP from Azure Keyvault
+  inputs:
+    azureSubscription: $(sp)
+    scriptType: bash
+    scriptLocation: inlineScript
+    inlineScript: |
+      ip=$(host myip.opendns.com resolver1.opendns.com | grep 'myip' | awk '{print $4}')
+      az keyvault network-rule remove -n $(kvnm) -g $(kvrg) --ip-address $ip
