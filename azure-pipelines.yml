@@ -38,6 +38,6 @@ steps:
     then 
       echo "Worked?" + $ip
     else 
-      echo "Not worked?" + $(kvnm) + $(kvrg)
+      echo "Not worked?" + $ip + $(kvnm) + $(kvrg)
     fi
   displayName: 'Adding dynamic IP to Azure Keyvault'
