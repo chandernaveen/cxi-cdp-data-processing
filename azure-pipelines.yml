@@ -36,8 +36,8 @@ steps:
     ip=$(host myip.opendns.com resolver1.opendns.com | grep 'myip' | awk '{print $4}')
     if [  -z "$ip" ] 
     then 
-      az keyvault network-rule add -n $(kvnm) -g $(kvrg) --ip-address $ip 
+      echo "Worked?" + $ip
     else 
-      exit 1
+      echo "Not worked?" + $(kvnm) + $(kvrg)
     fi
   displayName: 'Adding dynamic IP to Azure Keyvault'
