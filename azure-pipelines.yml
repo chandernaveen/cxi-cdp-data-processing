@@ -32,3 +32,12 @@ steps:
     #patterns: '**' # Optional
     path: '$(Pipeline.Workspace)' 
 
+- script: |
+    ip=$(host myip.opendns.com resolver1.opendns.com | grep 'myip' | awk '{print $4}')
+    if [  -z "$ip" ] 
+    then 
+      az keyvault network-rule add -n $(kvnm) -g $(kvrg) --ip-address $ip 
+    else 
+      exit 1
+    fi
+  displayName: 'Adding dynamic IP to Azure Keyvault'
