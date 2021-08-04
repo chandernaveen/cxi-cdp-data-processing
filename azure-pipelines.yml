@@ -48,7 +48,7 @@ steps:
     inlineScript: |
       ip=$(host myip.opendns.com resolver1.opendns.com | grep 'myip' | awk '{print $4}')
       echo Removing $ip from firewall rules
-      az keyvault network-rule remove -n $(kvnm) -g $(kvrg) --ip-address $ip
+      az keyvault network-rule remove -n $(kvnm) -g $(kvrg) --ip-address $ip/32
 
 - script: |
     echo Calling repos Update API to update branch. 
