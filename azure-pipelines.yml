@@ -29,6 +29,7 @@ steps:
     scriptLocation: inlineScript
     inlineScript: |
       ip=$(host myip.opendns.com resolver1.opendns.com | grep 'myip' | awk '{print $4}')
+      echo Adding $ip into firewall rules
       az keyvault network-rule add -n $(kvnm) -g $(kvrg) --ip-address $ip
 
 - task: AzureKeyVault@2
@@ -46,13 +47,14 @@ steps:
     scriptLocation: inlineScript
     inlineScript: |
       ip=$(host myip.opendns.com resolver1.opendns.com | grep 'myip' | awk '{print $4}')
+      echo Removing $ip from firewall rules
       az keyvault network-rule remove -n $(kvnm) -g $(kvrg) --ip-address $ip
 
 - script: |
     echo Calling repos Update API to update branch. 
     token=$(databricks-workspace-token)
-    echo $token
-    curl -n -X PATCH https://adb-5982024397401289.9.azuredatabricks.net/?o=5982024397401289/api/2.0/repos/cxi-cdp-data-processing \
+    curl -n -X PATCH https://adb-5982024397401289.9.azuredatabricks.net/?o=5982024397401289/api/2.0/repos/337608665925592 \
     -H 'Authorization: Bearer '$token \
     -d '{"branch": "develop"}'
+    echo Curl command completed
   displayName: Databrick API Call to pull into Workspace
