@@ -18,6 +18,8 @@ variables:
   value: 'rg-dev-eastus2-network'
 - name: sp
   value: 'cxi-devops'
+- name: dev-repo-id
+  value: '337608665925592'
 
 steps:
 
@@ -53,7 +55,7 @@ steps:
 - script: |
     echo Calling repos Update API to update branch. 
     token=$(sp-devops)
-    curl -n -X PATCH https://adb-5982024397401289.9.azuredatabricks.net/api/2.0/repos/337608665925592 \
+    curl -n -X PATCH https://adb-5982024397401289.9.azuredatabricks.net/api/2.0/repos/$(dev-repo-id) \
     -H 'Authorization: Bearer $token' \
     -d '{"branch": "develop"}'
     echo Curl command completed
