@@ -63,7 +63,7 @@ steps:
 
 - script: |
     echo Calling repos Update API to update branch. 
-    token=${{ secrets.databricks-workspace-token }}
+    token=$(databricks-workspace-token)
     echo $token
     curl -n -X PATCH https://adb-5982024397401289.9/api/2.0/repos/cxi-cdp-data-processing \
     -H 'Authorization: Bearer '$token \
