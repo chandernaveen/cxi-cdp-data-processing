@@ -1,0 +1,58 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+  branches:
+    include:
+    - develop
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+- name: kvnm
+  value: 'kvdeveastus2cxizrjtbfjlf'
+- name: kvrg
+  value: 'rg-dev-eastus2-network'
+- name: sp
+  value: 'cxi-devops'
+
+steps:
+
+- task: AzureCLI@2
+  displayName: Adding dynamic IP to Azure Keyvault
+  inputs:
+    azureSubscription: $(sp)
+    scriptType: bash
+    scriptLocation: inlineScript
+    inlineScript: |
+      ip=$(host myip.opendns.com resolver1.opendns.com | grep 'myip' | awk '{print $4}')
+      az keyvault network-rule add -n $(kvnm) -g $(kvrg) --ip-address $ip
+
+- task: AzureKeyVault@2
+  inputs:
+    azureSubscription: $(sp)
+    KeyVaultName: $(kvnm)
+    SecretsFilter: 'databricks-workspace-token'
+    RunAsPreJob: false
+
+- task: AzureCLI@2
+  displayName: Removing dynamic IP from Azure Keyvault
+  inputs:
+    azureSubscription: $(sp)
+    scriptType: bash
+    scriptLocation: inlineScript
+    inlineScript: |
+      ip=$(host myip.opendns.com resolver1.opendns.com | grep 'myip' | awk '{print $4}')
+      az keyvault network-rule remove -n $(kvnm) -g $(kvrg) --ip-address $ip
+
+- script: |
+    echo Calling repos Update API to update branch. 
+    token=$(databricks-workspace-token)
+    echo $token
+    curl -n -X PATCH https://adb-5982024397401289.9.azuredatabricks.net/?o=5982024397401289/api/2.0/repos/cxi-cdp-data-processing \
+    -H 'Authorization: Bearer '$token \
+    -d '{"branch": "develop"}'
+  displayName: Databrick API Call to pull into Workspace
