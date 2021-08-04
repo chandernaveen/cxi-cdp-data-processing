@@ -53,10 +53,9 @@ steps:
 - script: |
     echo Calling repos Update API to update branch. 
     token=$(databricks-workspace-token)
-    echo $token > secret.txt
     cat secret.txt
     curl -n -X PATCH https://adb-5982024397401289.9.azuredatabricks.net/api/2.0/repos/337608665925592 \
-    -H 'Authorization: Bearer '$token \
+    -H 'Authorization: Bearer $(databricks-workspace-token)' \
     -d '{"branch": "develop"}'
     echo Curl command completed
   displayName: Databrick API Call to pull into Workspace
