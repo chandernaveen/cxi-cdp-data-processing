@@ -18,15 +18,14 @@ variables:
   value: 'rg-dev-eastus2-network'
 - name: sp
   value: 'cxi-devops'
-- name: dev-repo-id
-  value: '337608665925592'
+
 
 steps:
 
 - task: DownloadPipelineArtifact@2
   inputs:
     source: 'current' 
-    runBranch: 'refs/heads/master' # Required when source == Specific && RunVersion == LatestFromBranch
+    runBranch: 'refs/heads/master' 
     path: '$(Pipeline.Workspace)' 
 
 - task: AzureCLI@2
@@ -65,5 +64,5 @@ steps:
 
 - task: deploynotebooks@0
   inputs:
-    notebooksFolderPath: '$(Pipeline.Workspace)'
-    workspaceFolder: '/datalake2'
+    notebooksFolderPath: '$(Pipeline.Workspace)/s/datalake'
+    workspaceFolder: '/datalake'
