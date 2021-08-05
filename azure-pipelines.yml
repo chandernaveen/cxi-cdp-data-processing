@@ -23,6 +23,12 @@ variables:
 
 steps:
 
+- task: DownloadPipelineArtifact@2
+  inputs:
+    source: 'current' 
+    runBranch: 'refs/heads/master' # Required when source == Specific && RunVersion == LatestFromBranch
+    path: '$(Pipeline.Workspace)' 
+
 - task: AzureCLI@2
   displayName: Adding dynamic IP to Azure Keyvault
   inputs:
@@ -38,7 +44,7 @@ steps:
   inputs:
     azureSubscription: $(sp)
     KeyVaultName: $(kvnm)
-    SecretsFilter: 'sp-devops'
+    SecretsFilter: 'databricks-workspace-token'
     RunAsPreJob: false
 
 - task: AzureCLI@2
@@ -52,11 +58,10 @@ steps:
       echo Removing $ip from firewall rules
       az keyvault network-rule remove -n $(kvnm) -g $(kvrg) --ip-address $ip/32
 
-- script: |
-    echo Calling repos Update API to update branch. 
-    token=$(sp-devops)
-    curl -n -X PATCH https://adb-5982024397401289.9.azuredatabricks.net/api/2.0/repos/$(dev-repo-id) \
-    -H 'Authorization: Bearer $token' \
-    -d '{"branch": "develop"}'
-    echo Curl command completed
-  displayName: Databrick API Call to pull into Workspace
+- task: databricksDeployScripts@0
+  inputs:
+    authMethod: 'bearer'
+    bearerToken: '$(databricks-workspace-token)'
+    region: 'eastus2'
+    localPath: '$(Pipeline.Workspace)/datalake'
+    databricksPath: '/datalake2'
