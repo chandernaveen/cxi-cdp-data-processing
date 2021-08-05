@@ -33,7 +33,7 @@ display(df)
 
 // COMMAND ----------
 
-//After creating scope, test it quickly
+//After creating scope, test it quickly, right?
 
 val kvSecretScope = "dev-eastus2-keyvault-scope"
 
