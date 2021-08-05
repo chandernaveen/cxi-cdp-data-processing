@@ -65,5 +65,5 @@ steps:
 
 - task: deploynotebooks@0
   inputs:
-    notebooksFolderPath: '$(Pipeline.Workspace)/datalake'
+    notebooksFolderPath: '$(Pipeline.Workspace)'
     workspaceFolder: '/datalake2'
