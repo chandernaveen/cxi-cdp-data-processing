@@ -58,10 +58,12 @@ steps:
       echo Removing $ip from firewall rules
       az keyvault network-rule remove -n $(kvnm) -g $(kvrg) --ip-address $ip/32
 
-- task: databricksDeployScripts@0
+- task: configuredatabricks@0
   inputs:
-    authMethod: 'bearer'
-    bearerToken: '$(databricks-workspace-token)'
-    region: 'eastus2'
-    localPath: '$(Pipeline.Workspace)/datalake'
-    databricksPath: '/datalake2'
+    url: 'https://adb-5982024397401289.9.azuredatabricks.net/'
+    token: '$(databricks-workspace-token)'
+
+- task: deploynotebooks@0
+  inputs:
+    notebooksFolderPath: '$(Pipeline.Workspace)/datalake'
+    workspaceFolder: '/datalake2'
