@@ -1,15 +1,41 @@
 # Introduction 
-The following repo is to store all databricks notebook/config/functions/code that will be used to interact with the Lake. This will not be the only repo we will use but it should be the main one for all "data engineering" tasks. 
+
+Repository that contains Apache Spark jobs for data processing inside CXI Cloud Data Platform.
+
+## Prerequisites
+Databricks runtime 8.1 - in which these Apache Spark jobs jobs are executed -
+has following [system environment](https://docs.microsoft.com/en-gb/azure/databricks/release-notes/runtime/8.1#system-environment),
+so locally we need the following components installed: 
+
+- Python 3.8.8 - required for (databricks-connect) [#Databricks-Connect] python package
+- sbt 1.4.3 - build tool
+- Scala 2.12.10 - language that Apache Spark jobs are written in
+
+Other dependencies & setup will be installed automatically when you execute the commands in project root directory:
+```bash
+python -m venv .venv
+sbt setupDatabricksConnect && sbt assembly
+```
+
+### Databricks-Connect
+```
+Databricks Connect is a client library for Databricks Runtime 
+that we use local development (and in CI/CD) and that has all lib dependencies 
+in-place to develop and test against specific Databricks runtime version.
+```
+Links: 
+- https://docs.microsoft.com/en-gb/azure/databricks/dev-tools/databricks-connect
 
 
-
-# Build and Test
-TODO: Describe and show how to build your code and run the tests. This needs to be defined 
+## Build and Test
+How to test:
+```
+sbt setupDatabricksConnect && sbt test
+```
+How to build:
+```
+sbt setupDatabricksConnect && sbt assembly
+```
 
 # Contribute
 TODO: Explain how other users and developers can contribute to make your code better. 
-
-If you want to learn more about creating good readme files then refer the following [guidelines](https://docs.microsoft.com/en-us/azure/devops/repos/git/create-a-readme?view=azure-devops). You can also seek inspiration from the below readme files:
-- [ASP.NET Core](https://github.com/aspnet/Home)
-- [Visual Studio Code](https://github.com/Microsoft/vscode)
-- [Chakra Core](https://github.com/Microsoft/ChakraCore)

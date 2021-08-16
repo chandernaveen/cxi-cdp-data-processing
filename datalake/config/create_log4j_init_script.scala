@@ -1,3 +1,5 @@
+// https://kb.databricks.com/clusters/overwrite-log4j-logs.html
+// https://forums.databricks.com/questions/17625/how-can-i-customize-log4j.html
 // Databricks notebook source
 dbutils.fs.put("dbfs:/databricks/config/log4j-logging-config/log4j-refined-config.sh", """
 
