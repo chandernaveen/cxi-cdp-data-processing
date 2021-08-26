@@ -167,5 +167,5 @@ catch {
 val files = filesProcessed.size
 fn_writeAuditTable(logTable = logTable, processName = processName, entity = sourceEntity, runID = runID, writeStatus = "1", logger = logger,
   dpYear = dpYear, dpMonth = dpMonth, dpDay = dpDay, dpHour = dpHour,
-  processStartTime = notebookStartTime, processEndTime = java.time.LocalDateTime.now.toString(), errorMessage = ""))
+  processStartTime = notebookStartTime, processEndTime = java.time.LocalDateTime.now.toString(), errorMessage = "")
 dbutils.notebook.exit(s"""Files processed: ${files}""")
