@@ -5,9 +5,6 @@ idePackagePrefix := Some("com.cxi.cdp.data_processing")
 
 val sparkVersion = "3.1.1"
 
-//resolvers += Resolver.jcenterRepo
-//resolvers += Resolver.typesafeRepo("releases")
-
 lazy val setupDatabricksConnect = taskKey[Unit]("Execute scripts that add Databricks jars")
 
 setupDatabricksConnect := {
@@ -44,7 +41,7 @@ libraryDependencies ++= Seq(
 
 Test / fork := true
 Test / parallelExecution := false
-javaOptions ++= Seq("-XX:+PrintCommandLineFlags", "-Xms512M", "-Xmx2048M", "-XX:MaxPermSize=2048M", "-XX:+CMSClassUnloadingEnabled", "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=./java_pid<pid>.hprof", "-XX:+UnlockExperimentalVMOptions", "-XX:+UseCGroupMemoryLimitForHeap")
+javaOptions ++= Seq("-XX:+PrintCommandLineFlags", "-Xms512M", "-Xmx2048M", "-XX:MaxPermSize=2048M", "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=./java_pid<pid>.hprof", "-XX:+UnlockExperimentalVMOptions")
 testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oD")
 
 assembly / assemblyJarName := s"${name.value}-${version.value}.jar"

@@ -25,7 +25,8 @@ in-place to develop and test against specific Databricks runtime version.
 ```
 Links: 
 - https://docs.microsoft.com/en-gb/azure/databricks/dev-tools/databricks-connect
-
+- https://docs.microsoft.com/en-us/azure/databricks/dev-tools/databricks-connect#limitations
+- https://docs.microsoft.com/en-us/azure/databricks/dev-tools/databricks-connect#set-up-your-ide-or-notebook-server
 
 ## Build and Test
 How to test:

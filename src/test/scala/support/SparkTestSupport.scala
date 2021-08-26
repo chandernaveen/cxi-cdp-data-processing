@@ -4,31 +4,14 @@ package support
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Row}
 import org.json4s.jackson.JsonMethods.{compact, render}
-import org.json4s.{JObject, JsonAST}
+import org.json4s.{DefaultFormats, JObject, JsonAST}
+import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper}
 
 import java.io.File
 import java.nio.file.Paths
 
 object SparkTestSupport extends BaseSparkBatchJobTest {
-  //  implicit val formats: DefaultFormats.type = DefaultFormats
-  dbutils.widgets.text("isTesting", "true")
-  dbutils.widgets.text("dataSourcesSettings", "{}")
-  dbutils.widgets.text("executionSettings", "{}")
-  dbutils.widgets.text("configurationSettings", "{}")
-  dbutils.widgets.text("loggerSettings",
-    """{
-      | "loggerName": "CuratedLogger",
-		| "logSystem": "App",
-		| "logLevel": "INFO",
-		| "logAppender": "CuratedFile",
-		| "isRootLogEnabled": "False"
-	}""".stripMargin)
-  val baseTestDataPath = "/work_area/hubpro-unit-tests/"
-  val baseTestDataBase = "hubpro_test"
-
-  def test(testName: String)(testFun: => Any /* Assertion */) {
-    testFun
-  }
+  override implicit val formats: DefaultFormats.type = DefaultFormats
 
   def jsonToDF(jsonObjects: JObject*): DataFrame = {
     import spark.implicits._
