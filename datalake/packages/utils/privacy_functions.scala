@@ -1,4 +1,4 @@
-// Databricks notebook source
+// TODO: Should this go into a different folder structure?
 def authorize() {
   import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -36,7 +36,7 @@ def unauthorize(key: String): Boolean = {
 
 // COMMAND ----------
 
-//Should this go into global?
+//TODO: Should this go in global config?
 def createObjects () {
   try 
   {
