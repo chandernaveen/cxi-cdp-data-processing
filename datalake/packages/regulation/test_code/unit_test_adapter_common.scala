@@ -3,15 +3,15 @@
 
 // COMMAND ----------
 
-// MAGIC %run "datalake/packages/utils/contract_utils"
+// MAGIC %run "/datalake/packages/utils/contract_utils"
 
 // COMMAND ----------
 
-// MAGIC %run "./../hashing_adapter"
+// MAGIC %run "../hashing_adapter"
 
 // COMMAND ----------
 
-// MAGIC %run "../../utils/privacy_functions"
+// MAGIC %run "/datalake/packages/utils/privacy_functions"
 
 // COMMAND ----------
 
