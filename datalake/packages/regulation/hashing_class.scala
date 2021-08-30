@@ -117,7 +117,7 @@ class CommonHashingFunction (val kvKeyScope: String, val kvKeyOfSalt: String) ex
     })
                 
     val tgtDf = srcDf.withColumn("hashof_cxi_customer_id", hashFunction()(col(dataColName)))
-    
+    //TODO: Need to remove hardcoded value once cxi_partner_id and country are defined.
     val lookupDf = tgtDf.select(col("hashof_cxi_customer_id"), col(dataColName).as("cxi_customer_id"))
       .withColumn("process_name", lit("common-crypto-hash"))
       .withColumn("country", lit("USA"))
