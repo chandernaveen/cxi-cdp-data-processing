@@ -12,7 +12,7 @@ import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.Column
 import org.apache.spark.sql.functions._
 
-
+//TODO: Has not been tested yet
 class JSONHashingFunction (val kvKeyScope: String, val kvKeyOfSalt: String) extends IHashFunction {
   import scala.util.matching.Regex
   import com.cxi.regulation.Hash
