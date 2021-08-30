@@ -1,9 +1,6 @@
-// Databricks notebook source
-print("Hello World!")
-
 // COMMAND ----------
 
-// MAGIC %run "../utils/delta_utils"
+// MAGIC %run "../delta_utils"
 
 // COMMAND ----------
 
@@ -19,14 +16,14 @@ import com.cxi.utils.DeltaTableFunctions
 
 //Function tableExists (True)
 
-if (DeltaTableFunctions.tableExists("logs.application_audit_logs")) print("Yep") else print("Dam..")
+if (DeltaTableFunctions.tableExists("logs.application_audit_logs")) print("Yep") else print("Nop")
 
 
 // COMMAND ----------
 
 //Function tableExists (False)
 
-if (DeltaTableFunctions.tableExists("lv.application_audit_logs")) print("Yep") else print("Dam..")
+if (DeltaTableFunctions.tableExists("lv.application_audit_logs")) print("Yep") else print("Nop")
 
 
 // COMMAND ----------
