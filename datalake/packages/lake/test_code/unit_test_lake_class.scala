@@ -1,5 +1,5 @@
 // Databricks notebook source
-// MAGIC %run "../../regulation/hashing_properties"
+// MAGIC %run "/datalake/packages/regulation/hashing_properties"
 
 // COMMAND ----------
 
@@ -7,7 +7,7 @@
 
 // COMMAND ----------
 
-// MAGIC %run "../privacy_functions"
+// MAGIC %run "/datalake/packages/utils/privacy_functions"
 
 // COMMAND ----------
 
