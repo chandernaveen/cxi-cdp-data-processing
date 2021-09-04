@@ -87,7 +87,7 @@ case class CommonInputValue(pii: String) extends IInputValue
 package com.cxi.regulation
 
 //Extension of IInputValue for JSON Class, TBD
-case class JSONInputValue(pii: String) extends IInputValue
+case class JsonInputValue(jsonCol: Map[String,String], jsonValueName: String) extends IInputValue
 
 // COMMAND ----------
 
@@ -101,7 +101,7 @@ case class CommonOptionInput(name: String, dataColName: String) extends IHashPro
 package com.cxi.regulation
 
 //Extension of IHashProperties will define the contract needs for JSON Class
-case class JSONOptionInput(name: String, controlColName:String, dataColName: String) extends IHashProperties
+case class JsonOptionInput(name: String, jsonColName:String, jsonValueName: String) extends IHashProperties
 
 // COMMAND ----------
 
@@ -110,3 +110,10 @@ package com.cxi.regulation
 //Extension of IOutputValue will define the output from the Hashing Process, may have more than one for different classes
 case class OutputValueHashFunction(isSucceeded: Boolean, pii: String, hash: String) extends IOutputValue
 
+
+// COMMAND ----------
+
+package com.cxi.regulation
+
+//Extension of IOutputValue will define the output from the Hashing Process, may have more than one for different classes
+case class JsonOutputValueHashFunction(isSucceeded: Boolean, jsonValue: String, jsonHashValue: String, jsonHashMap: Map[String, String]) extends IOutputValue
