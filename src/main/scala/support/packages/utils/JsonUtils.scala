@@ -1,23 +1,19 @@
+// Databricks notebook source
 package com.cxi.cdp.data_processing
-package support
+package support.packages.utils
 
-import org.apache.spark.sql.SparkSession
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.databind.DeserializationFeature
-import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
-
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.Dataset
+import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
+import org.apache.spark.sql.{DataFrame, _}
 import org.apache.spark.sql.types._
 
 import scala.util.{Failure, Success, Try}
-import org.apache.spark.sql.catalyst.parser.LegacyTypeStringParser
-import org.apache.spark.sql._
+
 
 object JsonUtils extends Serializable {
-
   lazy val sparkSession = SparkSession.builder.getOrCreate()
+
 
   lazy val mapper = new ObjectMapper() with ScalaObjectMapper
   mapper.registerModule(DefaultScalaModule)
@@ -45,8 +41,8 @@ object JsonUtils extends Serializable {
 
   def deserializeSchema(json: String): StructType = {
     Try(DataType.fromJson(json).asInstanceOf[StructType]) match {
-      case Success(t) => t
-      case Failure(e) => throw new RuntimeException(s"Failed parsing StructType: $json. ${e.toString}")
+        case Success(t) => t
+        case Failure(e) => throw new RuntimeException(s"Failed parsing StructType: $json. ${e.toString}")
     }
   }
 
@@ -62,8 +58,8 @@ object JsonUtils extends Serializable {
   }
 
   def prettyPrinter(value: Object) : String = {
-    val writer = mapper.writerWithDefaultPrettyPrinter
-    writer.writeValueAsString(value)
+   val writer = mapper.writerWithDefaultPrettyPrinter
+   writer.writeValueAsString(value)
   }
 
 }

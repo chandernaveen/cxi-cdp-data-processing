@@ -1,55 +1,49 @@
 package com.cxi.cdp.data_processing
-package support
+package support.packages.utils
+
+import scala.collection.mutable.Map
+import scala.reflect.ClassTag
+import scala.reflect.runtime.universe._
 
 class ContractUtils(jsonPath: String) extends Serializable {
-  import scala.collection.mutable.Map
-  import scala.reflect.ClassTag
-  import scala.Option
-  import scala.collection.mutable.Map
-  import java.lang.IllegalArgumentException
-  import scala.collection.mutable.ListBuffer
-  import java.nio.file.Paths
-  import scala.reflect.{ClassTag, classTag}
-  import scala.reflect.api.TypeTags
-  import scala.reflect.runtime.universe._
 
   protected var properties: scala.collection.immutable.Map[String, Object] = JsonUtils.toMap[Object](jsonPath)
 
   /**
-   *
-   * @param pathToProperyFiles
-   */
+    *
+    * @param pathToProperyFiles
+    */
   def this(pathToProperyFiles: java.nio.file.Path) {
     this(JsonUtils.readJSONSchemaSTR(pathToProperyFiles.toString))
   }
 
   /**
-   *
-   * @param name
-   * @return
-   */
+    *
+    * @param name
+    * @return
+    */
   def getProperty(name: String): Option[Object] = {
     getProperty(name, properties.toMap)
   }
 
   /**
-   *
-   * @return
-   */
+    *
+    * @return
+    */
   override def toString() = properties.toString()
 
   /**
-   *
-   * @param name
-   * @return
-   */
+    *
+    * @param name
+    * @return
+    */
   def propIsSet(name: String) = !getProperty(name).isEmpty
 
   /**
-   *
-   * @param name
-   * @return
-   */
+    *
+    * @param name
+    * @return
+    */
   def propString(name: String): String = {
     val value = getProperty(name, properties.toMap)
     value match {
@@ -62,39 +56,39 @@ class ContractUtils(jsonPath: String) extends Serializable {
   }
 
   /**
-   *
-   * @param name
-   * @param alt
-   * @return
-   */
+    *
+    * @param name
+    * @param alt
+    * @return
+    */
   def propStringOrElse(name: String, alt: => String) = Option(propString(name)).getOrElse(alt)
 
   /**
-   *
-   * @param name
-   * @return
-   */
+    *
+    * @param name
+    * @return
+    */
   def propStringOrEmpty(name: String) = propStringOrElse(name, "")
 
   /**
-   *
-   * @param name
-   * @return
-   */
+    *
+    * @param name
+    * @return
+    */
   def propStringOrNull(name: String) = propStringOrElse(name, null)
 
   /**
-   *
-   * @param name
-   * @return
-   */
+    *
+    * @param name
+    * @return
+    */
   def propStringOrNone(name: String) = Option(propStringOrNull(name))
 
   /**
-   *
-   * @param name
-   * @return
-   */
+    *
+    * @param name
+    * @return
+    */
   def propInt(name: String): Integer = {
     val value = getProperty(name, properties.toMap)
     value match {
@@ -107,40 +101,40 @@ class ContractUtils(jsonPath: String) extends Serializable {
   }
 
   /**
-   *
-   * @param name
-   * @param alt
-   * @return
-   */
+    *
+    * @param name
+    * @param alt
+    * @return
+    */
   def propIntOrElse(name: String, alt: => Integer) = Option(propInt(name)).getOrElse(alt)
 
   /**
-   *
-   * @param name
-   * @return
-   */
+    *
+    * @param name
+    * @return
+    */
   def propIntOrEmpty(name: String) = propIntOrElse(name, 0)
 
   /**
-   *
-   * @param name
-   * @return
-   */
+    *
+    * @param name
+    * @return
+    */
   def propIntOrNull(name: String) = propIntOrElse(name, null)
 
   /**
-   *
-   * @param name
-   * @return
-   */
+    *
+    * @param name
+    * @return
+    */
   def propIntOrNone(name: String) = Option(propIntOrNull(name))
 
   /**
-   *
-   * @param name
-   * @tparam A
-   * @return
-   */
+    *
+    * @param name
+    * @tparam A
+    * @return
+    */
   def getListProperty[A: ClassTag](name: String): Option[List[A]] = {
     val value = getProperty(name, properties.toMap)
     //    println(value.get.getClass.getName)
@@ -156,11 +150,11 @@ class ContractUtils(jsonPath: String) extends Serializable {
   }
 
   /**
-   *
-   * @param name
-   * @tparam A
-   * @return
-   */
+    *
+    * @param name
+    * @tparam A
+    * @return
+    */
   def getMapProperty(name: String): Option[scala.collection.immutable.Map[String, Object]] = {
     val value = getProperty(name, properties.toMap)
     //    println(value.get.getClass.getName)
@@ -276,7 +270,4 @@ class ContractUtils(jsonPath: String) extends Serializable {
     println(propToString(name))
   }
 }
-
-
-
 

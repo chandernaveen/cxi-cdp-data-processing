@@ -1,17 +1,28 @@
-name := "cxi-cdp-data-processing"
-version := "0.1.0"
-scalaVersion := "2.12.10"
-idePackagePrefix := Some("com.cxi.cdp.data_processing")
 
-val sparkVersion = "3.1.1"
+ThisBuild / organization := "com.cxi"
+ThisBuild / scalaVersion := "2.12.10"
+ThisBuild / version      := "0.1.0"
+name := "cxi-cdp-data-processing"
+idePackagePrefix := Some("com.cxi.cdp.data_processing")
+lazy val sparkVersion = "3.1.1"
+lazy val javaVersion = "1.8"
 
 lazy val setupDatabricksConnect = taskKey[Unit]("Execute scripts that add Databricks jars")
 
 setupDatabricksConnect := {
   val s: TaskStreams = streams.value
-  val shell: Seq[String] = if (sys.props("os.name").contains("Windows")) Seq("cmd", "/c") else Seq("bash", "-c")
   val sbtLibPath = baseDirectory.value / "lib"
-  val script: Seq[String] = shell :+
+
+  val windowsScript = Seq("cmd", "/c") :+
+      s"""
+        |./venv/Scripts/activate.bat
+        |pip install -r requirements.txt
+        |databricks_jars_base_path="$$(databricks-connect get-jar-dir)"
+        |echo "$$databricks_jars_base_path"
+        |if exist $sbtLibPath\\nul
+        |(mklink $$databricks_jars_base_path $sbtLibPath)
+        |""".stripMargin
+  val unixScript: Seq[String] = Seq("bash", "-c") :+
     s"""source .venv/bin/activate
        |pip install -r requirements.txt
        |databricks_jars_base_path="$$(databricks-connect get-jar-dir)"
@@ -20,7 +31,7 @@ setupDatabricksConnect := {
        |ln -s $$databricks_jars_base_path $sbtLibPath
        |fi
        |""".stripMargin
-
+  val script = if (sys.props("os.name").contains("Windows")) windowsScript else unixScript
   s.log.info("adding databricks jars...")
   import scala.sys.process._
   if ((script !) == 0) {
@@ -41,10 +52,13 @@ libraryDependencies ++= Seq(
 
 Test / fork := true
 Test / parallelExecution := false
-javaOptions ++= Seq("-XX:+PrintCommandLineFlags", "-Xms512M", "-Xmx2048M", "-XX:MaxPermSize=2048M", "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=./java_pid<pid>.hprof", "-XX:+UnlockExperimentalVMOptions")
 testOptions += Tests.Argument(TestFrameworks.ScalaTest, "-oD")
 
-assembly / assemblyJarName := s"${name.value}-${version.value}.jar"
+javacOptions ++= Seq("-source", javaVersion, "-target", javaVersion)
+javaOptions ++= Seq("-XX:+PrintCommandLineFlags", "-Xms512M", "-Xmx2048M", "-XX:MaxPermSize=2048M", "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=./java_pid<pid>.hprof", "-XX:+UnlockExperimentalVMOptions")
+scalacOptions += s"-target:jvm-$javaVersion"
+
+assembly / assemblyJarName := s"${normalizedName.value}-assembly_${scalaBinaryVersion.value}-${version.value}.jar"
 assembly / assemblyExcludedJars := {
   val cp = (assembly / fullClasspath).value
   val databricksJarsPath = baseDirectory.value / "lib"
@@ -54,3 +68,13 @@ assembly / assemblyOption ~= {
   _.withIncludeScala(false)
     .withIncludeDependency(false)
 }
+
+lazy val testScalastyle = taskKey[Unit]("testScalastyle")
+lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
+
+scalastyleFailOnError := true
+//scalastyleFailOnWarning := true TODO: uncomment after fixing styling issues
+testScalastyle := scalastyle.in(Test).toTask("").value
+(test in Test) := ((test in Test) dependsOn testScalastyle).value
+compileScalastyle := scalastyle.in(Compile).toTask("").value
+(compile in Compile) := ((compile in Compile) dependsOn compileScalastyle).value
