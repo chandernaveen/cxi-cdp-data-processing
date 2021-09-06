@@ -30,11 +30,10 @@ object AdapterCommonTest {
 
         // COMMAND ----------
 
-
         // COMMAND ----------
         val spark = SparkSession.builder().getOrCreate()
 
-        val np = new ContractUtils(java.nio.file.Paths.get("/mnt/metadata/template/contracts/landing_raw_contract.json"))
+        val np = new ContractUtils(java.nio.file.Paths.get("/mnt/metadata/template/contracts/template_crypto_json_contract.json"))
 
 
         // COMMAND ----------
@@ -44,16 +43,18 @@ object AdapterCommonTest {
         // COMMAND ----------
 
         def applyCryptoHashIfNeeded(hashSpecs: Option[Map[String, Any]], kvScope:String, df: DataFrame): DataFrame = {
+            //if (hashSpecs.isEmpty) df else IngestionHashAdapter.hashDf(hashSpecs.get, kvScope, df, false)
             if (hashSpecs.isEmpty) df else IngestionHashAdapter.hashDf(hashSpecs.get, kvScope, df, true)
         }
 
         // COMMAND ----------
+        import spark.implicits._
 
-        val srcDF = spark.read.format("delta").load("/mnt/raw_zone/cxi/template/test/test_products/")
+        val srcDF =  spark.read.format("delta").load("/mnt/raw_zone/cxi/pos_simphony/lab/all_record_types").filter($"record_type" === "guestChecks").select($"cxi_id", $"record_value").limit(10)
 
         // COMMAND ----------
 
-        srcDF.show(false)
+        println(srcDF)
 
         // COMMAND ----------
 
@@ -70,13 +71,7 @@ object AdapterCommonTest {
 
         // COMMAND ----------
 
-        cryptoHashedDf.show(false)
-
-        // COMMAND ----------
-
-        //test1 with our salt expected value: 28173b39a2ab3cd1c684cb07fbc4483ad863e8316359c1c09967dc05383628c3
-        //test1 with our salt received value: 28173b39a2ab3cd1c684cb07fbc4483ad863e8316359c1c09967dc05383628c3
-        //Pass!!
+        println(cryptoHashedDf)
 
         // COMMAND ----------
 
@@ -86,6 +81,7 @@ object AdapterCommonTest {
 
         // COMMAND ----------
 
+        //Authorize First cause you are writting into the Lookup
         unauthorize(spark, "fs.azure.account.key.dls2deveastus2cxi.blob.core.windows.net")
 
         // COMMAND ----------
