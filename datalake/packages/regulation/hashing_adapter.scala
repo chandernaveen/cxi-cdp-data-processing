@@ -20,7 +20,7 @@ object HashFunctionFactory {
   def getFunction(entityType: String, kvKeyScope: String, kvKeyOfSalt: String): IHashFunction = {
     entityType match {
       case "common" => new CommonHashingFunction(kvKeyScope, kvKeyOfSalt)
-      case "json" => new JSONHashingFunction(kvKeyScope, kvKeyOfSalt)
+      case "json" => new JsonHashingFunction(kvKeyScope, kvKeyOfSalt)
       case _ => throw new IllegalArgumentException(s"Unknown process '${entityType}'.")
     }
   }
