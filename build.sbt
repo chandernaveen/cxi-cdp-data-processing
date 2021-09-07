@@ -58,11 +58,12 @@ javacOptions ++= Seq("-source", javaVersion, "-target", javaVersion)
 javaOptions ++= Seq("-XX:+PrintCommandLineFlags", "-Xms512M", "-Xmx2048M", "-XX:MaxPermSize=2048M", "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=./java_pid<pid>.hprof", "-XX:+UnlockExperimentalVMOptions")
 scalacOptions += s"-target:jvm-$javaVersion"
 
-assembly / assemblyJarName := s"${normalizedName.value}-assembly_${scalaBinaryVersion.value}-${version.value}.jar"
+//assembly / assemblyJarName := s"${normalizedName.value.replace("-", "_")}_assembly_${scalaBinaryVersion.value.replace(".", "_")}_${version.value.replace(".", "_")}.jar" TODO: uncomment once we have proper CI/CD with artifact repository and versionning implemented
+assembly / assemblyJarName := s"${normalizedName.value.replace("-", "_")}_assembly_${scalaBinaryVersion.value.replace(".", "_")}.jar"
 assembly / assemblyExcludedJars := {
   val cp = (assembly / fullClasspath).value
   val databricksJarsPath = baseDirectory.value / "lib"
-  cp filter { value => !value.data.getPath.contains(databricksJarsPath) }
+  cp filter { value => !value.data.getPath.contains(databricksJarsPath) } // do not include databricks-connect jars in uber-jar as they already present on the cluster
 }
 assembly / assemblyOption ~= {
   _.withIncludeScala(false)
