@@ -552,3 +552,4 @@ fabric.properties
 .idea/*
 .lib/*
 .python-version
+*.iml

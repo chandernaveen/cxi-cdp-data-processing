@@ -37,10 +37,9 @@ setupDatabricksConnect := {
   if ((script !) == 0) {
     s.log.success("added jars successfully!")
   } else {
-    throw new IllegalStateException("Adding Databricks jars task failed!")
+    throw new IllegalStateException("Setup Databricks Connect task failed!")
   }
 }
-//(Compile / compile) := ((Compile / compile) dependsOn setupDatabricksConnect).value
 
 libraryDependencies ++= Seq(
   "com.holdenkarau" %% "spark-testing-base" % (sparkVersion + "_1.1.0") % Test,

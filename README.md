@@ -7,10 +7,10 @@ Databricks runtime 8.1 - in which these Apache Spark jobs are executed -
 has following [system environment](https://docs.microsoft.com/en-gb/azure/databricks/release-notes/runtime/8.1#system-environment),
 so locally we need the following components installed: 
 
-- Python 3.8.8 - required for `databricks-connect` Python package
-- Scala 2.12.10 - language that Apache Spark jobs are written in
-- sbt 1.4.3 - Scala build tool
-- Java 1.8 (dependency for Scala & sbt)
+- [Python 3.8.8](https://www.python.org/downloads/release/python-388/) - required for `databricks-connect` Python package
+- [Scala 2.12.10](https://www.scala-lang.org/download/2.12.10.html) - language that Apache Spark jobs are written in
+- [sbt 1.4.3](https://www.scala-sbt.org/download.html) - Scala build tool
+- [Java 1.8](https://adoptopenjdk.net/?variant=openjdk8&jvmVariant=hotspot) (dependency for Scala & sbt)
 - Other dependencies will be installed when you execute the following commands _one time_ in project root directory:
   ```bash
     python -m venv .venv
