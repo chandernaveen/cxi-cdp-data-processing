@@ -1,15 +1,47 @@
 # Introduction 
-The following repo is to store all databricks notebook/config/functions/code that will be used to interact with the Lake. This will not be the only repo we will use but it should be the main one for all "data engineering" tasks. 
 
+Repository that contains Apache Spark jobs for data processing inside CXI Cloud Data Platform.
 
+## Prerequisites
+Databricks runtime 8.1 - in which these Apache Spark jobs are executed -
+has following [system environment](https://docs.microsoft.com/en-gb/azure/databricks/release-notes/runtime/8.1#system-environment),
+so locally we need the following components installed: 
 
-# Build and Test
-TODO: Describe and show how to build your code and run the tests. This needs to be defined 
+- [Python 3.8.8](https://www.python.org/downloads/release/python-388/) - required for `databricks-connect` Python package
+- [Scala 2.12.10](https://www.scala-lang.org/download/2.12.10.html) - language that Apache Spark jobs are written in
+- [sbt 1.4.3](https://www.scala-sbt.org/download.html) - Scala build tool
+- [Java 1.8](https://adoptopenjdk.net/?variant=openjdk8&jvmVariant=hotspot) (dependency for Scala & sbt)
+- Other dependencies will be installed when you execute the following commands _one time_ in project root directory:
+  ```bash
+    python -m venv .venv
+    sbt setupDatabricksConnect
+    ```
+- Create your own dedicated Databricks `Single Node cluster` in your Azure subscription 
+  and execute `databricks-connect configure` command locally and [configure its properties](https://docs.databricks.com/dev-tools/databricks-connect.html#step-2-configure-connection-properties) 
+  
+Afterwords follow instructions to finish your IDE setup:
+- https://docs.microsoft.com/en-us/azure/databricks/dev-tools/databricks-connect#set-up-your-ide-or-notebook-server
+
+### What is Databricks-Connect ?
+```
+Databricks Connect is a client library for Databricks Runtime 
+that we use for local development (and in CI/CD) and that has all lib dependencies 
+in-place to develop and test against specific Databricks runtime version.
+```
+Links: 
+- https://docs.microsoft.com/en-gb/azure/databricks/dev-tools/databricks-connect
+- https://docs.microsoft.com/en-us/azure/databricks/dev-tools/databricks-connect#limitations
+- https://docs.microsoft.com/en-us/azure/databricks/jobs#--jar-job-tips
+- https://docs.microsoft.com/en-us/azure/databricks/data/filestore
+
+## How to test
+```
+sbt test
+```
+## How to build
+```
+sbt assembly
+```
 
 # Contribute
 TODO: Explain how other users and developers can contribute to make your code better. 
-
-If you want to learn more about creating good readme files then refer the following [guidelines](https://docs.microsoft.com/en-us/azure/devops/repos/git/create-a-readme?view=azure-devops). You can also seek inspiration from the below readme files:
-- [ASP.NET Core](https://github.com/aspnet/Home)
-- [Visual Studio Code](https://github.com/Microsoft/vscode)
-- [Chakra Core](https://github.com/Microsoft/ChakraCore)
