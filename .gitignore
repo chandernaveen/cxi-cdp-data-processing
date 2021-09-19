@@ -1,9 +1,9 @@
 ### VisualStudioCode template
 .vscode/*
 #!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
+#!.vscode/tasks.json
+#!.vscode/launch.json
+#!.vscode/extensions.json
 *.code-workspace
 
 
@@ -13,6 +13,9 @@ metals.sbt
 
 # Bloop Code Assistance TypeScript/JS/Etc
 .bloop
+
+# Ignore lib (Venv) 
+lib
 
 
 # Local History for Visual Studio Code
