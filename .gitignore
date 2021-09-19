@@ -1,10 +1,19 @@
 ### VisualStudioCode template
 .vscode/*
-!.vscode/settings.json
+#!.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 *.code-workspace
+
+
+# Metals VS Code Scala Plugin
+*.metals/
+metals.sbt
+
+# Bloop Code Assistance TypeScript/JS/Etc
+.bloop
+
 
 # Local History for Visual Studio Code
 .history/
