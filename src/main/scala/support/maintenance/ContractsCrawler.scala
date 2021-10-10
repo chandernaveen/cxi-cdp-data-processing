@@ -1,51 +1,52 @@
 package com.cxi.cdp.data_processing
 package support.maintenance
 
-import com.databricks.dbutils_v1.DBUtilsHolder.dbutils
+import com.databricks.service.DBUtils
+import org.apache.hadoop.fs.FileStatus
 
 object ContractsCrawler {
     def run(): Unit = {
         // Databricks notebook source
-        //dbutils.widgets.removeAll()
+        //DBUtils.widgets.removeAll()
 
         // COMMAND ----------
 
         // DBTITLE 1,Passing widgets
-        /*dbutils.widgets.text("contractsPath","metadata/","")
-        dbutils.widgets.text("isTesting","true","")
-        dbutils.widgets.text("testingReadRootPath","work_area/user@email.com","")*/
+        /*DBUtils.widgets.text("contractsPath","metadata/","")
+        DBUtils.widgets.text("isTesting","true","")
+        DBUtils.widgets.text("testingReadRootPath","work_area/user@email.com","")*/
 
         // COMMAND ----------
 
         // DBTITLE 1,Getting widgets
-        val contractsPath=dbutils.widgets.get("contractsPath")
-        val isTesting:Boolean = try { dbutils.widgets.get("isTesting").toBoolean } catch { case e: Throwable => false }
-        val testingReadRootPath=dbutils.widgets.get("testingReadRootPath")
+        val contractsPath=DBUtils.widgets.get("contractsPath")
+        val isTesting:Boolean = try { DBUtils.widgets.get("isTesting").toBoolean } catch { case e: Throwable => false }
+        val testingReadRootPath=DBUtils.widgets.get("testingReadRootPath")
 
         // COMMAND ----------
 
         // DBTITLE 1,Setting user/root Path
         val rootFolders = List[String]("datalake")
         var readRootPath  : String = "/mnt/"
-        val notebookPath  = dbutils.notebook.getContext.toMap.get("extraContext").get.asInstanceOf[Map[String,String]]("notebook_path").drop(1)
+        val notebookPath  = DBUtils.notebook.getContext.asInstanceOf[Map[String, Any]]("extraContext").asInstanceOf[Map[String,String]]("notebook_path").drop(1)
         val notebookRoot  = notebookPath.take(notebookPath.indexOf("/"))
 
         if(rootFolders.contains(notebookRoot)) {} else
         {
-            val currentUser = dbutils.notebook.getContext.toMap.get("tags").get.asInstanceOf[Map[String,String]]("user")
+            val currentUser = DBUtils.notebook.getContext.asInstanceOf[Map[String, Any]]("tags").asInstanceOf[Map[String,String]]("user")
             readRootPath = s"/mnt/work_area/$currentUser/"
         }
 
         if(isTesting)
         {
-            val testingReadRootPath=try { dbutils.widgets.get("testingReadRootPath") } catch { case e: Throwable => "" }
+            val testingReadRootPath=try { DBUtils.widgets.get("testingReadRootPath") } catch { case e: Throwable => "" }
             if(testingReadRootPath!="")
             {
                 readRootPath = "/mnt/" + testingReadRootPath + "/"
             }
             else{
                 val exitValue = "Process exit with error :: testingReadRootPath is null "
-                dbutils.notebook.exit(exitValue)
+                DBUtils.notebook.exit(exitValue)
             }
         }
 
@@ -56,17 +57,16 @@ object ContractsCrawler {
         // COMMAND ----------
 
         // DBTITLE 1,Crawler Script
-        import com.databricks.backend.daemon.dbutils.FileInfo
         def contractCrawler(location: String): List[String] = {
-            def go(items: List[FileInfo], results: List[String]): List[String] = items match {
+            def go(items: List[FileStatus], results: List[String]): List[String] = items match {
                 case head :: tail =>
-                    val files = dbutils.fs.ls(head.path)
-                    val directories = files.filter(_.isDir)
-                    val updated:List[String] = results ::: files.filter(_.isFile).filter{file => file.name.contains("contract.json")}.map(_.path).toList
+                    val files = DBUtils.fs.ls(head.getPath.toString)
+                    val directories = files.map(f => DBUtils.fs.dbfs.getFileStatus(new org.apache.hadoop.fs.Path(f.path))).filter(f => f.isDirectory)
+                    val updated:List[String] = results ::: files.map(f => DBUtils.fs.dbfs.getFileStatus(new org.apache.hadoop.fs.Path(f.path))).filter(_.isFile).filter{file => file.getPath.getName.contains("contract.json")}.map(_.getPath.toString).toList
                     go(tail ++ directories, updated)
                 case _ => results
             }
-            go(dbutils.fs.ls(location).toList, List())
+            go(DBUtils.fs.ls(location).map(f => DBUtils.fs.dbfs.getFileStatus(new org.apache.hadoop.fs.Path(f.path))).toList, List())
         }
 
         // COMMAND ----------
@@ -78,6 +78,6 @@ object ContractsCrawler {
         // COMMAND ----------
 
         // DBTITLE 1,Passing output in exit
-        dbutils.notebook.exit(ContractString)
+        DBUtils.notebook.exit(ContractString)
     }
 }

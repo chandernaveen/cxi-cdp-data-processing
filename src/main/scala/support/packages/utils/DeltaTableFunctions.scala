@@ -2,6 +2,7 @@
 package com.cxi.cdp.data_processing
 package support.packages.utils
 
+import com.cxi.cdp.data_processing.support.SparkSessionFactory.getSparkSession
 import io.delta.tables._
 import org.apache.spark.sql.{DataFrame, _}
 import org.apache.spark.sql.functions._
@@ -14,7 +15,7 @@ import org.apache.spark.sql.functions._
 
 object DeltaTableFunctions {
 
-  lazy val sparkSession = SparkSession.builder.getOrCreate()
+  lazy val sparkSession = getSparkSession()
 
   /**
     *

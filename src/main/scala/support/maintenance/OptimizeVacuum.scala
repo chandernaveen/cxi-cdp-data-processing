@@ -3,7 +3,7 @@ package support.maintenance
 
 import support.functions.UnifiedFrameworkFunctions.fn_initializeLogger
 
-import com.databricks.dbutils_v1.DBUtilsHolder.dbutils
+import com.databricks.service.DBUtils
 import org.apache.log4j.Logger
 import org.apache.spark.sql.SparkSession
 
@@ -21,25 +21,25 @@ object OptimizeVacuum {
 
         // DBTITLE 1,Application Logging
         // Logger Configuration
-        val loggerName       = try { dbutils.widgets.get("loggerName") }       catch { case e: Throwable => "CuratedLogger" }
-        val logSystem        = try { dbutils.widgets.get("logSystem") }        catch { case e: Throwable => "App" }
-        val logLevel         = try { dbutils.widgets.get("logLevel") }         catch { case e: Throwable => "INFO" }
-        val logAppender      = try { dbutils.widgets.get("logAppender") }      catch { case e: Throwable => "CuratedFile" }
-        val isRootLogEnabled = try { dbutils.widgets.get("isRootLogEnabled") } catch { case e: Throwable => "False" }
+        val loggerName       = try { DBUtils.widgets.get("loggerName") }       catch { case e: Throwable => "CuratedLogger" }
+        val logSystem        = try { DBUtils.widgets.get("logSystem") }        catch { case e: Throwable => "App" }
+        val logLevel         = try { DBUtils.widgets.get("logLevel") }         catch { case e: Throwable => "INFO" }
+        val logAppender      = try { DBUtils.widgets.get("logAppender") }      catch { case e: Throwable => "CuratedFile" }
+        val isRootLogEnabled = try { DBUtils.widgets.get("isRootLogEnabled") } catch { case e: Throwable => "False" }
         val logger:Logger    = fn_initializeLogger(loggerName,logSystem,logLevel,logAppender,isRootLogEnabled)
 
         // COMMAND ----------
 
-        /*dbutils.widgets.text("deltaPath","raw_zone/cases/","")
-        dbutils.widgets.text("optimizePartExpr","","")
-        dbutils.widgets.text("vacuumRetainHours","30","")*/
+        /*DBUtils.widgets.text("deltaPath","raw_zone/cases/","")
+        DBUtils.widgets.text("optimizePartExpr","","")
+        DBUtils.widgets.text("vacuumRetainHours","30","")*/
 
         // COMMAND ----------
 
         // DBTITLE 1,Getting widgets
-        val dataPath="/mnt/"+dbutils.widgets.get("deltaPath")
-        val optimizePartExpr=dbutils.widgets.get("optimizePartExpr")
-        val vacuumRetainHours=dbutils.widgets.get("vacuumRetainHours")
+        val dataPath="/mnt/"+DBUtils.widgets.get("deltaPath")
+        val optimizePartExpr=DBUtils.widgets.get("optimizePartExpr")
+        val vacuumRetainHours=DBUtils.widgets.get("vacuumRetainHours")
         var exitValue="1"
 
         // COMMAND ----------
@@ -103,13 +103,13 @@ object OptimizeVacuum {
             case e: Throwable =>
                 exitValue = s"optimize/vacuum process is failed for $dataPath delta path due to ${e.toString}"
                 logger.error(s"optimize/vacuum process is failed for $dataPath delta path due to ${e.toString}")
-                //dbutils.notebook.exit(exitValue)
+                //DBUtils.notebook.exit(exitValue)
                 throw e
         }
 
         // COMMAND ----------
 
         logger.info(s"optimize/vacuum process is Successful for $dataPath delta path")
-//        dbutils.notebook.exit(exitValue)
+//        DBUtils.notebook.exit(exitValue)
     }
 }

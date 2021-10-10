@@ -1,12 +1,16 @@
 package com.cxi.cdp.data_processing
 package support.functions
 
-import com.databricks.dbutils_v1.DBUtilsHolder.dbutils
+import com.cxi.cdp.data_processing.support.SparkSessionFactory
+import com.databricks.service.DBUtils
 import io.delta.tables.DeltaTable
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs._
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.sql.functions.{lit, to_timestamp}
 import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
 import org.apache.spark.sql.{Column, DataFrame, Row, SparkSession}
+
 
 /**
  * @author - Name of Author
@@ -184,8 +188,8 @@ object UnifiedFrameworkFunctions {
         catch {
             case e: Throwable =>
                 if (logger != null)
-                    logger.error("Function 'fn_writeAuditTable' failed with error:" + e.toString())
-                println("Function 'fn_writeAuditTable' failed with error:" + e.toString())
+                    logger.error("Function 'fn_writeAuditTable' failed with error:" + e.toString(), e)
+                println("Function 'fn_writeAuditTable' failed with error:" + e.toString(), e)
         }
     }
 
@@ -222,7 +226,7 @@ object UnifiedFrameworkFunctions {
      */
 
     def getWorkspaceProperties(workspaceDetailsPath: String = "dbfs:/databricks/config/workspace_details.json"): Map[String, String] = {
-        dbutils.fs.head(workspaceDetailsPath)
+        DBUtils.fs.head(workspaceDetailsPath)
             .replaceAll("^\\{|\\}$", "")
             .split(",")
             .map(e => e.split(":"))
@@ -278,16 +282,21 @@ object UnifiedFrameworkFunctions {
      *
      * @function-desc - Provide a list of all files including those in sub-directories
      */
-    def getAllFiles(path: String): Seq[String] = {
-        val files = dbutils.fs.ls(path)
-        if (files.isEmpty)
-            List()
-        else
-            files.map(file => {
-                val path: String = file.path
-                if (file.isDir) getAllFiles(path)
-                else List(path)
-            }).reduce(_ ++ _)
+    def getAllFiles(hadoopConf: Configuration, path: String): Seq[String] = {
+        val fs: FileSystem = FileSystem.get(hadoopConf)
+
+        def listRecursive(fs: FileSystem, path: String): Seq[String] = {
+            val files = fs.listStatus(new Path(path))
+            if (files.isEmpty)
+                List()
+            else {
+                files.map(file => {
+                    if (file.isDirectory) listRecursive(fs, file.getPath.toString)
+                    else List(file.getPath.toString)
+                }).reduce(_ ++ _)
+            }
+        }
+        listRecursive(fs, path)
     }
 
 }

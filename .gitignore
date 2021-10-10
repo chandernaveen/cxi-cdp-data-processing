@@ -14,7 +14,7 @@ metals.sbt
 # Bloop Code Assistance TypeScript/JS/Etc
 .bloop
 
-# Ignore lib (Venv) 
+# Ignore lib (Venv)
 lib
 
 
@@ -565,3 +565,5 @@ fabric.properties
 .lib/*
 .python-version
 *.iml
+env.properties
+spark-warehouse/**

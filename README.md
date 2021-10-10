@@ -2,7 +2,7 @@
 
 Repository that contains Apache Spark jobs for data processing inside CXI Cloud Data Platform.
 
-## Prerequisites
+### Prerequisites
 Databricks runtime 8.1 - in which these Apache Spark jobs are executed -
 has following [system environment](https://docs.microsoft.com/en-gb/azure/databricks/release-notes/runtime/8.1#system-environment),
 so locally we need the following components installed: 
@@ -18,7 +18,9 @@ so locally we need the following components installed:
     ```
 - Create your own dedicated Databricks `Single Node cluster` in your Azure subscription 
   and execute `databricks-connect configure` command locally and [configure its properties](https://docs.databricks.com/dev-tools/databricks-connect.html#step-2-configure-connection-properties) 
-  
+- Create in project root folder file with name `env.properties` and following word `local` as content, 
+  this is required in order to configure `SparkSession` properly and distinguish between local development and execution in dev/staging/prod environments.
+
 Afterwords follow instructions to finish your IDE setup:
 - https://docs.microsoft.com/en-us/azure/databricks/dev-tools/databricks-connect#set-up-your-ide-or-notebook-server
 
@@ -34,14 +36,25 @@ Links:
 - https://docs.microsoft.com/en-us/azure/databricks/jobs#--jar-job-tips
 - https://docs.microsoft.com/en-us/azure/databricks/data/filestore
 
-## How to test
+### Known issues
+- To access the DBUtils module in a way that works both locally and in Azure Databricks clusters, use the following import:
+  
+  `val dbutils = com.databricks.service.DBUtils` instead of `com.databricks.dbutils_v1.dbutils`
+  
+  https://docs.microsoft.com/en-us/azure/databricks/dev-tools/databricks-connect#scala-2
+
+- In order to obtain `SparkSession` use `com.cxi.cdp.data_processing.support.SparkSessionFactory.getSparkSession` function,
+  as it takes care of determining the environment it is created in (i.e. spark job is executed from your laptop, or it's already running on the Databricks cluster).
+
+### Contribute
+TODO: Explain how other users and developers can contribute to make your code better.
+
+
+### How to test
 ```
 sbt test
 ```
-## How to build
+### How to build
 ```
 sbt assembly
 ```
-
-# Contribute
-TODO: Explain how other users and developers can contribute to make your code better. 

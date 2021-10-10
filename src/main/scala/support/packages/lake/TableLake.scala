@@ -3,6 +3,9 @@ package support.packages.lake
 
 import support.packages.utils.DeltaTableFunctions
 
+import com.cxi.cdp.data_processing.support.SparkSessionFactory.getSparkSession
+
+
 abstract class TableLake(val path: String) extends Serializable {
 
   import io.delta.tables._
@@ -26,7 +29,7 @@ abstract class TableLake(val path: String) extends Serializable {
   @transient
   lazy val table = DeltaTable.forPath(path.toString).as("tbl")
   lazy val fieldList = DeltaTableFunctions.getFieldList(java.nio.file.Paths.get(path) )
-  lazy val sparkSession = SparkSession.builder.getOrCreate()
+  lazy val sparkSession = getSparkSession()
 
   val generateUUID = udf(() => randomUUID().toString)
   val requiredFields: Seq[String]

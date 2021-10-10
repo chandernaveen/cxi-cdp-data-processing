@@ -45,9 +45,8 @@ libraryDependencies ++= Seq(
   "com.holdenkarau" %% "spark-testing-base" % (sparkVersion + "_1.1.0") % Test,
   "org.scalamock" %% "scalamock" % "4.4.0" % Test,
   "org.scalatest" %% "scalatest" % "3.0.8" % Test,
-  "io.delta" %% "delta-core" % "0.7.0" % Provided,
-  "com.databricks" %% "dbutils-api" % "0.0.5" % Provided
-)
+  "io.delta" %% "delta-core" % "0.8.0" % Provided,
+  "com.databricks" %% "dbutils-api" % "0.0.5" % Provided)
 
 Test / fork := true
 Test / parallelExecution := false
@@ -61,20 +60,19 @@ scalacOptions += s"-target:jvm-$javaVersion"
 assembly / assemblyJarName := s"${normalizedName.value.replace("-", "_")}_assembly_${scalaBinaryVersion.value.replace(".", "_")}.jar"
 assembly / assemblyExcludedJars := {
   val cp = (assembly / fullClasspath).value
-  val databricksJarsPath = baseDirectory.value / "lib"
-  cp filter { value => !value.data.getPath.contains(databricksJarsPath) } // do not include databricks-connect jars in uber-jar as they already present on the cluster
+  val databricksJarsPath = s"""${baseDirectory.value / "lib"}"""
+
+  def shouldExcludeJar(f: Attributed[File]): Boolean =
+    f.data.getPath.startsWith(databricksJarsPath) // do not include databricks-connect jars in uber-jar as they already present on the cluster
+  cp filter shouldExcludeJar
 }
 assembly / assemblyOption ~= {
   _.withIncludeScala(false)
-    .withIncludeDependency(false)
 }
 
-lazy val testScalastyle = taskKey[Unit]("testScalastyle")
 lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
 
 scalastyleFailOnError := true
 //scalastyleFailOnWarning := true TODO: uncomment after fixing styling issues
-testScalastyle := scalastyle.in(Test).toTask("").value
-(test in Test) := ((test in Test) dependsOn testScalastyle).value
 compileScalastyle := scalastyle.in(Compile).toTask("").value
 (compile in Compile) := ((compile in Compile) dependsOn compileScalastyle).value

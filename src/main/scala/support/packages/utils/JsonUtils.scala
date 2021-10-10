@@ -2,6 +2,7 @@
 package com.cxi.cdp.data_processing
 package support.packages.utils
 
+import com.cxi.cdp.data_processing.support.SparkSessionFactory.getSparkSession
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import com.fasterxml.jackson.module.scala.experimental.ScalaObjectMapper
@@ -12,7 +13,7 @@ import scala.util.{Failure, Success, Try}
 
 
 object JsonUtils extends Serializable {
-  lazy val sparkSession = SparkSession.builder.getOrCreate()
+  lazy val sparkSession = getSparkSession()
 
 
   lazy val mapper = new ObjectMapper() with ScalaObjectMapper

@@ -1,12 +1,13 @@
 package com.cxi.cdp.data_processing
 package support.packages.utils
 
-import com.databricks.dbutils_v1.DBUtilsHolder.dbutils
+import com.databricks.service.DBUtils
 import org.apache.spark.sql.SparkSession
 
 object PrivacyFunctions {
     // TODO: Should this go into a different folder structure?
     def authorize(spark: SparkSession) {
+        val dbutils = DBUtils
         import com.fasterxml.jackson.databind.ObjectMapper;
 
         val globalConfigDetails=spark.sparkContext.wholeTextFiles("dbfs:/databricks/config/workspace_details.json").collect.take(1)(0)._2

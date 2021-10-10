@@ -1,7 +1,7 @@
 package com.cxi.cdp.data_processing
 package support.config
 
-import com.databricks.dbutils_v1.DBUtilsHolder.dbutils
+import com.databricks.service.DBUtils
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.apache.spark.sql.SparkSession
 
@@ -47,20 +47,20 @@ object GlobalConfig {
             }
 
             if (exitValue != "") {
-                dbutils.notebook.exit(exitValue)
+                DBUtils.notebook.exit(exitValue)
             }
         } catch {
             case e: com.fasterxml.jackson.core.JsonParseException =>
                 exitValue = e.toString()
                 //logger.error(exitValue)
-                dbutils.notebook.exit(exitValue)
+                DBUtils.notebook.exit(exitValue)
             //            case g: com.databricks.workflow.NotebookExit =>
             //                //logger.error(exitValue)
-            //                dbutils.notebook.exit(exitValue)
+            //                DBUtils.notebook.exit(exitValue)
             case h: Throwable =>
                 exitValue = "Error: " + h.toString()
                 //logger.error(exitValue)
-                dbutils.notebook.exit(exitValue)
+                DBUtils.notebook.exit(exitValue)
         }
 
 
@@ -79,7 +79,7 @@ object GlobalConfig {
         val drNameDS = Array("logs", "metadata")
 
         val spClientId = sevicePrincipleClientId
-        val spClientSecret = dbutils.secrets.get(scope = kvSecretScope, key = "sp-storage-rw-secret")
+        val spClientSecret = DBUtils.secrets.get(scope = kvSecretScope, key = "sp-storage-rw-secret")
         val spTenantId = sevicePrincipleTenantId
         val spTenantEndpoint = "https://login.microsoftonline.com/" + spTenantId + "/oauth2/token"
 
@@ -98,7 +98,7 @@ object GlobalConfig {
         // Mount logs folder in data-lake filesystem
         for (dirName <- drNames) {
             try {
-                dbutils.fs.mount(
+                DBUtils.fs.mount(
                     source = "abfss://" + fsName + "@" + saName + ".dfs.core.windows.net/" + dirName,
                     mountPoint = "/mnt/" + dirName,
                     extraConfigs = configs)
@@ -116,7 +116,7 @@ object GlobalConfig {
         // Mount logs folder in data-service filesystem
         for (drName <- drNameDS) {
             try {
-                dbutils.fs.mount(
+                DBUtils.fs.mount(
                     source = "abfss://" + fsNameDS + "@" + saName + ".dfs.core.windows.net/" + drName,
                     mountPoint = "/mnt/" + drName,
                     extraConfigs = configs)

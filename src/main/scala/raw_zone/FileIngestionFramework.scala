@@ -5,7 +5,8 @@ import raw_zone.FileIngestionFrameworkTransformations.transformationFunctionsMap
 import support.functions.UnifiedFrameworkFunctions._
 import support.packages.utils.ContractUtils
 
-import com.databricks.dbutils_v1.DBUtilsHolder.dbutils
+import com.cxi.cdp.data_processing.support.SparkSessionFactory.getSparkSession
+import com.databricks.service.DBUtils
 import io.delta.tables.DeltaTable
 import org.apache.log4j.Logger
 import org.apache.spark.sql.functions.{expr, input_file_name, lit, udf}
@@ -17,27 +18,27 @@ import scala.collection.Seq
 object FileIngestionFramework {
     def main(args: Array[String]): Unit = {
         val loggerName = try {
-            dbutils.widgets.get("loggerName")
+            DBUtils.widgets.get("loggerName")
         } catch {
             case e: Throwable => "RawLogger"
         }
         val logSystem = try {
-            dbutils.widgets.get("logSystem")
+            DBUtils.widgets.get("logSystem")
         } catch {
             case e: Throwable => "App"
         }
         val logLevel = try {
-            dbutils.widgets.get("logLevel")
+            DBUtils.widgets.get("logLevel")
         } catch {
             case e: Throwable => "INFO"
         }
         val logAppender = try {
-            dbutils.widgets.get("logAppender")
+            DBUtils.widgets.get("logAppender")
         } catch {
             case e: Throwable => "RawFile"
         }
         val isRootLogEnabled = try {
-            dbutils.widgets.get("isRootLogEnabled")
+            DBUtils.widgets.get("isRootLogEnabled")
         } catch {
             case e: Throwable => "False"
         }
@@ -71,25 +72,25 @@ object FileIngestionFramework {
         val writeOptionsFunctionName: String = np.propOrElse[String]("raw.writeOptionsFunction", "")
         val writeOptionsFunctionParams: Map[String, String] = np.propOrElse[Map[String, String]]("raw.writeOptionsFunctionParams", Map[String, String]())
 
-        val spark: SparkSession = SparkSession.builder().getOrCreate()
+        val spark: SparkSession = getSparkSession()
         var runID: Int = 1
         var dpYear = try {
-            dbutils.widgets.get("dpYear")
+            DBUtils.widgets.get("dpYear")
         } catch {
             case e: Throwable => java.time.LocalDateTime.now.getYear.toString
         }
         var dpMonth = try {
-            dbutils.widgets.get("dpMonth")
+            DBUtils.widgets.get("dpMonth")
         } catch {
             case e: Throwable => java.time.LocalDateTime.now.getMonthValue.toString
         }
         var dpDay = try {
-            dbutils.widgets.get("dpDay")
+            DBUtils.widgets.get("dpDay")
         } catch {
             case e: Throwable => java.time.LocalDateTime.now.getDayOfMonth.toString
         }
         var dpHour = try {
-            dbutils.widgets.get("dpHour")
+            DBUtils.widgets.get("dpHour")
         } catch {
             case e: Throwable => java.time.LocalDateTime.now.getHour.toString
         }
@@ -97,7 +98,7 @@ object FileIngestionFramework {
 
         // COMMAND ----------
 
-        val schema: Option[StructType] = if (schemaPath.nonEmpty) Some(DataType.fromJson(dbutils.fs.head(s"/mnt/$schemaPath")).asInstanceOf[StructType]) else None
+        val schema: Option[StructType] = if (schemaPath.nonEmpty) Some(DataType.fromJson(DBUtils.fs.head(s"/mnt/$schemaPath")).asInstanceOf[StructType]) else None
 
         // COMMAND ----------
 
@@ -132,7 +133,7 @@ object FileIngestionFramework {
         var landingDF: DataFrame = null
         var filesProcessed: Seq[String] = null
         try {
-            val allFiles = getAllFiles(sourcePath)
+            val allFiles = getAllFiles(spark.sparkContext.hadoopConfiguration, sourcePath)
             val processedResult = if (fileFormat.isEmpty) {
                 throw new RuntimeException(s"The fileFormat parameter is empty.")
             } else {
@@ -192,6 +193,6 @@ object FileIngestionFramework {
         fn_writeAuditTable(logTable = logTable, processName = processName, entity = sourceEntity, runID = runID, writeStatus = "1", logger = logger,
             dpYear = dpYear, dpMonth = dpMonth, dpDay = dpDay, dpHour = dpHour,
             processStartTime = notebookStartTime, processEndTime = java.time.LocalDateTime.now.toString, errorMessage = "", spark = spark)
-        dbutils.notebook.exit(s"""Files processed: $files""")
+        logger.info(s"""Files processed: $files""")
     }
 }

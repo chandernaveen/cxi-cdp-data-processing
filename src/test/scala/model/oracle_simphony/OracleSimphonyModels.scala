@@ -1,9 +1,5 @@
 package com.cxi.cdp.data_processing
-package model
-
-case class Discount(name: String = null,
-                    num: Option[Long] = Option.empty,
-                    posPercent: Option[Long] = Option.empty)
+package model.oracle_simphony
 
 case class Employee(employeeId: Option[Long] = Option.empty,
                     fName: String = null,
@@ -166,3 +162,7 @@ case class OracleSimphonyLabRawModel(cur_utc: String = null,
                                      feed_date: String = null,
                                      cxi_id: String = null,
                                      file_name: String = null)
+
+case class Discount(name: String = null,
+                    num: Option[Long] = Option.empty,
+                    posPercent: Option[Long] = Option.empty)
