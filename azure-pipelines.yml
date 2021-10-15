@@ -13,9 +13,9 @@ pool:
 
 variables:
 - name: kvnm
-  value: 'kvdeveastus2cxizrjtbfjlf'
+  value: 'kv-dev-eastus2-cdp'
 - name: kvrg
-  value: 'rg-dev-eastus2-network'
+  value: 'rg-dev-eastus2-base'
 - name: sp
   value: 'cxi-devops'
 
@@ -59,7 +59,7 @@ steps:
 
 - task: configuredatabricks@0
   inputs:
-    url: 'https://adb-5982024397401289.9.azuredatabricks.net/'
+    url: 'https://adb-8464693284532204.4.azuredatabricks.net/'
     token: '$(databricks-workspace-token)'
 
 - task: deploynotebooks@0
