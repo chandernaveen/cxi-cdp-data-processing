@@ -44,6 +44,7 @@ setupDatabricksConnect := {
 libraryDependencies ++= Seq(
   "com.holdenkarau" %% "spark-testing-base" % (sparkVersion + "_1.1.0") % Test,
   "org.scalamock" %% "scalamock" % "4.4.0" % Test,
+  "org.mongodb.spark" %% "mongo-spark-connector" % "3.0.1",
   "org.scalatest" %% "scalatest" % "3.0.8" % Test,
   "io.delta" %% "delta-core" % "0.8.0" % Provided,
   "com.databricks" %% "dbutils-api" % "0.0.5" % Provided)
