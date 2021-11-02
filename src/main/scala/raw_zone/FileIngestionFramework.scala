@@ -2,10 +2,12 @@ package com.cxi.cdp.data_processing
 package raw_zone
 
 import raw_zone.FileIngestionFrameworkTransformations.transformationFunctionsMap
+import support.SparkSessionFactory.getSparkSession
+import support.crypto_shredding.CryptoShredding
 import support.functions.UnifiedFrameworkFunctions._
 import support.packages.utils.ContractUtils
 
-import com.cxi.cdp.data_processing.support.SparkSessionFactory.getSparkSession
+import com.cxi.cdp.data_processing.support.exceptions.CryptoShreddingException
 import com.databricks.service.DBUtils
 import io.delta.tables.DeltaTable
 import org.apache.log4j.Logger
@@ -46,8 +48,6 @@ object FileIngestionFramework {
 
         logger.info("Main class arguments: " + args.mkString(", "))
         val contractPath = "/mnt/" + args(0)
-        val pipelineName = args(1)
-        val pipelineID = args(2)
         val np = new ContractUtils(java.nio.file.Paths.get(contractPath))
 
         val sourcePath: String = "/mnt/" + np.prop("landing.path")
@@ -166,9 +166,25 @@ object FileIngestionFramework {
             val saveMode = if (DeltaTable.isDeltaTable(spark, targetPath)) saveModeFromContract else "errorifexists"
             val transformationFunction = transformationFunctionsMap(transformationName)
             val transformedDf = transformationFunction(finalDF)
-            //No Crypto at the moment, need to define val cryptoHashedDf = applyCryptoHashIfNeeded(cryptoHash, transformedDf)
 
-            transformedDf
+
+            val finalDf = if (np.propIsSet("crypto")) {
+                val country: String = np.prop[String]("partnerConfig.country")
+                val cxiPartnerId: String = np.prop[String]("partnerConfig.cxiPartnerId")
+                val lookupDestDbName: String = np.prop[String]("crypto.lookup_db")
+                val lookupDestTableName: String = np.prop[String]("crypto.lookup_table")
+                val workspaceConfigPath: String = np.prop[String]("crypto.workspaceConfigPath")
+
+                val cryptoShredding = new CryptoShredding(spark, country, cxiPartnerId, lookupDestDbName, lookupDestTableName, workspaceConfigPath)
+                val hashFunctionType = np.prop[String]("crypto.hash_function_type")
+                val hashFunctionConfig = np.prop[Map[String, Any]]("crypto.hash_function_config")
+                val cryptoHashedDf = cryptoShredding.applyHashCryptoShredding(hashFunctionType, hashFunctionConfig, transformedDf)
+                cryptoHashedDf
+            } else {
+                transformedDf
+            }
+
+            finalDf
                 .write
                 .format("delta")
                 .partitionBy(targetPartitionColumns: _*)
@@ -178,6 +194,9 @@ object FileIngestionFramework {
 
         }
         catch {
+            case cryptoShreddingEx: CryptoShreddingException =>
+                logger.error(s"Failed to apply crypto shredding ${cryptoShreddingEx.getMessage}", cryptoShreddingEx)
+                fn_writeAuditTable(logTable = logTable, processName = processName, entity = sourceEntity, runID = runID, writeStatus = "0", logger = logger, dpYear = dpYear, dpMonth = dpMonth, dpDay = dpDay, dpHour = dpHour, processStartTime = notebookStartTime, processEndTime = java.time.LocalDateTime.now.toString, errorMessage = cryptoShreddingEx.toString, spark = spark)
             case e: Throwable =>
                 // If run failed write Audit log table to indicate data processing failure
                 fn_writeAuditTable(logTable = logTable, processName = processName, entity = sourceEntity, runID = runID, writeStatus = "0", logger = logger,

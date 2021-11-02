@@ -128,6 +128,38 @@ object GlobalConfig {
                     println("Error: " + f.toString())
             }
         }
+    }
 
+    def createObjects(spark: SparkSession) {
+        try {
+            spark.sql(s"CREATE DATABASE privacy")
+            println(s"Created Database privacy")
+        }
+        catch {
+            case e: org.apache.spark.sql.AnalysisException =>
+                println(s"Database privacy Already Exists")
+        }
+
+        try {
+            spark.sql(
+                s"""
+    CREATE TABLE privacy.lookup_table (
+     process_name string ,
+     country string ,
+     cxi_partner_id string ,
+     cxi_customer_id string ,
+     hashof_cxi_customer_id string,
+     feed_date timestamp,
+     id string
+     )
+     USING DELTA
+     PARTITIONED BY (process_name)
+     LOCATION "wasbs://data-privacy@dls2deveastus2cxi.blob.core.windows.net/privacy_zone/cxi/crypto/pii/lookup_table"
+     """)
+        }
+        catch {
+            case e: org.apache.spark.sql.AnalysisException =>
+                println("Table privacy.lookup_table Already Exists")
+        }
     }
 }

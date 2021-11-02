@@ -110,7 +110,6 @@ object UnifiedFrameworkFunctions {
                 spark.sparkContext.parallelize(Seq(Row(1))),
                 StructType(List(StructField("number", IntegerType, true)))
             )
-            val logTbl = DeltaTable.forName(logTable)
             val values = scala.collection.Map(
                 "processName" -> lit(processName)
                 , "entity" -> lit(entity)
@@ -126,6 +125,8 @@ object UnifiedFrameworkFunctions {
                 , "errorMessage" -> lit(errorMessage)
                 , "readRowCount" -> lit(readRowCount)
             )
+            // TODO: replace DeltaTable functionality with pure Spark SQL/DataFrame API, as it's not supported by databricks-connect
+            val logTbl = DeltaTable.forName(logTable)
             logTbl.alias("t")
                 .merge(dummyDf, "1 = 0")
                 .whenNotMatched().insert(values)
