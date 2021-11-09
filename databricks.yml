@@ -34,7 +34,7 @@ stages:
             script: 'sbt assembly'
        - task: PublishBuildArtifacts@1
          inputs:
-           PathtoPublish: 'target/scala-*/*.jar'
+           PathtoPublish: 'target/scala-2.12/cxi_cdp_data_processing_assembly_2_12.jar'
            ArtifactName: 'cxi_cdp_data_processing_assembly'
            publishLocation: 'Container'
 
