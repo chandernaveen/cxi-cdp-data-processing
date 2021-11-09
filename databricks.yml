@@ -19,7 +19,6 @@ stages:
            architecture: 'x64'
        - script: |
           pip install pytest requests setuptools wheel
-          pip install -U databricks-connect==8.1.*
          displayName: 'Load Python Dependencies'
        - task: Bash@3
          displayName: Other dependencies
