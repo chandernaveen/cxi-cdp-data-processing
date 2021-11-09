@@ -11,4 +11,8 @@ stages:
   jobs:  
    - job: develop
      steps:
-       - 
+       - task: installscalatools@0
+         inputs:
+           failOnStderr: true
+
+  
