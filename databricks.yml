@@ -11,13 +11,26 @@ stages:
   jobs:  
    - job: develop
      steps:
-      - task: installspark@0
-        inputs:
-         failOnStderr: true
-      - task: Bash@3
-        displayName: sbt assembly
-        inputs:
-          targetType: 'inline'
-          script: 'sbt assembly'
+       - task: UsePythonVersion@0
+         inputs:
+           versionSpec: '3.8.8'
+           addToPath: true
+           architecture: 'x64'
+       - script: |
+          pip install pytest requests setuptools wheel
+          pip install -U databricks-connect==8.1
+         displayName: 'Load Python Dependencies'
+       - task: Bash@3
+         displayName: Other dependencies
+         inputs:
+           targetType: 'inline'
+           script: |
+             python -m venv .venv &&
+             sbt setupDatabricksConnect
+       - task: Bash@3
+         displayName: sbt assembly
+         inputs:
+            targetType: 'inline'
+            script: 'sbt assembly'
 
   
