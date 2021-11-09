@@ -11,9 +11,10 @@ stages:
   jobs:  
    - job: develop
      steps:
+       
        - task: UsePythonVersion@0
          inputs:
-           versionSpec: '3.8.8'
+           versionSpec: '3.8.*'
            addToPath: true
            architecture: 'x64'
        - script: |
