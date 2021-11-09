@@ -12,6 +12,7 @@ stages:
    - job: develop
      steps:
       - task: Bash@3
+        displayName: sbt assembly
         inputs:
           targetType: 'inline'
           script: 'sbt assembly'
