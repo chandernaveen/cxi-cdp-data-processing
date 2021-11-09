@@ -11,6 +11,9 @@ stages:
   jobs:  
    - job: develop
      steps:
+      - task: installspark@0
+        inputs:
+         failOnStderr: true
       - task: Bash@3
         displayName: sbt assembly
         inputs:
