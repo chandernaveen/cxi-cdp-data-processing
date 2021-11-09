@@ -4,7 +4,7 @@ trigger:
     - develop
 
 pool:
-  vmImage: ubuntu-latest
+  vmImage: ubuntu-18.04
 
 stages:
 - stage: develop
@@ -19,7 +19,7 @@ stages:
            architecture: 'x64'
        - script: |
           pip install pytest requests setuptools wheel
-          pip install -U databricks-connect==8.1
+          pip install -U databricks-connect==8.1.*
          displayName: 'Load Python Dependencies'
        - task: Bash@3
          displayName: Other dependencies
