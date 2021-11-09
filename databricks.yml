@@ -5,3 +5,10 @@ trigger:
 
 pool:
   vmImage: ubuntu-latest
+
+stages:
+- stage: develop
+  jobs:  
+   - job: develop
+     steps:
+       - 
