@@ -39,10 +39,5 @@ stages:
            ArtifactName: 'cxi_cdp_data_processing_assembly'
            publishLocation: 'Container'
 
-       - task: Bash@3
-         displayName: dbfs cp
-         inputs:
-            targetType: 'inline'
-            script: 'dbfs cp target/scala-2.12/cxi_cdp_data_processing_assembly_2_12.jar dbfs:/FileStore/jars/cxi/cxi_cdp_data_processing_ci_cd.jar'
 
     
