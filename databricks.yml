@@ -5,7 +5,8 @@ trigger:
 
 stages:
 - stage: develop
-  pool: ubuntu-18.04
+  pool: 
+   vmimage: ubuntu-18.04
   jobs:  
    - job: develop
      steps:
@@ -38,7 +39,8 @@ stages:
            publishLocation: 'Container'
 
 - stage: deploy
-  pool: windows-latest
+  pool: 
+   vmimage: windows-latest
   jobs:
     - job: deploy 
       steps:
