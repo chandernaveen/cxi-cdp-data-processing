@@ -56,6 +56,6 @@ stages:
             authMethod: 'bearer'
             bearerToken: 'dapib052719ada09e12daf18f1810323d1c7-2'
             region: 'eastus2'
-            LocalRootFolder: '$(System.ArtifactsDirectory)/'
+            LocalRootFolder: '$(System.ArtifactsDirectory)/cxi_cdp_data_processing_assembly/'
             FilePattern: '*.jar'
             TargetLocation: '/FileStore/jars/cxi/'
