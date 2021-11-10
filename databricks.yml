@@ -42,11 +42,18 @@ stages:
   jobs:
     - job: deploy 
       steps:
+       - task: DownloadBuildArtifacts@1
+         inputs:
+           buildType: 'current'
+           downloadType: 'single'
+           artifactName: 'cxi_cdp_data_processing_assembly'
+           downloadPath: '$(System.ArtifactsDirectory)'
+           checkDownloadedFiles: true
        - task: databricksDeployDBFSFilesTask@0
          inputs:
             authMethod: 'bearer'
             bearerToken: 'dapib052719ada09e12daf18f1810323d1c7-2'
             region: 'eastus2'
-            LocalRootFolder: 'target/scala-2.12'
+            LocalRootFolder: '$(System.ArtifactsDirectory)/'
             FilePattern: '*.jar'
             TargetLocation: '/FileStore/jars/cxi/'
