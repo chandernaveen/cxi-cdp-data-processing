@@ -4,11 +4,11 @@ trigger:
     - develop
 
 stages:
-- stage: develop
+- stage: build
   pool: 
    vmimage: ubuntu-18.04
   jobs:  
-   - job: develop
+   - job: build
      steps:
        
        - task: UsePythonVersion@0
