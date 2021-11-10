@@ -3,11 +3,9 @@ trigger:
     include:
     - develop
 
-pool:
-  vmImage: ubuntu-18.04
-
 stages:
 - stage: develop
+  pool: ubuntu-18.04
   jobs:  
    - job: develop
      steps:
@@ -39,6 +37,11 @@ stages:
            ArtifactName: 'cxi_cdp_data_processing_assembly'
            publishLocation: 'Container'
 
+- stage: deploy
+  pool: windows-latest
+  jobs:
+    - job: deploy 
+      steps:
        - task: databricksDeployDBFSFilesTask@0
          inputs:
             authMethod: 'bearer'
