@@ -39,6 +39,7 @@ stages:
            publishLocation: 'Container'
 
 - stage: deploy
+  condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))  
   pool: 
    vmimage: windows-latest
   jobs:
