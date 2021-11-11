@@ -42,9 +42,10 @@ stages:
   condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))  
   pool: 
    vmimage: windows-latest
-  jobs:
+  jobs: 
     - job: deploy 
       steps:
+       - checkout: none
        - task: DownloadBuildArtifacts@1
          inputs:
            buildType: 'current'
