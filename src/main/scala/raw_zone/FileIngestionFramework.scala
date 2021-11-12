@@ -1,12 +1,14 @@
 package com.cxi.cdp.data_processing
 package raw_zone
 
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+
 import raw_zone.FileIngestionFrameworkTransformations.transformationFunctionsMap
 import support.SparkSessionFactory.getSparkSession
 import support.crypto_shredding.CryptoShredding
 import support.functions.UnifiedFrameworkFunctions._
 import support.packages.utils.ContractUtils
-
 import com.cxi.cdp.data_processing.support.exceptions.CryptoShreddingException
 import com.databricks.service.DBUtils
 import io.delta.tables.DeltaTable
@@ -16,41 +18,22 @@ import org.apache.spark.sql.types.{DataType, StructType}
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import scala.collection.Seq
+import scala.util.{Failure, Success, Try}
 
 object FileIngestionFramework {
+
     def main(args: Array[String]): Unit = {
-        val loggerName = try {
-            DBUtils.widgets.get("loggerName")
-        } catch {
-            case e: Throwable => "RawLogger"
-        }
-        val logSystem = try {
-            DBUtils.widgets.get("logSystem")
-        } catch {
-            case e: Throwable => "App"
-        }
-        val logLevel = try {
-            DBUtils.widgets.get("logLevel")
-        } catch {
-            case e: Throwable => "INFO"
-        }
-        val logAppender = try {
-            DBUtils.widgets.get("logAppender")
-        } catch {
-            case e: Throwable => "RawFile"
-        }
-        val isRootLogEnabled = try {
-            DBUtils.widgets.get("isRootLogEnabled")
-        } catch {
-            case e: Throwable => "False"
-        }
-        val logger: Logger = fn_initializeLogger(loggerName, logSystem, logLevel, logAppender, isRootLogEnabled)
+        val logger: Logger = configureLogger()
 
         logger.info("Main class arguments: " + args.mkString(", "))
-        val contractPath = "/mnt/" + args(0)
+
+        val cliArgs = CliArgs.parse(args)
+        logger.info(s"Parsed CLI arguments: $cliArgs")
+
+        val contractPath = "/mnt/" + cliArgs.contractPath
         val np = new ContractUtils(java.nio.file.Paths.get(contractPath))
 
-        val sourcePath: String = "/mnt/" + np.prop("landing.path")
+        val sourcePath: String = getSourcePath("/mnt/" + np.prop("landing.path"), cliArgs.date)
         val targetPath: String = "/mnt/" + np.prop("raw.path")
         val targetPartitionColumns: Seq[String] = try {
             np.prop("raw.partitionColumns")
@@ -73,27 +56,12 @@ object FileIngestionFramework {
         val writeOptionsFunctionParams: Map[String, String] = np.propOrElse[Map[String, String]]("raw.writeOptionsFunctionParams", Map[String, String]())
 
         val spark: SparkSession = getSparkSession()
-        var runID: Int = 1
-        var dpYear = try {
-            DBUtils.widgets.get("dpYear")
-        } catch {
-            case e: Throwable => java.time.LocalDateTime.now.getYear.toString
-        }
-        var dpMonth = try {
-            DBUtils.widgets.get("dpMonth")
-        } catch {
-            case e: Throwable => java.time.LocalDateTime.now.getMonthValue.toString
-        }
-        var dpDay = try {
-            DBUtils.widgets.get("dpDay")
-        } catch {
-            case e: Throwable => java.time.LocalDateTime.now.getDayOfMonth.toString
-        }
-        var dpHour = try {
-            DBUtils.widgets.get("dpHour")
-        } catch {
-            case e: Throwable => java.time.LocalDateTime.now.getHour.toString
-        }
+        val runID: Int = 1
+        val dpYear = cliArgs.date.getYear.toString
+        val dpMonth = cliArgs.date.getMonthValue.toString
+        val dpDay = cliArgs.date.getDayOfMonth.toString
+        val dpHour = 0.toString // data is being processed on a daily basis
+
         val notebookStartTime = java.time.LocalDateTime.now.toString
 
         // COMMAND ----------
@@ -197,6 +165,7 @@ object FileIngestionFramework {
             case cryptoShreddingEx: CryptoShreddingException =>
                 logger.error(s"Failed to apply crypto shredding ${cryptoShreddingEx.getMessage}", cryptoShreddingEx)
                 fn_writeAuditTable(logTable = logTable, processName = processName, entity = sourceEntity, runID = runID, writeStatus = "0", logger = logger, dpYear = dpYear, dpMonth = dpMonth, dpDay = dpDay, dpHour = dpHour, processStartTime = notebookStartTime, processEndTime = java.time.LocalDateTime.now.toString, errorMessage = cryptoShreddingEx.toString, spark = spark)
+                throw cryptoShreddingEx
             case e: Throwable =>
                 // If run failed write Audit log table to indicate data processing failure
                 fn_writeAuditTable(logTable = logTable, processName = processName, entity = sourceEntity, runID = runID, writeStatus = "0", logger = logger,
@@ -214,4 +183,51 @@ object FileIngestionFramework {
             processStartTime = notebookStartTime, processEndTime = java.time.LocalDateTime.now.toString, errorMessage = "", spark = spark)
         logger.info(s"""Files processed: $files""")
     }
+
+    private def configureLogger(): Logger = {
+        val loggerName = Try(DBUtils.widgets.get("loggerName")).getOrElse("RawLogger")
+        val logSystem = Try(DBUtils.widgets.get("logSystem")).getOrElse("App")
+        val logLevel = Try(DBUtils.widgets.get("logLevel")).getOrElse("INFO")
+        val logAppender = Try(DBUtils.widgets.get("logAppender")).getOrElse("RawFile")
+        val isRootLogEnabled = Try(DBUtils.widgets.get("isRootLogEnabled")).getOrElse("False")
+        fn_initializeLogger(loggerName, logSystem, logLevel, logAppender, isRootLogEnabled)
+    }
+
+    private final val PathDelimiter = "/"
+
+    private def concatPaths(parent: String, child: String) = {
+        if (parent.endsWith(PathDelimiter)) {
+            parent + child
+        } else {
+            parent + PathDelimiter + child
+        }
+    }
+
+    private final val SourceDateDirFormat = DateTimeFormatter.ofPattern("yyyyMMdd")
+
+    /** Creates the final source path from the base path (which comes from a contract) and the processing date. */
+    private def getSourcePath(basePath: String, date: LocalDate): String = {
+        concatPaths(basePath, SourceDateDirFormat.format(date))
+    }
+
+    case class CliArgs(contractPath: String, date: LocalDate)
+
+    object CliArgs {
+        @throws(classOf[IllegalArgumentException])
+        def parse(args: Seq[String]): CliArgs = {
+            args match {
+                case Seq(contractPath, rawDate) => CliArgs(contractPath, parseDate(rawDate))
+                case _ => throw new IllegalArgumentException("Expected CLI arguments: <contractPath> <date (yyyy-MM-dd)>")
+            }
+        }
+
+        @throws(classOf[IllegalArgumentException])
+        private def parseDate(rawDate: String): LocalDate = {
+            Try(LocalDate.parse(rawDate, DateTimeFormatter.ISO_DATE)) match {
+                case Success(date) => date
+                case Failure(e) => throw new IllegalArgumentException(s"Unable to parse date from $rawDate, expected format is yyyy-MM-dd", e)
+            }
+        }
+    }
+
 }

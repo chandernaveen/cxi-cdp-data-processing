@@ -175,7 +175,7 @@ object UnifiedFrameworkFunctions {
                 , runID = runID
                 , dpYear = toInt(dpYear, "dpYear")
                 , dpMonth = toInt(dpMonth, "dpMonth")
-                , dpDay = toInt(dpMonth, "dpDay")
+                , dpDay = toInt(dpDay, "dpDay")
                 , dpHour = toInt(dpHour, "dpHour")
                 , dpPartition = dpPartition
                 , subEntity = null

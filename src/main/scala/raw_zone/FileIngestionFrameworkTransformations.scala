@@ -2,16 +2,19 @@ package com.cxi.cdp.data_processing
 package raw_zone
 
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types.{ArrayType, StructType}
+import org.apache.spark.sql.functions._
 
 object FileIngestionFrameworkTransformations {
     def transformationFunctionsMap: Map[String, DataFrame => DataFrame] = Map[String, DataFrame => DataFrame](
         "identity" -> identity,
         "spaceToUnderscore" -> spaceToUnderScoreInColumnNamesTransformation,
         "transformOracleSim" -> transformOracleSim,
-        "transformQuBeyond" -> transformQuBeyond
+        "transformQuBeyond" -> transformQuBeyond,
+        "transformSquare" -> transformSquare
     )
+
+    final val CxiCommonColumns: List[String] = List("feed_date", "file_name", "cxi_id")
 
     /**
      * @author - Luis Velez
@@ -34,26 +37,12 @@ object FileIngestionFrameworkTransformations {
      * @function-desc - Generic Transformation (no changes)
      */
     def transformOracleSim(df: DataFrame): DataFrame = {
-        import org.apache.spark.sql.functions._
         val oracleCommonColumns: List[String] = List("curUTC", "locRef", "busDt", "latestBusDt", "opnBusDt")
-        val cxiCommonColumns: List[String] = List("feed_date", "file_name", "cxi_id")
 
-        val oracleSimColPerType = df.columns.filter(col => !oracleCommonColumns.contains(col) && !cxiCommonColumns.contains(col))
+        val oracleSimColPerType = df.columns.filter(col => !oracleCommonColumns.contains(col) && !CxiCommonColumns.contains(col))
 
-        val df0 = oracleSimColPerType.foldLeft(df) {
-            case (acc, col_name) => acc.schema(col_name).dataType match {
-                case ArrayType(_, _) => acc.withColumn(col_name, explode_outer(col(col_name)))
-                case _ => acc
-            }
-        }
-        val df1 = oracleSimColPerType.foldLeft(df0) {
-            case (acc, col_name) => acc.schema(col_name).dataType match {
-                case StructType(_) => acc.withColumn(col_name, to_json(col(col_name)))
-                case _ => acc
-            }
-        }
-
-        df1.withColumn("record_type", coalesce(oracleSimColPerType.map(c => when(col(c).isNotNull, lit(c)).otherwise(lit(null))): _*))
+        transformCompositeColumns(df, oracleSimColPerType)
+            .withColumn("record_type", coalesce(oracleSimColPerType.map(c => when(col(c).isNotNull, lit(c)).otherwise(lit(null))): _*))
             .withColumn("record_value", coalesce(oracleSimColPerType.map(c => when(col(c).isNotNull, col(c)).otherwise(lit(null))): _*))
             .withColumnRenamed("curUTC", "cur_utc")
             .withColumnRenamed("locRef", "loc_ref")
@@ -64,35 +53,52 @@ object FileIngestionFrameworkTransformations {
     }
 
     def transformQuBeyond(df: DataFrame): DataFrame = {
-        import org.apache.spark.sql.functions._
         val quBeyondCommonColumns: List[String] = List("req_customer_id", "req_location_id", "req_data_type", "req_sub_data_type", "data_delta", "req_start_date", "req_end_date")
-        val cxiCommonColumns: List[String] = List("feed_date", "file_name", "cxi_id")
 
-        val dfData = df.select((List("data.*") ++ cxiCommonColumns ++ quBeyondCommonColumns).map(col).toArray: _*)
+        val dfData = df.select((List("data.*") ++ CxiCommonColumns ++ quBeyondCommonColumns).map(col).toArray: _*)
 
-        val quBeyondColPerType = dfData.columns.filter(col => !quBeyondCommonColumns.contains(col) && !cxiCommonColumns.contains(col))
+        val quBeyondColPerType = dfData.columns.filter(col => !quBeyondCommonColumns.contains(col) && !CxiCommonColumns.contains(col))
 
-        val df0 = quBeyondColPerType.foldLeft(dfData) {
+        transformCompositeColumns(dfData, quBeyondColPerType)
+            .withColumn("record_type", coalesce(quBeyondColPerType.map(c => when(col(c).isNotNull, lit(c)).otherwise(lit(null))): _*))
+            .withColumn("record_value", coalesce(quBeyondColPerType.map(c => when(col(c).isNotNull, col(c)).otherwise(lit(null))): _*))
+            .select((List("record_type", "record_value") ++ CxiCommonColumns ++ quBeyondCommonColumns).map(col).toArray: _*)
+    }
+
+    def spaceToUnderScoreInColumnNamesTransformation(df: DataFrame): DataFrame = {
+        val colsRenamed = df.columns.zip(df.columns.map(col => col.replace(' ', '_'))).map(el => col(el._1).as(el._2))
+        df.select(colsRenamed: _*)
+    }
+
+    def transformSquare(df: DataFrame): DataFrame = {
+        val squareCommonColumns: List[String] = List("cursor")
+
+        val squareColPerType = df.columns.filter(col => !squareCommonColumns.contains(col) && !CxiCommonColumns.contains(col))
+
+        val outputColumns = ("record_type" :: "record_value" :: squareCommonColumns ::: CxiCommonColumns).map(col(_))
+
+        transformCompositeColumns(df, squareColPerType)
+            .withColumn("record_type", coalesce(squareColPerType.map(c => when(col(c).isNotNull, lit(c)).otherwise(lit(null))): _*))
+            .withColumn("record_value", coalesce(squareColPerType.map(c => when(col(c).isNotNull, col(c)).otherwise(lit(null))): _*))
+            .select(outputColumns: _*)
+    }
+
+    private def transformCompositeColumns(df: DataFrame, columns: Seq[String]): DataFrame = {
+        val dfWithExplodedArrays = columns.foldLeft(df) {
             case (acc, col_name) => acc.schema(col_name).dataType match {
                 case ArrayType(_, _) => acc.withColumn(col_name, explode_outer(col(col_name)))
                 case _ => acc
             }
         }
-        val df1 = quBeyondColPerType.foldLeft(df0) {
+
+        val dfWithJsonStructs = columns.foldLeft(dfWithExplodedArrays) {
             case (acc, col_name) => acc.schema(col_name).dataType match {
                 case StructType(_) => acc.withColumn(col_name, to_json(col(col_name)))
                 case _ => acc
             }
         }
 
-        df1.withColumn("record_type", coalesce(quBeyondColPerType.map(c => when(col(c).isNotNull, lit(c)).otherwise(lit(null))): _*))
-            .withColumn("record_value", coalesce(quBeyondColPerType.map(c => when(col(c).isNotNull, col(c)).otherwise(lit(null))): _*))
-            .select((List("record_type", "record_value") ++ cxiCommonColumns ++ quBeyondCommonColumns).map(col).toArray: _*)
-    }
-
-    def spaceToUnderScoreInColumnNamesTransformation(df: DataFrame): DataFrame = {
-        val colsRenamed = df.columns.zip(df.columns.map(col => col.replace(' ', '_'))).map(el => col(el._1).as(el._2))
-        df.select(colsRenamed: _*)
+        dfWithJsonStructs
     }
 
 }
