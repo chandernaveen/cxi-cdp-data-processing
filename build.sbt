@@ -4,7 +4,7 @@ ThisBuild / scalaVersion := "2.12.10"
 ThisBuild / version      := "0.1.0"
 name := "cxi-cdp-data-processing"
 idePackagePrefix := Some("com.cxi.cdp.data_processing")
-lazy val sparkVersion = "3.1.1"
+lazy val sparkVersion = "3.1.2"
 lazy val javaVersion = "1.8"
 
 lazy val setupDatabricksConnect = taskKey[Unit]("Execute scripts that add Databricks jars")
@@ -46,7 +46,7 @@ libraryDependencies ++= Seq(
   "org.scalamock" %% "scalamock" % "4.4.0" % Test,
   "org.mongodb.spark" %% "mongo-spark-connector" % "3.0.1",
   "org.scalatest" %% "scalatest" % "3.0.8" % Test,
-  "io.delta" %% "delta-core" % "0.8.0" % Provided,
+  "io.delta" %% "delta-core" % "1.0.0" % Provided,
   "com.databricks" %% "dbutils-api" % "0.0.5" % Provided)
 
 Test / fork := true

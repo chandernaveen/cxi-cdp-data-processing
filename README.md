@@ -3,8 +3,8 @@
 Repository that contains Apache Spark jobs for data processing inside CXI Cloud Data Platform.
 
 ### Prerequisites
-Databricks runtime 8.1 - in which these Apache Spark jobs are executed -
-has following [system environment](https://docs.microsoft.com/en-gb/azure/databricks/release-notes/runtime/8.1#system-environment),
+Databricks runtime 9.1 - in which these Apache Spark jobs are executed -
+has following [system environment](https://docs.microsoft.com/en-gb/azure/databricks/release-notes/runtime/9.1#system-environment),
 so locally we need the following components installed: 
 
 - [Python 3.8.8](https://www.python.org/downloads/release/python-388/) - required for `databricks-connect` Python package
