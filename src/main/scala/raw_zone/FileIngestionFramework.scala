@@ -33,27 +33,27 @@ object FileIngestionFramework {
         val contractPath = "/mnt/" + cliArgs.contractPath
         val np = new ContractUtils(java.nio.file.Paths.get(contractPath))
 
-        val sourcePath: String = getSourcePath("/mnt/" + np.prop("landing.path"), cliArgs.date)
-        val targetPath: String = "/mnt/" + np.prop("raw.path")
+        val sourcePath: String = getSourcePath("/mnt/" + np.prop(jobConfigPropName("read.path")), cliArgs.date)
+        val targetPath: String = "/mnt/" + np.prop(jobConfigPropName("write.path"))
         val targetPartitionColumns: Seq[String] = try {
-            np.prop("raw.partitionColumns")
+            np.prop(jobConfigPropName("write.partitionColumns"))
         } catch {
             case _: Throwable => Seq[String]("feed_date")
         }
-        val processName: String = np.prop("raw.processName")
-        val sourceEntity: String = np.prop("landing.entity")
-        val logTable: String = np.prop("log.logTable")
-        val pathParts: Int = np.prop("source.pathParts")
-        val fileFormat: String = np.propOrElse[String]("landing.fileFormat", "")
-        val fileFormatOptions: Map[String, String] = np.propOrElse[Map[String, String]]("landing.fileFormatOptions", Map[String, String]())
-        val transformationName: String = np.propOrElse[String]("raw.transformationName", "identity")
-        val schemaPath: String = np.propOrElse[String]("raw.schemaPath", "")
+        val processName: String = np.prop(jobConfigPropName("audit.processName"))
+        val sourceEntity: String = np.prop(jobConfigPropName("audit.entity"))
+        val logTable: String = np.prop(jobConfigPropName("audit.logTable"))
+        val pathParts: Int = np.propOrElse[Int](jobConfigPropName("read.pathParts"), 1)
+        val fileFormat: String = np.propOrElse[String](jobConfigPropName("read.fileFormat"), "")
+        val fileFormatOptions: Map[String, String] = np.propOrElse[Map[String, String]](jobConfigPropName("read.fileFormatOptions"), Map[String, String]())
+        val transformationName: String = np.propOrElse[String](jobConfigPropName("transform.transformationName"), "identity")
+        val schemaPath: String = np.propOrElse[String](jobConfigPropName("read.schemaPath"), "")
         // We need to add Crypto Functionality for our PII, this needs to be defined val cryptoHash: Option[Map[String, Any]] = np.propOrNone[Map[String, Any]]("crypto")
-        val saveModeFromContract: String = np.propOrElse[String]("raw.saveMode", "append")
-        val configOptions: Map[String, Any] = np.propOrElse[Map[String, Any]]("raw.configOptions", Map[String, Any]())
-        val writeOptions: Map[String, String] = np.propOrElse[Map[String, String]]("raw.writeOptions", Map[String, String]())
-        val writeOptionsFunctionName: String = np.propOrElse[String]("raw.writeOptionsFunction", "")
-        val writeOptionsFunctionParams: Map[String, String] = np.propOrElse[Map[String, String]]("raw.writeOptionsFunctionParams", Map[String, String]())
+        val saveModeFromContract: String = np.propOrElse[String](jobConfigPropName("write.saveMode"), "append")
+        val configOptions: Map[String, Any] = np.propOrElse[Map[String, Any]](jobConfigPropName("spark.configOptions"), Map[String, Any]())
+        val writeOptions: Map[String, String] = np.propOrElse[Map[String, String]](jobConfigPropName("write.writeOptions"), Map[String, String]())
+        val writeOptionsFunctionName: String = np.propOrElse[String](jobConfigPropName("write.writeOptionsFunction"), "")
+        val writeOptionsFunctionParams: Map[String, String] = np.propOrElse[Map[String, String]](jobConfigPropName("write.writeOptionsFunctionParams"), Map[String, String]())
 
         val spark: SparkSession = getSparkSession()
         val runID: Int = 1
@@ -132,20 +132,21 @@ object FileIngestionFramework {
                 .withColumn("cxi_id", expr("uuid()"))
 
             val saveMode = if (DeltaTable.isDeltaTable(spark, targetPath)) saveModeFromContract else "errorifexists"
+
             val transformationFunction = transformationFunctionsMap(transformationName)
             val transformedDf = transformationFunction(finalDF)
 
 
-            val finalDf = if (np.propIsSet("crypto")) {
-                val country: String = np.prop[String]("partnerConfig.country")
-                val cxiPartnerId: String = np.prop[String]("partnerConfig.cxiPartnerId")
-                val lookupDestDbName: String = np.prop[String]("crypto.lookup_db")
-                val lookupDestTableName: String = np.prop[String]("crypto.lookup_table")
-                val workspaceConfigPath: String = np.prop[String]("crypto.workspaceConfigPath")
+            val finalDf = if (np.propIsSet(jobConfigPropName("crypto"))) {
+                val country: String = np.prop[String]("partner.country")
+                val cxiPartnerId: String = np.prop[String]("partner.cxiPartnerId")
+                val lookupDestDbName: String = np.prop[String]("schema.crypto.db_name")
+                val lookupDestTableName: String = np.prop[String]("schema.crypto.lookup_table")
+                val workspaceConfigPath: String = np.prop[String]("databricks_workspace_config")
 
                 val cryptoShredding = new CryptoShredding(spark, country, cxiPartnerId, lookupDestDbName, lookupDestTableName, workspaceConfigPath)
-                val hashFunctionType = np.prop[String]("crypto.hash_function_type")
-                val hashFunctionConfig = np.prop[Map[String, Any]]("crypto.hash_function_config")
+                val hashFunctionType = np.prop[String](jobConfigPropName("crypto.hash_function_type"))
+                val hashFunctionConfig = np.prop[Map[String, Any]](jobConfigPropName("crypto.hash_function_config"))
                 val cryptoHashedDf = cryptoShredding.applyHashCryptoShredding(hashFunctionType, hashFunctionConfig, transformedDf)
                 cryptoHashedDf
             } else {
@@ -182,6 +183,10 @@ object FileIngestionFramework {
             dpYear = dpYear, dpMonth = dpMonth, dpDay = dpDay, dpHour = dpHour,
             processStartTime = notebookStartTime, processEndTime = java.time.LocalDateTime.now.toString, errorMessage = "", spark = spark)
         logger.info(s"""Files processed: $files""")
+    }
+
+    private def jobConfigPropName(relativePropName: String): String = {
+        "jobs.databricks.landing_to_raw_job.job_config." + relativePropName
     }
 
     private def configureLogger(): Logger = {
