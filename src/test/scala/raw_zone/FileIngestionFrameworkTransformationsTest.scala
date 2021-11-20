@@ -6,10 +6,6 @@ import support.BaseSparkBatchJobTest
 import org.scalatest.Matchers.convertToAnyShouldWrapper
 
 class FileIngestionFrameworkTransformationsTest extends BaseSparkBatchJobTest {
-    before {
-        conf.set("hive.exec.dynamic.partition", "true")
-        conf.set("hive.exec.dynamic.partition.mode", "nonstrict")
-    }
 
     test("test identity transformation") {
         // given

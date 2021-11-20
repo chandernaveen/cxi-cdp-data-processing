@@ -7,10 +7,6 @@ import support.BaseSparkBatchJobTest
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal}
 
 class FileIngestionFrameworkQuBeyondTransformationTest extends BaseSparkBatchJobTest {
-    before {
-        conf.set("hive.exec.dynamic.partition", "true")
-        conf.set("hive.exec.dynamic.partition.mode", "nonstrict")
-    }
 
     test("test QuBeyond transformation with Checks data") {
         // given

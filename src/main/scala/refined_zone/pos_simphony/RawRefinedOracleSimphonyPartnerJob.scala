@@ -1,5 +1,5 @@
 package com.cxi.cdp.data_processing
-package refined_zone
+package refined_zone.pos_simphony
 
 import support.SparkSessionFactory
 import support.packages.utils.ContractUtils
@@ -608,3 +608,4 @@ object OrderSummaryProcessor {
                |""".stripMargin)
     }
 }
+

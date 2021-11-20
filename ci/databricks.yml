@@ -1,0 +1,94 @@
+trigger:
+  branches:
+    include:
+    - develop
+
+stages:
+- stage: PR_checks
+  pool:
+   vmimage: ubuntu-18.04
+  jobs:
+    - job: run_tests_and_build
+      steps:
+       - task: UsePythonVersion@0
+         inputs:
+           versionSpec: '3.8.*'
+           addToPath: true
+           architecture: 'x64'
+
+       - task: Bash@3
+         enabled: true
+         displayName: Install Databricks-Connect
+         inputs:
+           targetType: 'inline'
+           script: |
+             python -m venv .venv &&
+             sbt setupDatabricksConnect
+
+       - task: configuredatabricks@0
+         enabled: true
+         inputs:
+           url: 'https://adb-8464693284532204.4.azuredatabricks.net'
+           token: $(BEARERTOKEN)
+
+       - task: databricksClusterTask@0
+         displayName: create test cluster
+         enabled: false
+         inputs:
+           authMethod: 'bearer'
+           bearerToken: '$(BEARERTOKEN)'
+           region: 'eastus2'
+           sourcePath: 'ci/test_cluster_config.json'
+
+       - task: startcluster@0
+         inputs:
+           clusterid: $(EXISTING-CLUSTER-ID)
+           failOnStderr: false
+
+       - script: |
+          source .venv/bin/activate
+          echo "y
+              $(WORKSPACE-REGION-URL)
+              $(CSE-DEVELOP-PAT)
+              $(EXISTING-CLUSTER-ID)
+              $(WORKSPACE-ORG-ID)
+              15001" | databricks-connect configure
+          databricks-connect test
+         displayName: 'Configure databricks-connect'
+         enabled: true
+
+       - task: Bash@3
+         displayName: sbt test
+         inputs:
+           targetType: 'inline'
+           script: 'sbt test'
+       - task: PublishBuildArtifacts@1
+         displayName: publish artifacts
+         inputs:
+            PathtoPublish: 'target/scala-2.12/cxi_cdp_data_processing_assembly_2_12.jar'
+            ArtifactName: 'cxi_cdp_data_processing_assembly'
+            publishLocation: 'Container'
+
+- stage: deploy
+  condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+  pool:
+   vmimage: windows-latest
+  jobs:
+    - job: deploy
+      steps:
+       - checkout: none
+       - task: DownloadBuildArtifacts@1
+         inputs:
+           buildType: 'current'
+           downloadType: 'single'
+           artifactName: 'cxi_cdp_data_processing_assembly'
+           downloadPath: '$(System.ArtifactsDirectory)'
+           checkDownloadedFiles: true
+       - task: databricksDeployDBFSFilesTask@0
+         inputs:
+            authMethod: 'bearer'
+            bearerToken: $(BEARERTOKEN)
+            region: 'eastus2'
+            LocalRootFolder: '$(System.ArtifactsDirectory)/cxi_cdp_data_processing_assembly/'
+            FilePattern: '*.jar'
+            TargetLocation: '/FileStore/jars/cxi/'

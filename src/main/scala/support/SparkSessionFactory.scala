@@ -27,8 +27,10 @@ object SparkSessionFactory {
         }
         val session = builder.getOrCreate()
         if (isLocalEnv) {
-            session.sparkContext.addJar("target/scala-2.12/cxi_cdp_data_processing_assembly_2_12.jar")
+            session.sparkContext.addJar(assemblyJarLocalPath)
         }
         session
     }
+
+    def assemblyJarLocalPath: String = "target/scala-2.12/cxi_cdp_data_processing_assembly_2_12.jar"
 }

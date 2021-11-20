@@ -11,17 +11,9 @@ lazy val setupDatabricksConnect = taskKey[Unit]("Execute scripts that add Databr
 
 setupDatabricksConnect := {
   val s: TaskStreams = streams.value
+  val isUnix = !sys.props("os.name").contains("Windows")
   val sbtLibPath = baseDirectory.value / "lib"
 
-  val windowsScript = Seq("cmd", "/c") :+
-      s"""
-        |./venv/Scripts/activate.bat
-        |pip install -r requirements.txt
-        |databricks_jars_base_path="$$(databricks-connect get-jar-dir)"
-        |echo "$$databricks_jars_base_path"
-        |if exist $sbtLibPath\\nul
-        |(mklink $$databricks_jars_base_path $sbtLibPath)
-        |""".stripMargin
   val unixScript: Seq[String] = Seq("bash", "-c") :+
     s"""source .venv/bin/activate
        |pip install -r requirements.txt
@@ -31,10 +23,10 @@ setupDatabricksConnect := {
        |ln -s $$databricks_jars_base_path $sbtLibPath
        |fi
        |""".stripMargin
-  val script = if (sys.props("os.name").contains("Windows")) windowsScript else unixScript
+
   s.log.info("adding databricks jars...")
   import scala.sys.process._
-  if ((script !) == 0) {
+  if (isUnix && (unixScript !) == 0) {
     s.log.success("added jars successfully!")
   } else {
     throw new IllegalStateException("Setup Databricks Connect task failed!")
@@ -77,3 +69,5 @@ scalastyleFailOnError := true
 //scalastyleFailOnWarning := true TODO: uncomment after fixing styling issues
 compileScalastyle := scalastyle.in(Compile).toTask("").value
 (compile in Compile) := ((compile in Compile) dependsOn compileScalastyle).value
+
+(Test / test) := ((Test / test) dependsOn assembly).value

@@ -18,6 +18,9 @@ class BaseSparkBatchJobTest extends FunSuite with BeforeAndAfter with DataFrameS
     fixHadoopOnWindows()
     super.beforeAll()
   }
+  before {
+    spark.sparkContext.addJar(SparkSessionFactory.assemblyJarLocalPath)
+  }
 
   /**
    * Info on the issue:
