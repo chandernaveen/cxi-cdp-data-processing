@@ -11,7 +11,10 @@ class JsonHashingFunctionTest extends BaseSparkBatchJobTest {
         // given
         import spark.implicits._
         val salt = ""
-        val hashFunctionConfig = Map("pii_columns" -> List(Map("outerColName" -> "record_value", "innerColName" -> "pii_column")))
+        val hashFunctionConfig = Map(
+            "pii_columns" -> List(
+                Map("outerCol" -> "record_value",
+                    "innerCol" -> Map("type" -> "jsonPath", "jsonPath" -> "$.pii_column"))))
         val jsonHashingFunction = new JsonHashingFunction(hashFunctionConfig, salt)
         val landingData = List(
             (s"""{"pii_column": "Bob", "some_other_col_inside_json_object" : 1}""", 10),
@@ -59,7 +62,10 @@ class JsonHashingFunctionTest extends BaseSparkBatchJobTest {
         // given
         import spark.implicits._
         val salt = ""
-        val hashFunctionConfig = Map("pii_columns" -> List(Map("outerColName" -> "record_value", "innerColName" -> "pii_credit_card_column")))
+        val hashFunctionConfig = Map(
+            "pii_columns" -> List(
+                Map("outerCol" -> "record_value",
+                    "innerCol" -> Map("type" -> "jsonPath", "jsonPath" -> "$.pii_credit_card_column"))))
         val jsonHashingFunction = new JsonHashingFunction(hashFunctionConfig, salt)
         val landingData = List(
             (s"""{"some_other_col_inside_json_object" : 9}""", 90),
@@ -93,7 +99,7 @@ class JsonHashingFunctionTest extends BaseSparkBatchJobTest {
         val actualHashedOriginalDfData = hashedOriginalDf.collect()
         withClue("Actual hashed data frame data do not match") {
             val expected = List(
-                (s"""{"some_other_col_inside_json_object" : 9}""", 90), // TODO: resolve presence of whitespaces for unprocessed rows
+                (s"""{"some_other_col_inside_json_object":9}""", 90),
                 (s"""{"pii_credit_card_column":"19d8e1a307d593d525c4f9b5372b8fc38ea8f9abe31a89359d013c18e21b1c8e","some_other_col_inside_json_object":8}""", 80),
                 (s"""{"pii_credit_card_column":"f343a79ac41d584201b7a5bc9536c503b876de1bed2b528602c1cd55b141c660"}""", 70)
             ).toDF("record_value", "some_other_top_level_column").collect()
@@ -106,9 +112,12 @@ class JsonHashingFunctionTest extends BaseSparkBatchJobTest {
         // given
         import spark.implicits._
         val salt = ""
-        val hashFunctionConfig = Map("pii_columns" ->
-            List(Map("outerColName" -> "record_value", "innerColName" -> "pii_credit_card_column"),
-                Map("outerColName" -> "record_value", "innerColName" -> "pii_customer_name")))
+        val hashFunctionConfig = Map(
+            "pii_columns" -> List(
+                Map("outerCol" -> "record_value",
+                    "innerCol" -> Map("type" -> "jsonPath", "jsonPath" -> "$.pii_credit_card_column")),
+                Map("outerCol" -> "record_value",
+                    "innerCol" -> Map("type" -> "jsonPath", "jsonPath" -> "$.pii_customer_name"))))
         val jsonHashingFunction = new JsonHashingFunction(hashFunctionConfig, salt)
         val landingData = List(
             (s"""{"pii_credit_card_column": "****1234", "pii_customer_name" : "Paul", "some_other_col_inside_json_object" : 9}""", 40),
