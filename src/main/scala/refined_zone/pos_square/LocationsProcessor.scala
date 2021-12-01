@@ -54,7 +54,11 @@ object LocationsProcessor {
     def readPostalCodes(spark: SparkSession, table: String): DataFrame = {
         spark.sql(
             s"""
-               |SELECT postal_code AS zip_code, city, state, region
+               |SELECT
+               |    postal_code AS zip_code,
+               |    city,
+               |    state_code,
+               |    region
                |FROM $table
                |""".stripMargin)
     }
@@ -69,7 +73,7 @@ object LocationsProcessor {
             .withColumn("parent_location_id", lit(null))
             .withColumn("extended_attr", lit(null))
             .dropDuplicates("cxi_partner_id", "location_id")
-            .join(postalCodes, locations("zip_code") === postalCodes("zip_code"), "left") // adds city, state, region
+            .join(postalCodes, locations("zip_code") === postalCodes("zip_code"), "left") // adds city, state_code, region
             .drop(postalCodes("zip_code"))
     }
 
