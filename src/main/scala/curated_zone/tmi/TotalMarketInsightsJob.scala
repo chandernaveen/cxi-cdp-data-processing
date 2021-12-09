@@ -3,6 +3,7 @@ package curated_zone.tmi
 
 import java.nio.file.Paths
 
+import com.cxi.cdp.data_processing.refined_zone.hub.OrderSummaryCDF
 import com.cxi.cdp.data_processing.support.{SparkSessionFactory, WorkspaceConfigReader}
 import com.cxi.cdp.data_processing.support.packages.utils.ContractUtils
 import com.databricks.service.DBUtils
@@ -12,7 +13,10 @@ import org.apache.spark.sql.types.IntegerType
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
 object TotalMarketInsightsJob {
+
     private val logger = Logger.getLogger(this.getClass.getName)
+
+    final val CDFConsumerId = "total_market_insights_job"
 
     def main(args: Array[String]): Unit = {
         logger.info(s"""Received following args: ${args.mkString(",")}""")
@@ -26,21 +30,26 @@ object TotalMarketInsightsJob {
     def run(cliArgs: CliArgs)(implicit spark: SparkSession): Unit = {
         val contract: ContractUtils = new ContractUtils(Paths.get("/mnt/" + cliArgs.contractPath))
 
-        val refinedHubDb = contract.prop[String]("schema.refined_hub.db_name")
-        val orderSummaryTable = contract.prop[String]("schema.refined_hub.order_summary_table")
+        val cdfTrackerTable = "refined_square.cdf_tracker_doblamskyi" // TODO read from the contract
+//        val refinedSquareDb = contract.prop[String]("schema.refined_square.db_name")
+//        val orderSummaryTable = contract.prop[String]("schema.refined_square.order_summary_table")
 
-        val orderDates = getOrderDatesToProcess(cliArgs.feedDate, s"$refinedHubDb.$orderSummaryTable")
+        val orderSummaryCDF = new OrderSummaryCDF(cdfTrackerTable, "refined_square.order_summary")// s"$refinedSquareDb.$orderSummaryTable")
 
-        logger.info(s"Based on a feed date ${cliArgs.feedDate}, calculate market insights for the following order dates: $orderDates")
+        orderSummaryCDF.queryChangeData(CDFConsumerId) match {
+            case None => logger.info("No updates found since the last run")
 
-        if (orderDates.isEmpty) {
-            logger.info("Order dates are empty, no calculation is needed.")
-        } else {
-            process(contract, orderDates)
+            case Some(result) =>
+                process(contract, result.changeData)
+
+                logger.info(s"Update CDF tracker: ${result.cdfTrackerUpdates}")
+                orderSummaryCDF.markProcessed(result)
         }
     }
 
-    def process(contract: ContractUtils, orderDates: Seq[String])(implicit spark: SparkSession): Unit = {
+    def process(contract: ContractUtils, orderSummaryChangeData: DataFrame)(implicit spark: SparkSession): Unit = {
+        val orderDates = getOrderDatesToProcess(orderSummaryChangeData)
+
         val refinedHubDb = contract.prop[String]("schema.refined_hub.db_name")
         val orderSummaryTable = contract.prop[String]("schema.refined_hub.order_summary_table")
         val locationTable = contract.prop[String]("schema.refined_hub.location_table")
@@ -56,7 +65,7 @@ object TotalMarketInsightsJob {
 
         val partnerMarketInsights: DataFrame = computePartnerMarketInsights(orderSummary).cache()
         writeToDatalakePartnerMarketInsights(partnerMarketInsights, s"$curatedDb.$partnerMarketInsightsTable")
-        writeToMongoPartnerMarketInsights(partnerMarketInsights, mongoDbConfig.uri, contract)
+        // writeToMongoPartnerMarketInsights(partnerMarketInsights, mongoDbConfig.uri, contract)
 
         val shouldComputeTotalMarketInsights =
             contract.propOrElse[Boolean]("jobs.databricks.total_market_insights_job.job_config.compute_total_market_insights", true)
@@ -64,17 +73,16 @@ object TotalMarketInsightsJob {
         if (shouldComputeTotalMarketInsights) {
             val totalMarketInsights: DataFrame = computeTotalMarketInsights(partnerMarketInsights).cache()
             writeToDatalakeTotalMarketInsights(totalMarketInsights, s"$curatedDb.$totalMarketInsightsTable")
-            writeToMongoTotalMarketInsights(totalMarketInsights, mongoDbConfig.uri, contract)
+            // writeToMongoTotalMarketInsights(totalMarketInsights, mongoDbConfig.uri, contract)
         } else {
             logger.info("Skip calculation of total market insights based on a contract")
         }
     }
 
-    def getOrderDatesToProcess(feedDate: String, orderSummaryTable: String)(implicit spark: SparkSession): Seq[String] = {
+    def getOrderDatesToProcess(orderSummaryChangeData: DataFrame)(implicit spark: SparkSession): Seq[String] = {
         import spark.implicits._
 
-        spark.table(orderSummaryTable)
-            .filter($"feed_date" === feedDate)
+        orderSummaryChangeData
             .select($"ord_date")
             .distinct
             .collect
@@ -266,11 +274,11 @@ object TotalMarketInsightsJob {
             .save()
     }
 
-    case class CliArgs(contractPath: String, feedDate: String)
+    case class CliArgs(contractPath: String)
 
     object CliArgs {
 
-        private val initOptions = CliArgs(contractPath = null, feedDate = null)
+        private val initOptions = CliArgs(contractPath = null)
 
         private def optionsParser = new scopt.OptionParser[CliArgs]("Total Market Insight Job") {
 
@@ -279,10 +287,6 @@ object TotalMarketInsightsJob {
                 .text("path to a contract for this job")
                 .required
 
-            opt[String]("feed-date")
-                .action((feedDate, c) => c.copy(feedDate = feedDate))
-                .text("feed date to process (format: yyyy-MM-dd)")
-                .required
         }
 
         def parse(args: Seq[String]): CliArgs = {
