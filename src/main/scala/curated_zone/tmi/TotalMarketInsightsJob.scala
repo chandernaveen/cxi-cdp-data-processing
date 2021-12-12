@@ -3,7 +3,7 @@ package curated_zone.tmi
 
 import java.nio.file.Paths
 
-import com.cxi.cdp.data_processing.refined_zone.hub.OrderSummaryCDF
+import com.cxi.cdp.data_processing.refined_zone.hub.ChangeDataFeedViews
 import com.cxi.cdp.data_processing.support.{SparkSessionFactory, WorkspaceConfigReader}
 import com.cxi.cdp.data_processing.support.packages.utils.ContractUtils
 import com.databricks.service.DBUtils
@@ -16,7 +16,7 @@ object TotalMarketInsightsJob {
 
     private val logger = Logger.getLogger(this.getClass.getName)
 
-    final val CDFConsumerId = "total_market_insights_job"
+    final val CdfConsumerId = "total_market_insights_job"
 
     def main(args: Array[String]): Unit = {
         logger.info(s"""Received following args: ${args.mkString(",")}""")
@@ -30,20 +30,26 @@ object TotalMarketInsightsJob {
     def run(cliArgs: CliArgs)(implicit spark: SparkSession): Unit = {
         val contract: ContractUtils = new ContractUtils(Paths.get("/mnt/" + cliArgs.contractPath))
 
-        val cdfTrackerTable = "refined_square.cdf_tracker_doblamskyi" // TODO read from the contract
-//        val refinedSquareDb = contract.prop[String]("schema.refined_square.db_name")
-//        val orderSummaryTable = contract.prop[String]("schema.refined_square.order_summary_table")
+        val crossCuttingDb = contract.prop[String]("schema.cross_cutting.db_name")
+        val cdfTrackerTable = contract.prop[String]("schema.cross_cutting.cdf_tracker")
 
-        val orderSummaryCDF = new OrderSummaryCDF(cdfTrackerTable, "refined_square.order_summary")// s"$refinedSquareDb.$orderSummaryTable")
+        val refinedSquareDb = contract.prop[String]("schema.refined_square.db_name")
+        val orderSummaryTable = contract.prop[String]("schema.refined_square.order_summary_table")
 
-        orderSummaryCDF.queryChangeData(CDFConsumerId) match {
+        val orderSummaryCdf = ChangeDataFeedViews.orderSummary(
+            s"$crossCuttingDb.$cdfTrackerTable",
+            Seq(s"$refinedSquareDb.$orderSummaryTable"))
+
+        val orderSummaryChangeDataResult = orderSummaryCdf.queryChangeData(CdfConsumerId)
+
+        orderSummaryChangeDataResult.changeData match {
             case None => logger.info("No updates found since the last run")
 
-            case Some(result) =>
-                process(contract, result.changeData)
+            case Some(changeData) =>
+                process(contract, changeData)
 
-                logger.info(s"Update CDF tracker: ${result.cdfTrackerUpdates}")
-                orderSummaryCDF.markProcessed(result)
+                logger.info(s"Update CDF tracker: ${orderSummaryChangeDataResult.tableMetadataSeq}")
+                orderSummaryCdf.markProcessed(orderSummaryChangeDataResult)
         }
     }
 
