@@ -71,7 +71,7 @@ object TotalMarketInsightsJob {
 
         val partnerMarketInsights: DataFrame = computePartnerMarketInsights(orderSummary).cache()
         writeToDatalakePartnerMarketInsights(partnerMarketInsights, s"$curatedDb.$partnerMarketInsightsTable")
-        // writeToMongoPartnerMarketInsights(partnerMarketInsights, mongoDbConfig.uri, contract)
+        writeToMongoPartnerMarketInsights(partnerMarketInsights, mongoDbConfig.uri, contract)
 
         val shouldComputeTotalMarketInsights =
             contract.propOrElse[Boolean]("jobs.databricks.total_market_insights_job.job_config.compute_total_market_insights", true)
@@ -79,7 +79,7 @@ object TotalMarketInsightsJob {
         if (shouldComputeTotalMarketInsights) {
             val totalMarketInsights: DataFrame = computeTotalMarketInsights(partnerMarketInsights).cache()
             writeToDatalakeTotalMarketInsights(totalMarketInsights, s"$curatedDb.$totalMarketInsightsTable")
-            // writeToMongoTotalMarketInsights(totalMarketInsights, mongoDbConfig.uri, contract)
+            writeToMongoTotalMarketInsights(totalMarketInsights, mongoDbConfig.uri, contract)
         } else {
             logger.info("Skip calculation of total market insights based on a contract")
         }
