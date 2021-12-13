@@ -10,6 +10,8 @@ variables:
   value: $[counter(variables['version.MajorMinor'], 0)]
 - name: versionNumber
   value: $[format('{0}.{1}', variables['version.MajorMinor'], variables['version.Revision'])]
+  
+name: $(versionNumber)
 
 stages:
 - stage: PR_checks
