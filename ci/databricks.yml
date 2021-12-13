@@ -10,6 +10,8 @@ variables:
   value: $[counter(variables['version.MajorMinor'], 0)]
 - name: versionNumber
   value: $[format('{0}.{1}', variables['version.MajorMinor'], variables['version.Revision'])]
+- name: BranchName
+  value: $[ replace(variables['System.PullRequest.SourceBranch'], 'refs/heads/', '') ]  
   
 name: $(versionNumber)
 
@@ -111,5 +113,5 @@ stages:
             region: 'eastus2'
             LocalRootFolder: '$(System.ArtifactsDirectory)/cxi_cdp_data_processing_assembly/'
             FilePattern: '*.jar'
-            TargetLocation: '/FileStore/jars/cxi/PR/$(System.PullRequest.PullRequestId)/'     
+            TargetLocation: '/FileStore/jars/cxi/PR/$(BranchName)/'     
             
