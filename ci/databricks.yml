@@ -3,6 +3,14 @@ trigger:
     include:
     - develop
 
+variables:
+- name: version.MajorMinor
+  value: '2.12' # Manually adjust the version number as needed for semantic versioning. Revision is auto-incremented.
+- name: version.Revision
+  value: $[counter(variables['version.MajorMinor'], 0)]
+- name: versionNumber
+  value: $[format('{0}.{1}', variables['version.MajorMinor'], variables['version.Revision'])]
+
 stages:
 - stage: PR_checks
   pool:
@@ -70,7 +78,6 @@ stages:
             publishLocation: 'Container'
 
 - stage: deploy
-  condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
   pool:
    vmimage: windows-latest
   jobs:
@@ -85,6 +92,7 @@ stages:
            downloadPath: '$(System.ArtifactsDirectory)'
            checkDownloadedFiles: true
        - task: databricksDeployDBFSFilesTask@0
+         condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
          inputs:
             authMethod: 'bearer'
             bearerToken: $(BEARERTOKEN)
@@ -92,3 +100,14 @@ stages:
             LocalRootFolder: '$(System.ArtifactsDirectory)/cxi_cdp_data_processing_assembly/'
             FilePattern: '*.jar'
             TargetLocation: '/FileStore/jars/cxi/'
+
+       - task: databricksDeployDBFSFilesTask@0
+         condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
+         inputs:
+            authMethod: 'bearer'
+            bearerToken: $(BEARERTOKEN)
+            region: 'eastus2'
+            LocalRootFolder: '$(System.ArtifactsDirectory)/cxi_cdp_data_processing_assembly/'
+            FilePattern: '*.jar'
+            TargetLocation: '/FileStore/jars/cxi/PR/$(System.PullRequest.PullRequestId)/'     
+            
