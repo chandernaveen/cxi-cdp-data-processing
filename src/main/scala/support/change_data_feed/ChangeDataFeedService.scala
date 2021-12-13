@@ -6,6 +6,7 @@ import org.apache.spark.sql.SparkSession
 
 class ChangeDataFeedService(val cdfTrackerTable: String) {
 
+    /** Returns true if ChangeDataFeed is currently enabled for the specified table. */
     def isCdfEnabled(table: String)(implicit spark: SparkSession): Boolean = {
         import spark.implicits._
 
@@ -15,6 +16,7 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
         !rows.isEmpty
     }
 
+    /** Returns the latest table version processed by a consumer with the specified consumerId. */
     def getLatestProcessedVersion(consumerId: String, table: String)(implicit spark: SparkSession): Option[Long] = {
         import spark.implicits._
 
@@ -27,6 +29,7 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
             .headOption
     }
 
+    /** Returns the latest version for the specified table. */
     def getLatestAvailableVersion(table: String)(implicit spark: SparkSession): Long = {
         import spark.implicits._
 
@@ -37,6 +40,12 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
             .head
     }
 
+    /** Returns the version of the specified table when ChangeDataFeed was enabled.
+      *
+      * The specified table should have CDF enabled, otherwise an exception would be thrown.
+      * CDF can be enabled any time.
+      * If CDF was enabled at the table creation time, the returned version is 0.
+      */
     def getCdfEnabledVersion(table: String)(implicit spark: SparkSession): Long = {
         import spark.implicits._
 
@@ -50,6 +59,7 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
             .head
     }
 
+    /** Returns change data for the specified consumer/table as a DataFrame along with some metadata. */
     def queryChangeData(consumerId: String, table: String)(implicit spark: SparkSession): ChangeDataQueryResult = {
         ensureCdfEnabled(table)
 
@@ -82,6 +92,7 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
         ChangeDataQueryResult(consumerId, List(tableMetadata), changeData)
     }
 
+    /** Updates latest processed versions in the CDF Tracker table. */
     def setLatestProcessedVersion(updates: CdfTrackerRow*)(implicit spark: SparkSession): Unit = {
         import spark.implicits._
 
