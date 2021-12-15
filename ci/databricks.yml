@@ -124,3 +124,19 @@ stages:
             FilePattern: '*.jar'
             TargetLocation: '/FileStore/jars/cxi/PR/$(BranchName)/'     
             
+- stage: Sonar_Qube
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+  pool: kube-agent
+  jobs:
+      - job: 
+        steps:
+          - task: SonarQubePrepare@4
+            enabled: true
+            inputs:
+              SonarQube: 'sonar'
+              scannerMode: 'CLI'
+              configMode: 'manual'
+              cliProjectKey: 'cxi-cdp-data-processing'
+              cliSources: '.'
+          - task: SonarQubeAnalyze@4
+            enabled: true
