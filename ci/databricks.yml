@@ -81,6 +81,15 @@ stages:
             ArtifactName: 'cxi_cdp_data_processing_assembly'
             publishLocation: 'Container'
 
+       - task: PublishTestResults@2
+         displayName: publish tests result
+         inputs:
+           testResultsFormat: 'JUnit'
+           testResultsFiles: '**/target/test-reports/*.xml'
+           searchFolder: '$(Build.SourcesDirectory)'
+           mergeTestResults: true
+           testRunTitle: 'JUnit'
+
 - stage: deploy
   pool:
    vmimage: windows-latest
