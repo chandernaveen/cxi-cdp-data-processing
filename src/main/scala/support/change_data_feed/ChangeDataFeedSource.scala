@@ -29,7 +29,7 @@ object ChangeDataFeedSource {
     /** CDF source for a simple union of tables. All tables must have the same schema. */
     class SimpleUnion(protected val cdfService: ChangeDataFeedService, tables: Seq[String]) extends ChangeDataFeedSource {
         override def queryChangeData(consumerId: String)(implicit spark: SparkSession): ChangeDataQueryResult = {
-            verifyCanUnion(tables)
+            verifyUnionIsSafe(tables)
 
             val queryResults = tables.map(table => cdfService.queryChangeData(consumerId, table))
             queryResults.reduce((acc, result) => {
@@ -43,7 +43,7 @@ object ChangeDataFeedSource {
             })
         }
 
-        private def verifyCanUnion(tables: Seq[String])(implicit spark: SparkSession): Unit = {
+        private def verifyUnionIsSafe(tables: Seq[String])(implicit spark: SparkSession): Unit = {
             val schemas = tables.map(table => spark.table(table).schema)
             schemas match {
                 case Seq() => ()
