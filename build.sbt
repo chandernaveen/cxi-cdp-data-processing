@@ -1,7 +1,7 @@
 
 ThisBuild / organization := "com.cxi"
 ThisBuild / scalaVersion := "2.12.10"
-ThisBuild / version      := "0.1.0"
+ThisBuild / version      := "1.0.0" // actual artifact version is controlled by azure devops (please check ci/cd for more details)
 name := "cxi-cdp-data-processing"
 idePackagePrefix := Some("com.cxi.cdp.data_processing")
 lazy val sparkVersion = "3.1.2"
@@ -51,7 +51,6 @@ javacOptions ++= Seq("-source", javaVersion, "-target", javaVersion)
 javaOptions ++= Seq("-XX:+PrintCommandLineFlags", "-Xms512M", "-Xmx2048M", "-XX:MaxPermSize=2048M", "-XX:+HeapDumpOnOutOfMemoryError", "-XX:HeapDumpPath=./java_pid<pid>.hprof", "-XX:+UnlockExperimentalVMOptions")
 scalacOptions += s"-target:jvm-$javaVersion"
 
-//assembly / assemblyJarName := s"${normalizedName.value.replace("-", "_")}_assembly_${scalaBinaryVersion.value.replace(".", "_")}_${version.value.replace(".", "_")}.jar" TODO: uncomment once we have proper CI/CD with artifact repository and versionning implemented
 assembly / assemblyJarName := s"${normalizedName.value.replace("-", "_")}_assembly_${scalaBinaryVersion.value.replace(".", "_")}.jar"
 assembly / assemblyExcludedJars := {
   val cp = (assembly / fullClasspath).value

@@ -5,14 +5,14 @@ trigger:
 
 variables:
 - name: version.MajorMinor
-  value: '2.12' # Manually adjust the version number as needed for semantic versioning. Revision is auto-incremented.
+  value: '1.0' # Manually adjust the version number as needed for semantic versioning. Revision is auto-incremented.
 - name: version.Revision
   value: $[counter(variables['version.MajorMinor'], 0)]
 - name: versionNumber
   value: $[format('{0}.{1}', variables['version.MajorMinor'], variables['version.Revision'])]
 - name: BranchName
-  value: $[ replace(variables['System.PullRequest.SourceBranch'], 'refs/heads/', '') ]  
-  
+  value: $[ replace(variables['System.PullRequest.SourceBranch'], 'refs/heads/', '') ]
+
 name: $(versionNumber)
 
 stages:
@@ -122,13 +122,13 @@ stages:
             region: 'eastus2'
             LocalRootFolder: '$(System.ArtifactsDirectory)/cxi_cdp_data_processing_assembly/'
             FilePattern: '*.jar'
-            TargetLocation: '/FileStore/jars/cxi/PR/$(BranchName)/'     
-            
+            TargetLocation: '/FileStore/jars/cxi/PR/$(BranchName)/'
+
 - stage: Sonar_Qube
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
   pool: kube-agent
   jobs:
-      - job: 
+      - job:
         steps:
           - task: SonarQubePrepare@4
             enabled: true

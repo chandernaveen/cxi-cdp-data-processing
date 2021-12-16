@@ -46,9 +46,17 @@ Links:
 - In order to obtain `SparkSession` use `com.cxi.cdp.data_processing.support.SparkSessionFactory.getSparkSession` function,
   as it takes care of determining the environment it is created in (i.e. spark job is executed from your laptop, or it's already running on the Databricks cluster).
 
-### Contribute
-TODO: Explain how other users and developers can contribute to make your code better.
+- Running locally MongoDB Spark jobs using Databricks Connect.
+`Exception in thread "main" org.apache.spark.SparkException: This DataFrame operation is not currently supported by Databricks Connect.` - when trying to write DataFrame sourced from Mongo collection. Workaround: run job from ADF/Databricks instead.
 
+### Contribute
+
+1. Create new branch with your ticket number e.g. `DP-123`
+2. Apply the changes
+3. Commit
+4. Push to remote repo and create PR
+5. After PR is reviewed and approved, merge to main branch
+6. Deploy changes to all environments.
 
 ### How to test
 ```
