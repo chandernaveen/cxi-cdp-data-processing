@@ -19,14 +19,18 @@ trait ChangeDataFeedSource {
 
 object ChangeDataFeedSource {
 
+    /** CDF source for a single table. */
     class SingleTable(protected val cdfService: ChangeDataFeedService, table: String) extends ChangeDataFeedSource {
         def queryChangeData(consumerId: String)(implicit spark: SparkSession): ChangeDataQueryResult = {
             cdfService.queryChangeData(consumerId, table)
         }
     }
 
+    /** CDF source for a simple union of tables. All tables must have the same schema. */
     class SimpleUnion(protected val cdfService: ChangeDataFeedService, tables: Seq[String]) extends ChangeDataFeedSource {
         override def queryChangeData(consumerId: String)(implicit spark: SparkSession): ChangeDataQueryResult = {
+            verifyCanUnion(tables)
+
             val queryResults = tables.map(table => cdfService.queryChangeData(consumerId, table))
             queryResults.reduce((acc, result) => {
                     val combinedTableMetadataSeq = acc.tableMetadataSeq ++ result.tableMetadataSeq
@@ -37,6 +41,18 @@ object ChangeDataFeedSource {
 
                     acc.copy(tableMetadataSeq = combinedTableMetadataSeq, changeData = combinedChangeData)
             })
+        }
+
+        private def verifyCanUnion(tables: Seq[String])(implicit spark: SparkSession): Unit = {
+            val schemas = tables.map(table => spark.table(table).schema)
+            schemas match {
+                case Seq() => ()
+                case firstSchema +: restSchemas =>
+                    val allSchemasAreEqual = restSchemas.forall(schema => schema == firstSchema)
+                    if (!allSchemasAreEqual) {
+                        throw new IllegalArgumentException(s"Tables $tables are not of the same schema")
+                    }
+            }
         }
     }
 

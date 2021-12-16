@@ -4,6 +4,22 @@ package support.change_data_feed
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.SparkSession
 
+/** Provides service methods to work with Databricks ChangeDataFeed (CDF) feature.
+  *
+  * Each delta table tracks its versions, regardless of whether CDF was enabled for this table or not.
+  * Every change to a delta table creates a new version of this table.
+  *
+  * If CDF is enabled for a table, we can query row changes between different versions of this table
+  * (but only for versions after the version when CDF was enabled).
+  *
+  * The proposed solution works quite similar to Kafka. Each consumer (a consumer can be a specific Spark job,
+  * or some other service) tracks latest versions that it has processed for each table the consumer is using.
+  * The latest versions for each consumer / table are stored in a service table `cdfTrackerTable`.
+  *
+  * When a consumer wants to read the change data for a specific table since its last processing time,
+  * all it needs to do is get the latest available version for that table, get the latest processed version
+  * for the consumer / table, and read row changes between these versions.
+  */
 class ChangeDataFeedService(val cdfTrackerTable: String) {
 
     /** Returns true if ChangeDataFeed is currently enabled for the specified table. */
@@ -46,7 +62,7 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
       * CDF can be enabled any time.
       * If CDF was enabled at the table creation time, the returned version is 0.
       */
-    def getCdfEnabledVersion(table: String)(implicit spark: SparkSession): Long = {
+    def getEarliestCdfEnabledVersion(table: String)(implicit spark: SparkSession): Long = {
         import spark.implicits._
 
         ensureCdfEnabled(table)
@@ -66,7 +82,7 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
         val latestProcessedVersion = getLatestProcessedVersion(consumerId, table)
         val earliestUnprocessedVersion = latestProcessedVersion match {
             case Some(version) => version + 1L
-            case None => getCdfEnabledVersion(table)
+            case None => getEarliestCdfEnabledVersion(table)
         }
         val latestAvailableVersion = getLatestAvailableVersion(table)
 

@@ -59,7 +59,7 @@ class ChangeDataFeedServiceTest extends BaseSparkBatchJobTest with Matchers {
         doReturn(historyRows.toDF, Seq.empty: _*)
             .when(sparkSpy).sql(s"DESCRIBE HISTORY $testTable")
 
-        cdfService.getCdfEnabledVersion(testTable)(sparkSpy) shouldBe 0L
+        cdfService.getEarliestCdfEnabledVersion(testTable)(sparkSpy) shouldBe 0L
     }
 
     test("getCdfEnabledVersion when CDF was enabled after the table creation time") {
@@ -77,7 +77,7 @@ class ChangeDataFeedServiceTest extends BaseSparkBatchJobTest with Matchers {
         doReturn(historyRows.toDF, Seq.empty: _*)
             .when(sparkSpy).sql(s"DESCRIBE HISTORY $testTable")
 
-        cdfService.getCdfEnabledVersion(testTable)(sparkSpy) shouldBe 4L
+        cdfService.getEarliestCdfEnabledVersion(testTable)(sparkSpy) shouldBe 4L
     }
 
 }
