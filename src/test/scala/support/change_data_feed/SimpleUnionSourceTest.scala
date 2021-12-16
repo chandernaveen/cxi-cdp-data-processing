@@ -77,5 +77,3 @@ object SimpleUnionSourceTest {
     case class Row(name: String, age: Int)
     case class AnotherRow(size: Int)
 }
-
-

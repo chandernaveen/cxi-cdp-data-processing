@@ -50,7 +50,7 @@ object ChangeDataFeedSource {
                 case firstSchema +: restSchemas =>
                     val allSchemasAreEqual = restSchemas.forall(schema => schema == firstSchema)
                     if (!allSchemasAreEqual) {
-                        throw new IllegalArgumentException(s"Tables $tables are not of the same schema")
+                        throw new IllegalArgumentException(s"Tables $tables do not have the same schema")
                     }
             }
         }
