@@ -36,6 +36,7 @@ setupDatabricksConnect := {
 libraryDependencies ++= Seq(
   "com.holdenkarau" %% "spark-testing-base" % (sparkVersion + "_1.1.0") % Test,
   "org.scalamock" %% "scalamock" % "4.4.0" % Test,
+  "org.scalatestplus" %% "mockito-3-4" % "3.2.10.0" % Test,
   "org.mongodb.spark" %% "mongo-spark-connector" % "3.0.1",
   "com.github.scopt" %% "scopt" % "4.0.1",
   "com.jayway.jsonpath" % "json-path" % "2.6.0" exclude("org.slf4j", "slf4j-api"),
