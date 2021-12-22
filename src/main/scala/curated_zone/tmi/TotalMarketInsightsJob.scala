@@ -30,14 +30,14 @@ object TotalMarketInsightsJob {
     def run(cliArgs: CliArgs)(implicit spark: SparkSession): Unit = {
         val contract: ContractUtils = new ContractUtils(Paths.get("/mnt/" + cliArgs.contractPath))
 
-        val crossCuttingDb = contract.prop[String]("schema.cross_cutting.db_name")
-        val cdfTrackerTable = contract.prop[String]("schema.cross_cutting.cdf_tracker")
+        val dataServicesDb = contract.prop[String]("schema.data_services.db_name")
+        val cdfTrackerTable = contract.prop[String]("schema.data_services.cdf_tracker_table")
 
         val refinedSquareDb = contract.prop[String]("schema.refined_square.db_name")
         val orderSummaryTable = contract.prop[String]("schema.refined_square.order_summary_table")
 
         val orderSummaryCdf = ChangeDataFeedViews.orderSummary(
-            s"$crossCuttingDb.$cdfTrackerTable",
+            s"$dataServicesDb.$cdfTrackerTable",
             Seq(s"$refinedSquareDb.$orderSummaryTable"))
 
         val orderSummaryChangeDataResult = orderSummaryCdf.queryChangeData(CdfConsumerId)
