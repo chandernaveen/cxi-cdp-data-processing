@@ -72,4 +72,16 @@ scalastyleFailOnError := true
 compileScalastyle := scalastyle.in(Compile).toTask("").value
 (compile in Compile) := ((compile in Compile) dependsOn compileScalastyle).value
 
+// TODO: update thresholds after project cleanup ticket DP-1310
+jacocoReportSettings := JacocoReportSettings()
+    .withThresholds(
+        JacocoThresholds(
+            instruction = 8.00,
+            method = 3.75,
+            branch = 1.48,
+            complexity = 2.71,
+            line = 12.40,
+            clazz = 11.68)
+    )
+
 (Test / test) := ((Test / test) dependsOn assembly).value

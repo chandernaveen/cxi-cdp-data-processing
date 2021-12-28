@@ -70,10 +70,10 @@ stages:
          enabled: true
 
        - task: Bash@3
-         displayName: sbt test
+         displayName: Execute tests
          inputs:
            targetType: 'inline'
-           script: 'sbt test'
+           script: 'sbt jacoco'
        - task: PublishBuildArtifacts@1
          displayName: publish artifacts
          inputs:
