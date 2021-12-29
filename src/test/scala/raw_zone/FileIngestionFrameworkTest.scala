@@ -2,7 +2,6 @@ package com.cxi.cdp.data_processing
 package raw_zone
 
 import java.time.LocalDate
-
 import org.scalatest.{FunSuite, Matchers}
 
 class FileIngestionFrameworkTest extends FunSuite with Matchers {
@@ -10,12 +9,12 @@ class FileIngestionFrameworkTest extends FunSuite with Matchers {
     import FileIngestionFramework.CliArgs
 
     test("CliArgs parses valid args") {
-        val args = Seq("/path/to/contract.json", "2021-10-15")
-        CliArgs.parse(args) shouldBe CliArgs("/path/to/contract.json", LocalDate.of(2021, 10, 15))
+        val args = Seq("/path/to/contract.json", "2021-10-15", "yyyy-MM-dd")
+        CliArgs.parse(args) shouldBe CliArgs("/path/to/contract.json", LocalDate.of(2021, 10, 15), "yyyy-MM-dd")
     }
 
     test("CliArgs parses incorrect number of args") {
-        val args = Seq("first", "second", "third")
+        val args = Seq("first", "second", "third", "forth")
         assertThrows[IllegalArgumentException](CliArgs.parse(args))
     }
 

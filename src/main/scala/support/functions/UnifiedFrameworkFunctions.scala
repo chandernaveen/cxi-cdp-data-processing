@@ -1,8 +1,6 @@
 package com.cxi.cdp.data_processing
 package support.functions
 
-import com.cxi.cdp.data_processing.support.SparkSessionFactory
-import com.databricks.service.DBUtils
 import io.delta.tables.DeltaTable
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
@@ -135,16 +133,6 @@ object UnifiedFrameworkFunctions {
 
     }
 
-
-    // COMMAND ----------
-
-    /**
-     * Generic
-     *
-     * @function-desc - Writes into Audit Table (Default Log)
-     */
-
-
     def fn_writeAuditTable(spark: SparkSession, logTable: String = "testing.application_audit_logs", processName: String, entity: String, runID: Int,
                            dpYear: String, dpMonth: String, dpDay: String, dpHour: String, dpPartition: String = null, recordName: String = null,
                            processStartTime: String = null, processEndTime: String = null, writeStatus: String = null, errorMessage: String = "NA",
@@ -194,70 +182,6 @@ object UnifiedFrameworkFunctions {
         }
     }
 
-    // COMMAND ----------
-
-    /**
-     * Generic
-     *
-     * @function-desc - This Function is to obfuscate (hash/salt)
-     */
-    def sha256Hash(id: String, salt: String): String = {
-        // Hash + Salt Configuration
-        var hashValue: String = null
-        try {
-
-            val hashValue = String.format("%064x", new java.math.BigInteger(1, java.security.MessageDigest.getInstance("SHA-256").digest((id + salt).getBytes("UTF-8"))))
-            return hashValue
-
-        }
-        catch {
-            case e: Throwable =>
-                // logger.error("Function 'sha256Hash' failed with error:" + e.toString())
-                println("Function 'sha256Hash' failed with error:" + e.toString())
-                null
-        }
-    }
-
-    // COMMAND ----------
-
-    /**
-     * Generic
-     *
-     * @function-desc - This Function is to obfuscate (hash/salt)
-     */
-
-    def getWorkspaceProperties(workspaceDetailsPath: String = "dbfs:/databricks/config/workspace_details.json"): Map[String, String] = {
-        DBUtils.fs.head(workspaceDetailsPath)
-            .replaceAll("^\\{|\\}$", "")
-            .split(",")
-            .map(e => e.split(":"))
-            .map(arr => (arr(0).trim.replaceAll("^\"|\"$", "").trim, arr(1).trim.replaceAll("^\"|\"$", "").trim))
-            .toMap
-    }
-
-    // COMMAND ----------
-
-    /**
-     * Generic
-     *
-     * @function-desc - This Function is to obfuscate (hash/salt)
-     */
-
-    def getKvScopeForCurrentEnv(): String = {
-        val wsProps = getWorkspaceProperties()
-        val env = wsProps("envType")
-        val region = wsProps("region")
-        s"$env-$region-keyvault-scope"
-    }
-
-    // COMMAND ----------
-
-    /**
-     * Generic
-     *
-     * @function-desc - This function identifies unique value for given Data Frame using the provided control columns and adds them to a where condition.
-     */
-
     def replaceWhereForSingleColumnWriteOption(df: DataFrame, params: Map[String, String]): Map[String, String] = {
         val controlCol = params("controlCol")
 
@@ -273,10 +197,7 @@ object UnifiedFrameworkFunctions {
         Map[String, String]("replaceWhere" -> replaceWhereCondition)
     }
 
-    val writeOptionsFunctionsMap = Map[String, (DataFrame, Map[String, String]) => Map[String, String]](
-        "replaceWhereForSingleColumn" -> replaceWhereForSingleColumnWriteOption
-    )
-    // COMMAND ----------
+    val writeOptionsFunctionsMap: Map[String, (DataFrame, Map[String, String]) => Map[String, String]] = Map("replaceWhereForSingleColumn" -> replaceWhereForSingleColumnWriteOption)
 
     /**
      * Generic
