@@ -396,7 +396,8 @@ object OrderDiscountsProcessor {
             s"""
                |MERGE INTO $destTable
                |USING $srcTable
-               |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.location_id = $srcTable.location_id AND $destTable.discount_id = $srcTable.discount_id
+               |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.location_id = $srcTable.location_id
+               |  AND $destTable.discount_id = $srcTable.discount_id
                |WHEN MATCHED
                |  THEN UPDATE SET *
                |WHEN NOT MATCHED
@@ -429,7 +430,8 @@ object OrderTenderTypesProcessor {
         spark.sql(
             s"""
                |SELECT
-               |explode(from_json(get_json_object(record_value, "$$.detailLines"), 'array<struct<aggQty:INT, aggTtl:DECIMAL, discount:STRING, dspQty:INT, dspTtl:DECIMAL, lineNum:STRING, menuItem:STRING, tenderMedia:STRING, rsnCodeNum:STRING, svcRndNum:STRING >>')) as details,
+               |explode(from_json(get_json_object(record_value, "$$.detailLines"), 'array<struct<aggQty:INT, aggTtl:DECIMAL, discount:STRING, dspQty:INT,
+               |dspTtl:DECIMAL, lineNum:STRING, menuItem:STRING, tenderMedia:STRING, rsnCodeNum:STRING, svcRndNum:STRING >>')) as details,
                |from_json(details.tenderMedia, 'struct<tmedNum:STRING>').tmedNum as tender_id,
                |loc_ref as location_id,
                |from_json(details.tenderMedia, 'struct<name:STRING>').name as tender_nm
@@ -509,7 +511,8 @@ object OrderServiceChargesProcessor {
             s"""
                |MERGE INTO $destTable
                |USING $srcTable
-               |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.location_id = $srcTable.location_id AND $destTable.srvc_charge_id = $srcTable.srvc_charge_id
+               |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.location_id = $srcTable.location_id
+               |  AND $destTable.srvc_charge_id = $srcTable.srvc_charge_id
                |WHEN MATCHED
                |  THEN UPDATE SET *
                |WHEN NOT MATCHED
@@ -548,7 +551,8 @@ object OrderSummaryProcessor {
                |get_json_object(record_value, "$$.opnUTC") as ord_timestamp,
                |loc_ref as location_id,
                |get_json_object(record_value, "$$.clsdFlag") as ord_state,
-               |explode(from_json(get_json_object(record_value, "$$.detailLines"), 'array<struct<aggQty:INT, aggTtl:DECIMAL, discount:STRING, dspQty:INT, dspTtl:DECIMAL, lineNum:STRING, menuItem:STRING, tenderMedia:STRING, rsnCodeNum:STRING, svcRndNum:STRING >>')) as details,
+               |explode(from_json(get_json_object(record_value, "$$.detailLines"), 'array<struct<aggQty:INT, aggTtl:DECIMAL, discount:STRING, dspQty:INT,
+               |dspTtl:DECIMAL, lineNum:STRING, menuItem:STRING, tenderMedia:STRING, rsnCodeNum:STRING, svcRndNum:STRING >>')) as details,
                |details.aggQty as item_quantity,
                |details.aggTtl as item_total,
                |get_json_object(record_value, "$$.empNum") as emp_id,
@@ -600,7 +604,8 @@ object OrderSummaryProcessor {
             s"""
                |MERGE INTO $destTable
                |USING $srcTable
-               |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.location_id = $srcTable.location_id AND $destTable.ord_id = $srcTable.ord_id AND $destTable.ord_date = $srcTable.ord_date
+               |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.location_id = $srcTable.location_id AND $destTable.ord_id = $srcTable.ord_id
+               |  AND $destTable.ord_date = $srcTable.ord_date
                |WHEN MATCHED
                |  THEN UPDATE SET *
                |WHEN NOT MATCHED

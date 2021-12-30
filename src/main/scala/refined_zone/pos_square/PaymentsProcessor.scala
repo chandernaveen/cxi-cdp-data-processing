@@ -60,7 +60,8 @@ object PaymentsProcessor {
             s"""
                |MERGE INTO $destTable
                |USING $srcTable
-               |ON $destTable.cxi_partner_id <=> "$cxiPartnerId" AND $destTable.location_id <=> $srcTable.location_id AND $destTable.order_id <=> $srcTable.order_id AND $destTable.payment_id <=> $srcTable.payment_id
+               |ON $destTable.cxi_partner_id <=> "$cxiPartnerId" AND $destTable.location_id <=> $srcTable.location_id
+               |  AND $destTable.order_id <=> $srcTable.order_id AND $destTable.payment_id <=> $srcTable.payment_id
                |WHEN MATCHED
                |  THEN UPDATE SET *
                |WHEN NOT MATCHED

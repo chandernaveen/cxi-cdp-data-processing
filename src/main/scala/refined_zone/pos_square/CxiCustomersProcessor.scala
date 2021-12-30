@@ -84,7 +84,8 @@ object CxiCustomersProcessor {
             .withColumn("tender_type", col("tender.type"))
             .withColumn("ord_payment_id", col("tender.id"))
             .withColumn("ord_customer_id_2", col("tender.customer_id"))
-            .withColumn("ord_customer_id", when(col("ord_customer_id_1").isNull or col("ord_customer_id_1") === "", col("ord_customer_id_2")).otherwise(col("ord_customer_id_1")))
+            .withColumn("ord_customer_id", when(col("ord_customer_id_1").isNull or col("ord_customer_id_1") === "",
+                col("ord_customer_id_2")).otherwise(col("ord_customer_id_1")))
             .drop("tender_array", "tender", "cxi_customer_id_array", "cxi_customer_id_1", "cxi_customer_id_2")
     }
 
@@ -98,7 +99,8 @@ object CxiCustomersProcessor {
                |get_json_object(record_value, "$$.state") as ord_state,
                |get_json_object(record_value, "$$.fulfillments") as fulfillments
                |FROM $dbName.$table
-               |WHERE record_type = "orders" AND get_json_object(record_value, "$$.state") = "COMPLETED" AND feed_date="$date" AND get_json_object(record_value, "$$.fulfillments") IS NOT NULL
+               |WHERE record_type = "orders" AND get_json_object(record_value, "$$.state") = "COMPLETED" AND feed_date="$date"
+               |  AND get_json_object(record_value, "$$.fulfillments") IS NOT NULL
                |""".stripMargin)
     }
 

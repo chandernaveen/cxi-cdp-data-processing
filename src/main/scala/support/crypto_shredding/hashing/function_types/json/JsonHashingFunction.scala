@@ -26,8 +26,10 @@ class JsonHashingFunction(val hashFunctionConfig: Map[String, Any], val salt: St
                 nullable = true)
 
         val hashedOriginalDf = originalDf
-            .mapPartitions(hashPartition)(RowEncoder.apply(StructType(Array(StructField("json_row", StringType, nullable = false))))) // hash and record pii data, serializes row data to one json string column
-            .withColumn("json_row", from_json(col("json_row"), originalSchemaPlusColumnForHashedData)) // deserialize json back according to existing schema + new hashed_data field
+            // hash and record pii data, serializes row data to one json string column
+            .mapPartitions(hashPartition)(RowEncoder.apply(StructType(Array(StructField("json_row", StringType, nullable = false)))))
+            // deserialize json back according to existing schema + new hashed_data field
+            .withColumn("json_row", from_json(col("json_row"), originalSchemaPlusColumnForHashedData))
             .select("json_row.*")
 
         val extractedPersonalInformationLookupDf = hashedOriginalDf

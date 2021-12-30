@@ -9,7 +9,8 @@ import org.apache.spark.sql.SparkSession
 /***
  * https://docs.microsoft.com/en-us/azure/databricks/data/data-sources/azure/azure-storage#access-azure-blob-storage-using-the-dataframe-api
  */
-// TODO: Consider switching table location from Blob Storage to ADLS Gen2: https://docs.microsoft.com/en-us/azure/databricks/data/data-sources/azure/adls-gen2/azure-datalake-gen2-sas-access
+// TODO: Consider switching table location from Blob Storage
+//  to ADLS Gen2: https://docs.microsoft.com/en-us/azure/databricks/data/data-sources/azure/adls-gen2/azure-datalake-gen2-sas-access
 class PrivacyFunctions(spark: SparkSession, workspaceConfig: WorkspaceConfig) {
     private val storageAccount = workspaceConfig.privacyStorageAccount
     private val containerName = workspaceConfig.privacyContainerName

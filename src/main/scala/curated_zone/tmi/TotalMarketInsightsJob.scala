@@ -121,6 +121,7 @@ object TotalMarketInsightsJob {
             )
     }
 
+    // scalastyle:off magic.number
     def getLocationType(locationTypeCode: Int): String = {
         locationTypeCode match {
             case 1 => "Restaurant"

@@ -63,11 +63,14 @@ object LocationsProcessor {
                |""".stripMargin)
     }
 
+    // scalastyle:off magic.number
     def transformLocations(locations: DataFrame, postalCodes: DataFrame, cxiPartnerId: String): DataFrame = {
         locations
             .withColumn("cxi_partner_id", lit(cxiPartnerId))
             .withColumn("active_flg", when(col("active_flg") === "ACTIVE", 1).otherwise(0))
-            .withColumn("location_type", when(upper(col("location_type")) === "PHYSICAL", 1).otherwise(when(upper(col("location_type")) === "MOBILE", 6).otherwise(0)))
+            .withColumn("location_type", when(upper(col("location_type")) === "PHYSICAL", 1)
+                .otherwise(when(upper(col("location_type")) === "MOBILE", 6)
+                .otherwise(0)))
             .withColumn("address_2", lit(null))
             .withColumn("fax", lit(null))
             .withColumn("parent_location_id", lit(null))
