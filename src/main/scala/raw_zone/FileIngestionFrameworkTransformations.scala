@@ -53,7 +53,8 @@ object FileIngestionFrameworkTransformations {
     }
 
     def transformQuBeyond(df: DataFrame): DataFrame = {
-        val quBeyondCommonColumns: List[String] = List("req_customer_id", "req_location_id", "req_data_type", "req_sub_data_type", "data_delta", "req_start_date", "req_end_date")
+        val quBeyondCommonColumns: List[String] =
+            List("req_customer_id", "req_location_id", "req_data_type", "req_sub_data_type", "data_delta", "req_start_date", "req_end_date")
 
         val dfData = df.select((List("data.*") ++ CxiCommonColumns ++ quBeyondCommonColumns).map(col).toArray: _*)
 

@@ -68,20 +68,19 @@ assembly / assemblyOption ~= {
 lazy val compileScalastyle = taskKey[Unit]("compileScalastyle")
 
 scalastyleFailOnError := true
-//scalastyleFailOnWarning := true TODO: uncomment after fixing styling issues
+scalastyleFailOnWarning := true
 compileScalastyle := scalastyle.in(Compile).toTask("").value
 (compile in Compile) := ((compile in Compile) dependsOn compileScalastyle).value
 
-// TODO: update thresholds after project cleanup ticket DP-1310
 jacocoReportSettings := JacocoReportSettings()
     .withThresholds(
         JacocoThresholds(
-            instruction = 8.00,
-            method = 3.75,
-            branch = 1.48,
-            complexity = 2.71,
-            line = 12.40,
-            clazz = 11.68)
+            instruction = 8.85,
+            method = 3.93,
+            branch = 1.76,
+            complexity = 2.85,
+            line = 14.53,
+            clazz = 12.91)
     )
 
 (Test / test) := ((Test / test) dependsOn assembly).value

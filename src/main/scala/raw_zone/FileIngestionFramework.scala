@@ -10,6 +10,7 @@ import support.functions.UnifiedFrameworkFunctions._
 import support.packages.utils.ContractUtils
 
 import com.cxi.cdp.data_processing.support.exceptions.CryptoShreddingException
+import com.cxi.cdp.data_processing.support.functions.LogContext
 import com.databricks.service.DBUtils
 import io.delta.tables.DeltaTable
 import org.apache.log4j.Logger
@@ -52,7 +53,8 @@ object FileIngestionFramework {
         val configOptions: Map[String, Any] = np.propOrElse[Map[String, Any]](jobConfigPropName("spark.configOptions"), Map[String, Any]())
         val writeOptions: Map[String, String] = np.propOrElse[Map[String, String]](jobConfigPropName("write.writeOptions"), Map[String, String]())
         val writeOptionsFunctionName: String = np.propOrElse[String](jobConfigPropName("write.writeOptionsFunction"), "")
-        val writeOptionsFunctionParams: Map[String, String] = np.propOrElse[Map[String, String]](jobConfigPropName("write.writeOptionsFunctionParams"), Map[String, String]())
+        val writeOptionsFunctionParams: Map[String, String] =
+            np.propOrElse[Map[String, String]](jobConfigPropName("write.writeOptionsFunctionParams"), Map[String, String]())
 
         val spark: SparkSession = getSparkSession()
         val runID: Int = 1
@@ -63,7 +65,8 @@ object FileIngestionFramework {
 
         val notebookStartTime = java.time.LocalDateTime.now.toString
 
-        val schema: Option[StructType] = if (schemaPath.nonEmpty) Some(DataType.fromJson(DBUtils.fs.head(s"/mnt/$schemaPath")).asInstanceOf[StructType]) else None
+        val schema: Option[StructType] =
+            if (schemaPath.nonEmpty) Some(DataType.fromJson(DBUtils.fs.head(s"/mnt/$schemaPath")).asInstanceOf[StructType]) else None
 
         applySparkConfigOptions(spark, configOptions)
 
@@ -82,9 +85,21 @@ object FileIngestionFramework {
         catch {
             case e: Throwable =>
                 // If run failed write Audit log table to indicate data processing failure
-                fn_writeAuditTable(logTable = logTable, processName = processName, entity = sourceEntity, runID = runID, writeStatus = "0", logger = logger,
-                    dpYear = dpYear, dpMonth = dpMonth, dpDay = dpDay, dpHour = dpHour,
-                    processStartTime = notebookStartTime, processEndTime = java.time.LocalDateTime.now.toString, errorMessage = e.toString, spark = spark)
+                val logContext = new LogContext(
+                    logTable = logTable,
+                    processName = processName,
+                    entity = sourceEntity,
+                    runID = runID,
+                    dpYearStr = dpYear,
+                    dpMonthStr = dpMonth,
+                    dpDayStr = dpDay,
+                    dpHourStr = dpHour,
+                    processStartTime = notebookStartTime,
+                    processEndTime = java.time.LocalDateTime.now.toString,
+                    writeStatus = "0",
+                    errorMessage = e.toString)
+
+                fnWriteAuditTable(logContext, logger = logger, spark = spark)
                 logger.error(s"Failed to new files from $sourcePath. Due to error: ${e.toString}")
                 throw e
         }
@@ -131,21 +146,56 @@ object FileIngestionFramework {
         catch {
             case cryptoShreddingEx: CryptoShreddingException =>
                 logger.error(s"Failed to apply crypto shredding ${cryptoShreddingEx.getMessage}", cryptoShreddingEx)
-                fn_writeAuditTable(logTable = logTable, processName = processName, entity = sourceEntity, runID = runID, writeStatus = "0", logger = logger, dpYear = dpYear, dpMonth = dpMonth, dpDay = dpDay, dpHour = dpHour, processStartTime = notebookStartTime, processEndTime = java.time.LocalDateTime.now.toString, errorMessage = cryptoShreddingEx.toString, spark = spark)
+                val logContext = new LogContext(
+                    logTable = logTable,
+                    processName = processName,
+                    entity = sourceEntity,
+                    runID = runID,
+                    dpYearStr = dpYear,
+                    dpMonthStr = dpMonth,
+                    dpDayStr = dpDay,
+                    dpHourStr = dpHour,
+                    processStartTime = notebookStartTime,
+                    processEndTime = java.time.LocalDateTime.now.toString,
+                    writeStatus = "0",
+                    errorMessage = cryptoShreddingEx.toString)
+                fnWriteAuditTable(logContext = logContext, logger = logger,  spark = spark)
                 throw cryptoShreddingEx
             case e: Throwable =>
                 // If run failed write Audit log table to indicate data processing failure
-                fn_writeAuditTable(logTable = logTable, processName = processName, entity = sourceEntity, runID = runID, writeStatus = "0", logger = logger,
-                    dpYear = dpYear, dpMonth = dpMonth, dpDay = dpDay, dpHour = dpHour,
-                    processStartTime = notebookStartTime, processEndTime = java.time.LocalDateTime.now.toString, errorMessage = e.toString, spark = spark)
+                val logContext = new LogContext(
+                    logTable = logTable,
+                    processName = processName,
+                    entity = sourceEntity,
+                    runID = runID,
+                    dpYearStr = dpYear,
+                    dpMonthStr = dpMonth,
+                    dpDayStr = dpDay,
+                    dpHourStr = dpHour,
+                    processStartTime = notebookStartTime,
+                    processEndTime = java.time.LocalDateTime.now.toString,
+                    writeStatus = "0",
+                    errorMessage = e.toString)
+                fnWriteAuditTable(logContext = logContext, logger = logger, spark = spark)
                 logger.error(s"Failed to write to delta location $targetPath. Due to error: ${e.toString}")
                 throw e
         }
 
         val files = filesProcessed.size
-        fn_writeAuditTable(logTable = logTable, processName = processName, entity = sourceEntity, runID = runID, writeStatus = "1", logger = logger,
-            dpYear = dpYear, dpMonth = dpMonth, dpDay = dpDay, dpHour = dpHour,
-            processStartTime = notebookStartTime, processEndTime = java.time.LocalDateTime.now.toString, errorMessage = "", spark = spark)
+        val logContext = new LogContext(
+            logTable = logTable,
+            processName = processName,
+            entity = sourceEntity,
+            runID = runID,
+            dpYearStr = dpYear,
+            dpMonthStr = dpMonth,
+            dpDayStr = dpDay,
+            dpHourStr = dpHour,
+            processStartTime = notebookStartTime,
+            processEndTime = java.time.LocalDateTime.now.toString,
+            writeStatus = "1",
+            errorMessage = "")
+        fnWriteAuditTable(logContext = logContext, logger = logger, spark = spark)
         logger.info(s"""Files processed: $files""")
     }
 
@@ -183,7 +233,7 @@ object FileIngestionFramework {
         val logLevel = Try(DBUtils.widgets.get("logLevel")).getOrElse("INFO")
         val logAppender = Try(DBUtils.widgets.get("logAppender")).getOrElse("RawFile")
         val isRootLogEnabled = Try(DBUtils.widgets.get("isRootLogEnabled")).getOrElse("False")
-        fn_initializeLogger(loggerName, logSystem, logLevel, logAppender, isRootLogEnabled)
+        fnInitializeLogger(loggerName, logSystem, logLevel, logAppender, isRootLogEnabled)
     }
 
     private final val PathDelimiter = "/"
