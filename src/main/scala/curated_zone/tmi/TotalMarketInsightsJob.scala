@@ -18,6 +18,8 @@ object TotalMarketInsightsJob {
 
     final val CdfConsumerId = "total_market_insights_job"
 
+    final val CompletedOrderState = "COMPLETED"
+
     def main(args: Array[String]): Unit = {
         logger.info(s"""Received following args: ${args.mkString(",")}""")
 
@@ -106,8 +108,9 @@ object TotalMarketInsightsJob {
 
         val getLocationTypeUdf = udf(getLocationType _)
 
-        orderSummaryDF.join(locationDF, usingColumn = "location_id")
-            .filter($"ord_date".isInCollection(orderDates))
+        orderSummaryDF
+            .filter($"ord_state" === CompletedOrderState && $"ord_date".isInCollection(orderDates))
+            .join(locationDF, usingColumn = "location_id")
             .select(
                 orderSummaryDF("cxi_partner_id"),
                 getLocationTypeUdf(locationDF("location_type")).as("location_type"),
