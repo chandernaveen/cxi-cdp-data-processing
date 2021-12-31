@@ -52,7 +52,7 @@ object FileIngestionFramework {
         val saveModeFromContract: String = np.propOrElse[String](jobConfigPropName("write.saveMode"), "append")
         val configOptions: Map[String, Any] = np.propOrElse[Map[String, Any]](jobConfigPropName("spark.configOptions"), Map[String, Any]())
         val writeOptions: Map[String, String] = np.propOrElse[Map[String, String]](jobConfigPropName("write.writeOptions"), Map[String, String]())
-        val writeOptionsFunctionName: String = np.propOrElse[String](jobConfigPropName("write.writeOptionsFunction"), "")
+        val writeOptionsFunctionName: Option[String] = np.propOrNone(jobConfigPropName("write.writeOptionsFunction"))
         val writeOptionsFunctionParams: Map[String, String] =
             np.propOrElse[Map[String, String]](jobConfigPropName("write.writeOptionsFunctionParams"), Map[String, String]())
 
@@ -106,9 +106,10 @@ object FileIngestionFramework {
 
         try {
             val pathFileName = udf((fileName: String, pathParts: Int) => fileName.split("/").takeRight(pathParts).mkString("/"))
+            val feedDate = cliArgs.date.toString
 
             val finalDF = landingDF
-                .withColumn("feed_date", lit(cliArgs.date.toString))
+                .withColumn("feed_date", lit(feedDate))
                 .withColumn("file_name", pathFileName(input_file_name, lit(pathParts)))
                 .withColumn("cxi_id", expr("uuid()"))
 
@@ -134,12 +135,17 @@ object FileIngestionFramework {
                 transformedDf
             }
 
+            val allWriteOptionsFunctions: Map[String, WriteOptionsFunction] =
+                writeOptionsFunctionsMap + ("replaceWhereForFeedDate" -> replaceWhereForFeedDate(feedDate))
+            val finalWriteOptions = getWriteOptions(allWriteOptionsFunctions)(
+                transformedDf, writeOptionsFunctionName, writeOptionsFunctionParams, writeOptions)
+
             finalDf
                 .write
                 .format("delta")
                 .partitionBy(targetPartitionColumns: _*)
                 .mode(saveMode)
-                .options(getWriteOptions(transformedDf, writeOptionsFunctionName, writeOptionsFunctionParams, writeOptions))
+                .options(finalWriteOptions)
                 .save(targetPath)
 
         }
@@ -219,11 +225,26 @@ object FileIngestionFramework {
         }
     }
 
-    def getWriteOptions(df: DataFrame, functionName: String, functionParams: Map[String, String], options: Map[String, String]): Map[String, String] = {
-        if (functionName.isEmpty) {
-            options
-        } else {
-            writeOptionsFunctionsMap(functionName)(df, functionParams)
+    /** Creates WriteOptionsFunction to only overwrite records with the provided feedDate.
+      *
+      * Without this ingesting data for a specific feedDate will overwrite data for previously imported feedDates.
+      * Should be used together with SaveMode.Overwrite.
+      *
+      * Using this function instead of `replaceWhereForSingleColumnWriteOption` helps to avoid a full scan before write.
+      */
+    def replaceWhereForFeedDate(feedDate: String): WriteOptionsFunction = (_, _) => {
+        Map("replaceWhere" -> s"feedDate = '$feedDate'")
+    }
+
+    def getWriteOptions(functionsMap: Map[String, WriteOptionsFunction])(
+        df: DataFrame,
+        maybeFunctionName: Option[String],
+        functionParams: Map[String, String],
+        options: Map[String, String]): Map[String, String] = {
+
+        maybeFunctionName match {
+            case None => options
+            case Some(functionName) => functionsMap(functionName)(df, functionParams)
         }
     }
 
