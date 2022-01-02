@@ -3,6 +3,7 @@ package raw_zone
 
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+
 import raw_zone.FileIngestionFrameworkTransformations.transformationFunctionsMap
 import support.SparkSessionFactory.getSparkSession
 import support.crypto_shredding.CryptoShredding
@@ -21,6 +22,7 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import scala.collection.Seq
 import scala.util.{Failure, Success, Try}
 
+// scalastyle:off
 object FileIngestionFramework {
 
     def main(args: Array[String]): Unit = {
@@ -233,7 +235,7 @@ object FileIngestionFramework {
       * Using this function instead of `replaceWhereForSingleColumnWriteOption` helps to avoid a full scan before write.
       */
     def replaceWhereForFeedDate(feedDate: String): WriteOptionsFunction = (_, _) => {
-        Map("replaceWhere" -> s"feedDate = '$feedDate'")
+        Map("replaceWhere" -> s"feed_date = '$feedDate'")
     }
 
     def getWriteOptions(functionsMap: Map[String, WriteOptionsFunction])(
