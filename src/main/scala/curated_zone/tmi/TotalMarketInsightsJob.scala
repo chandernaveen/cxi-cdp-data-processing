@@ -57,6 +57,7 @@ object TotalMarketInsightsJob {
 
     def process(contract: ContractUtils, orderSummaryChangeData: DataFrame)(implicit spark: SparkSession): Unit = {
         val orderDates = getOrderDatesToProcess(orderSummaryChangeData)
+        logger.info(s"Order dates to process: $orderDates")
 
         val refinedHubDb = contract.prop[String]("schema.refined_hub.db_name")
         val orderSummaryTable = contract.prop[String]("schema.refined_hub.order_summary_table")
@@ -87,18 +88,21 @@ object TotalMarketInsightsJob {
         }
     }
 
-    def getOrderDatesToProcess(orderSummaryChangeData: DataFrame)(implicit spark: SparkSession): Seq[String] = {
+    def getOrderDatesToProcess(orderSummaryChangeData: DataFrame)(implicit spark: SparkSession): Set[String] = {
         import spark.implicits._
 
         orderSummaryChangeData
             .select($"ord_date")
             .distinct
             .collect
-            .map(_.getAs[java.sql.Date]("ord_date").toString)
-            .sorted
+            .map(row => {
+                val maybeOrdDate = Option(row.getAs[java.sql.Date]("ord_date"))
+                maybeOrdDate.map(_.toString).orNull
+            })
+            .toSet
     }
 
-    def readOrderSummary(orderDates: Seq[String],
+    def readOrderSummary(orderDates: Set[String],
                          orderSummaryTable: String,
                          locationTable: String)(implicit spark: SparkSession): DataFrame = {
         import spark.implicits._
@@ -108,8 +112,17 @@ object TotalMarketInsightsJob {
 
         val getLocationTypeUdf = udf(getLocationType _)
 
+        val ordDateMatchCondition = {
+            val (nullDates, notNullOrdDates) = orderDates.partition(_ == null)
+            if (nullDates.isEmpty) {
+                $"ord_date".isInCollection(notNullOrdDates)
+            } else {
+                $"ord_date".isInCollection(notNullOrdDates) || $"ord_date".isNull
+            }
+        }
+
         orderSummaryDF
-            .filter($"ord_state" === CompletedOrderState && $"ord_date".isInCollection(orderDates))
+            .filter($"ord_state" === CompletedOrderState && ordDateMatchCondition)
             .join(locationDF, usingColumn = "location_id")
             .select(
                 orderSummaryDF("cxi_partner_id"),
