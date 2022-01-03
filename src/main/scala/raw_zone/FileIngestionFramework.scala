@@ -22,7 +22,6 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import scala.collection.Seq
 import scala.util.{Failure, Success, Try}
 
-// scalastyle:off
 object FileIngestionFramework {
 
     def main(args: Array[String]): Unit = {
