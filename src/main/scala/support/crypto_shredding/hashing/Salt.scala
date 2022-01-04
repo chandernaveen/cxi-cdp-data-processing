@@ -17,6 +17,6 @@ object Salt {
     }
 
     def getSalt(workspaceConfig: WorkspaceConfig): String = {
-        getSalt(workspaceConfig.azureKeyVaultScopeName, "crypto-salt")
+        getSalt(workspaceConfig.azureKeyVaultScopeName, "cxi-int-cryptoShredding-salt")
     }
 }

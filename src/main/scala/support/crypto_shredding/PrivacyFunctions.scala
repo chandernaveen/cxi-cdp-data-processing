@@ -32,9 +32,9 @@ class PrivacyFunctions(spark: SparkSession, workspaceConfig: WorkspaceConfig) {
         s"fs.azure.sas.$containerName.$storageAccount.blob.core.windows.net"
 
     private def getSparkConfStorageAccountValue: String =
-        DBUtils.secrets.get(workspaceConfig.azureKeyVaultScopeName, "sp-crypto-rw-secret")
+        DBUtils.secrets.get(workspaceConfig.azureKeyVaultScopeName, "cxi-int-cryptoShredding-storageAccountAccessKey")
 
     private def getSparkConfContainerSasValue: String =
-        DBUtils.secrets.get(workspaceConfig.azureKeyVaultScopeName, "sp-crypto-rw-sas-secret")
+        DBUtils.secrets.get(workspaceConfig.azureKeyVaultScopeName, "cxi-int-cryptoShredding-sasContainerQueryString")
 
 }
