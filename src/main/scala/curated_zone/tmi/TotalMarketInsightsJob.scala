@@ -48,17 +48,20 @@ object TotalMarketInsightsJob {
             case None => logger.info("No updates found since the last run")
 
             case Some(changeData) =>
-                process(contract, changeData)
+                val orderDates = getOrderDatesToProcess(changeData)
+                if (orderDates.isEmpty) {
+                    logger.info(s"No order dates to process")
+                } else {
+                    logger.info(s"Order dates to process: $orderDates")
+                    process(contract, orderDates)
+                }
 
                 logger.info(s"Update CDF tracker: ${orderSummaryChangeDataResult.tableMetadataSeq}")
                 orderSummaryCdf.markProcessed(orderSummaryChangeDataResult)
         }
     }
 
-    def process(contract: ContractUtils, orderSummaryChangeData: DataFrame)(implicit spark: SparkSession): Unit = {
-        val orderDates = getOrderDatesToProcess(orderSummaryChangeData)
-        logger.info(s"Order dates to process: $orderDates")
-
+    def process(contract: ContractUtils, orderDates: Set[String])(implicit spark: SparkSession): Unit = {
         val refinedHubDb = contract.prop[String]("schema.refined_hub.db_name")
         val orderSummaryTable = contract.prop[String]("schema.refined_hub.order_summary_table")
         val locationTable = contract.prop[String]("schema.refined_hub.location_table")
@@ -88,17 +91,16 @@ object TotalMarketInsightsJob {
         }
     }
 
-    def getOrderDatesToProcess(orderSummaryChangeData: DataFrame)(implicit spark: SparkSession): Set[String] = {
-        import spark.implicits._
+    def getOrderDatesToProcess(orderSummaryChangeData: DataFrame): Set[String] = {
+        val ordDateColumnName = "ord_date"
+        val ordDateColumn = col(ordDateColumnName)
 
         orderSummaryChangeData
-            .select($"ord_date")
+            .select(ordDateColumn)
+            .filter(ordDateColumn.isNotNull)
             .distinct
             .collect
-            .map(row => {
-                val maybeOrdDate = Option(row.getAs[java.sql.Date]("ord_date"))
-                maybeOrdDate.map(_.toString).orNull
-            })
+            .map(_.getAs[java.sql.Date](ordDateColumnName).toString)
             .toSet
     }
 
@@ -112,17 +114,8 @@ object TotalMarketInsightsJob {
 
         val getLocationTypeUdf = udf(getLocationType _)
 
-        val ordDateMatchCondition = {
-            val (nullDates, notNullOrdDates) = orderDates.partition(_ == null)
-            if (nullDates.isEmpty) {
-                $"ord_date".isInCollection(notNullOrdDates)
-            } else {
-                $"ord_date".isInCollection(notNullOrdDates) || $"ord_date".isNull
-            }
-        }
-
         orderSummaryDF
-            .filter($"ord_state" === CompletedOrderState && ordDateMatchCondition)
+            .filter($"ord_state" === CompletedOrderState && $"ord_date".isInCollection(orderDates))
             .join(locationDF, usingColumn = "location_id")
             .select(
                 orderSummaryDF("cxi_partner_id"),
