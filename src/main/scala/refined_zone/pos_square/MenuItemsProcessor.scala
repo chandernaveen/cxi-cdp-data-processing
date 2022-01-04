@@ -3,29 +3,23 @@ package refined_zone.pos_square
 
 import raw_zone.pos_square.model.Variation
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
-import support.packages.utils.ContractUtils
+import refined_zone.pos_square.config.ProcessorConfig
 
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DataTypes
 import org.apache.spark.sql.{DataFrame, Encoders, SparkSession}
 
 object MenuItemsProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String): Unit = {
+    def process(spark: SparkSession, config: ProcessorConfig, destDbName: String): Unit = {
 
-        val menuItemTable = contract.prop[String](getSchemaRefinedPath("item_table"))
+        val menuItemTable = config.contract.prop[String](getSchemaRefinedPath("item_table"))
 
-        val menuItems = readMenuItems(spark, date, srcDbName, srcTable)
-        val itemsVariations = readMenuItemsVariations(spark, date, srcDbName, srcTable)
+        val menuItems = readMenuItems(spark, config.date, config.srcDbName, config.srcTable)
+        val itemsVariations = readMenuItemsVariations(spark, config.date, config.srcDbName, config.srcTable)
 
-        val processedMenuItems = transformMenuItems(menuItems, itemsVariations, cxiPartnerId)
+        val processedMenuItems = transformMenuItems(menuItems, itemsVariations, config.cxiPartnerId)
 
-        writeMenuItems(processedMenuItems, cxiPartnerId, s"$destDbName.$menuItemTable")
+        writeMenuItems(processedMenuItems, config.cxiPartnerId, s"$destDbName.$menuItemTable")
     }
 
     def readMenuItems(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {

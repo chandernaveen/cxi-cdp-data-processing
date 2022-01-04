@@ -75,12 +75,12 @@ compileScalastyle := scalastyle.in(Compile).toTask("").value
 jacocoReportSettings := JacocoReportSettings()
     .withThresholds(
         JacocoThresholds(
-            instruction = 8.85,
-            method = 3.93,
-            branch = 1.76,
-            complexity = 2.85,
-            line = 14.53,
-            clazz = 12.91)
+            instruction = 8.28,
+            method = 3.69,
+            branch = 1.52,
+            complexity = 2.60,
+            line = 14.30,
+            clazz = 12.49)
     )
 
 (Test / test) := ((Test / test) dependsOn assembly).value

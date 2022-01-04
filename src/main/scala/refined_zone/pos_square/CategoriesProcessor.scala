@@ -2,27 +2,21 @@ package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
-import support.packages.utils.ContractUtils
+import refined_zone.pos_square.config.ProcessorConfig
 
 import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object CategoriesProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String): Unit = {
+    def process(spark: SparkSession, config: ProcessorConfig, destDbName: String): Unit = {
 
-        val categoryTable = contract.prop[String](getSchemaRefinedPath("category_table"))
+        val categoryTable = config.contract.prop[String](getSchemaRefinedPath("category_table"))
 
-        val categories = readCategories(spark, date, s"$srcDbName.$srcTable")
+        val categories = readCategories(spark, config.date, s"${config.srcDbName}.${config.srcTable}")
 
-        val processedCategories = transformCategories(categories, cxiPartnerId)
+        val processedCategories = transformCategories(categories, config.cxiPartnerId)
 
-        writeCategories(processedCategories, cxiPartnerId, s"$destDbName.$categoryTable")
+        writeCategories(processedCategories, config.cxiPartnerId, s"$destDbName.$categoryTable")
     }
 
     def readCategories(spark: SparkSession, date: String, table: String): DataFrame = {

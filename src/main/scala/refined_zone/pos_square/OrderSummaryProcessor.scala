@@ -5,27 +5,21 @@ import raw_zone.pos_square.model.{Fulfillment, LineItem, Tender}
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
 import support.packages.utils.ContractUtils
 
+import com.cxi.cdp.data_processing.refined_zone.pos_square.config.ProcessorConfig
 import org.apache.spark.sql.functions.{col, explode, from_json, lit}
 import org.apache.spark.sql.types.{DataTypes, DoubleType, StringType}
 import org.apache.spark.sql.{DataFrame, Encoders, SparkSession}
 
 object OrderSummaryProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String,
-                cxiCustomerIdsByOrder: DataFrame): Unit = {
+    def process(spark: SparkSession, config: ProcessorConfig, destDbName: String, cxiCustomerIdsByOrder: DataFrame): Unit = {
 
-        val orderSummaryTable = contract.prop[String](getSchemaRefinedPath("order_summary_table"))
+        val orderSummaryTable = config.contract.prop[String](getSchemaRefinedPath("order_summary_table"))
 
-        val orderSummary = readOrderSummary(spark, date, srcDbName, srcTable)
+        val orderSummary = readOrderSummary(spark, config.date, config.srcDbName, config.srcTable)
 
-        val processedOrderSummary = transformOrderSummary(orderSummary, date, cxiPartnerId, cxiCustomerIdsByOrder)
+        val processedOrderSummary = transformOrderSummary(orderSummary, config.date, config.cxiPartnerId, cxiCustomerIdsByOrder)
 
-        writeOrderSummary(processedOrderSummary, cxiPartnerId, s"$destDbName.$orderSummaryTable")
+        writeOrderSummary(processedOrderSummary, config.cxiPartnerId, s"$destDbName.$orderSummaryTable")
     }
 
     def readOrderSummary(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {

@@ -2,28 +2,22 @@ package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
-import support.packages.utils.ContractUtils
+import refined_zone.pos_square.config.ProcessorConfig
 
 import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object PaymentsProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String): DataFrame = {
+    def process(spark: SparkSession, config: ProcessorConfig, destDbName: String): DataFrame = {
 
-        val paymentTable = contract.prop[String](getSchemaRefinedPath("payment_table"))
+        val paymentTable = config.contract.prop[String](getSchemaRefinedPath("payment_table"))
 
-        val payments = readPayments(spark, date, s"$srcDbName.$srcTable")
+        val payments = readPayments(spark, config.date, s"${config.srcDbName}.${config.srcTable}")
 
-        val processedPayments = transformPayments(payments, cxiPartnerId)
+        val processedPayments = transformPayments(payments, config.cxiPartnerId)
             .cache()
 
-        writePayments(processedPayments, cxiPartnerId, s"$destDbName.$paymentTable")
+        writePayments(processedPayments, config.cxiPartnerId, s"$destDbName.$paymentTable")
         processedPayments
     }
 

@@ -1,31 +1,35 @@
 package com.cxi.cdp.data_processing
 package raw_zone
 
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import raw_zone.FileIngestionFrameworkTransformations.transformationFunctionsMap
+import raw_zone.config.FileIngestionFrameworkConfig
 import support.SparkSessionFactory.getSparkSession
 import support.crypto_shredding.CryptoShredding
+import support.crypto_shredding.config.CryptoShreddingConfig
+import support.exceptions.CryptoShreddingException
+import support.functions.LogContext
 import support.functions.UnifiedFrameworkFunctions._
 import support.packages.utils.ContractUtils
+import support.packages.utils.ContractUtils.jobConfigPropName
 
-import com.cxi.cdp.data_processing.support.exceptions.CryptoShreddingException
-import com.cxi.cdp.data_processing.support.functions.LogContext
 import com.databricks.service.DBUtils
 import io.delta.tables.DeltaTable
 import org.apache.log4j.Logger
 import org.apache.spark.sql.functions.{expr, input_file_name, lit, udf}
-import org.apache.spark.sql.types.{DataType, StructType}
+import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import scala.collection.Seq
 import scala.util.{Failure, Success, Try}
 
 object FileIngestionFramework {
 
+    val basePropName = "jobs.databricks.landing_to_raw_job.job_config"
+
     def main(args: Array[String]): Unit = {
         val logger: Logger = configureLogger()
-
         logger.info("Main class arguments: " + args.mkString(", "))
 
         val cliArgs = CliArgs.parse(args)
@@ -33,51 +37,19 @@ object FileIngestionFramework {
 
         val contractPath = "/mnt/" + cliArgs.contractPath
         val np = new ContractUtils(java.nio.file.Paths.get(contractPath))
-
-        val sourcePath: String = getSourcePath("/mnt/" + np.prop(jobConfigPropName("read.path")), cliArgs.date, cliArgs.sourceDateDirFormatter)
-        val targetPath: String = "/mnt/" + np.prop(jobConfigPropName("write.path"))
-        val targetPartitionColumns: Seq[String] = try {
-            np.prop(jobConfigPropName("write.partitionColumns"))
-        } catch {
-            case _: Throwable => Seq[String]("feed_date")
-        }
-        val processName: String = np.prop(jobConfigPropName("audit.processName"))
-        val sourceEntity: String = np.prop(jobConfigPropName("audit.entity"))
-        val logTable: String = np.prop(jobConfigPropName("audit.logTable"))
-        val pathParts: Int = np.propOrElse[Int](jobConfigPropName("read.pathParts"), 1)
-        val fileFormat: String = np.propOrElse[String](jobConfigPropName("read.fileFormat"), "")
-        val fileFormatOptions: Map[String, String] = np.propOrElse[Map[String, String]](jobConfigPropName("read.fileFormatOptions"), Map[String, String]())
-        val transformationName: String = np.propOrElse[String](jobConfigPropName("transform.transformationName"), "identity")
-        val schemaPath: String = np.propOrElse[String](jobConfigPropName("read.schemaPath"), "")
-        val saveModeFromContract: String = np.propOrElse[String](jobConfigPropName("write.saveMode"), "append")
-        val configOptions: Map[String, Any] = np.propOrElse[Map[String, Any]](jobConfigPropName("spark.configOptions"), Map[String, Any]())
-        val writeOptions: Map[String, String] = np.propOrElse[Map[String, String]](jobConfigPropName("write.writeOptions"), Map[String, String]())
-        val writeOptionsFunctionName: String = np.propOrElse[String](jobConfigPropName("write.writeOptionsFunction"), "")
-        val writeOptionsFunctionParams: Map[String, String] =
-            np.propOrElse[Map[String, String]](jobConfigPropName("write.writeOptionsFunctionParams"), Map[String, String]())
+        val config = FileIngestionFrameworkConfig(cliArgs.date, cliArgs.sourceDateDirFormatter, np, basePropName)
 
         val spark: SparkSession = getSparkSession()
-        val runID: Int = 1
-        val dpYear = cliArgs.date.getYear.toString
-        val dpMonth = cliArgs.date.getMonthValue.toString
-        val dpDay = cliArgs.date.getDayOfMonth.toString
-        val dpHour = 0.toString // data is being processed on a daily basis
-
-        val notebookStartTime = java.time.LocalDateTime.now.toString
-
-        val schema: Option[StructType] =
-            if (schemaPath.nonEmpty) Some(DataType.fromJson(DBUtils.fs.head(s"/mnt/$schemaPath")).asInstanceOf[StructType]) else None
-
-        applySparkConfigOptions(spark, configOptions)
+        applySparkConfigOptions(spark, config.configOptions)
 
         var landingDF: DataFrame = null
         var filesProcessed: Seq[String] = null
         try {
-            val allFiles = getAllFiles(spark.sparkContext.hadoopConfiguration, sourcePath)
-            val processedResult = if (fileFormat.isEmpty) {
-                throw new RuntimeException(s"The fileFormat parameter is empty.")
+            val allFiles = getAllFiles(spark.sparkContext.hadoopConfiguration, config.sourcePath)
+            val processedResult = if (config.fileFormat.isEmpty) {
+                throw new RuntimeException("The fileFormat parameter is empty.")
             } else {
-                processFilesBasedOnFileFormat(sourcePath, allFiles, fileFormat, fileFormatOptions, schema)(spark)
+                processFilesBasedOnFileFormat(config.sourcePath, allFiles, config.fileFormat, config.fileFormatOptions, config.schema)(spark)
             }
             filesProcessed = processedResult._1
             landingDF = processedResult._2
@@ -85,50 +57,44 @@ object FileIngestionFramework {
         catch {
             case e: Throwable =>
                 // If run failed write Audit log table to indicate data processing failure
-                val logContext = new LogContext(
-                    logTable = logTable,
-                    processName = processName,
-                    entity = sourceEntity,
-                    runID = runID,
-                    dpYearStr = dpYear,
-                    dpMonthStr = dpMonth,
-                    dpDayStr = dpDay,
-                    dpHourStr = dpHour,
-                    processStartTime = notebookStartTime,
-                    processEndTime = java.time.LocalDateTime.now.toString,
-                    writeStatus = "0",
-                    errorMessage = e.toString)
+                val logContext = buildLogContext(
+                    config = config, processEndTime = java.time.LocalDateTime.now.toString, writeStatus = "0", errorMessage = e.toString)
 
                 fnWriteAuditTable(logContext, logger = logger, spark = spark)
-                logger.error(s"Failed to new files from $sourcePath. Due to error: ${e.toString}")
+                logger.error(s"Failed to new files from ${config.sourcePath}. Due to error: ${e.toString}")
                 throw e
         }
 
+        processLandingDF(logger, cliArgs, np, config, spark, landingDF)
+
+        val files = filesProcessed.size
+        val logContext = buildLogContext(
+            config = config, processEndTime = java.time.LocalDateTime.now.toString, writeStatus = "1", errorMessage = "")
+        fnWriteAuditTable(logContext = logContext, logger = logger, spark = spark)
+        logger.info(s"""Files processed: $files""")
+    }
+
+    private def processLandingDF
+        (logger: Logger, cliArgs: CliArgs, np: ContractUtils, config: FileIngestionFrameworkConfig, spark: SparkSession, landingDF: DataFrame): Unit = {
         try {
             val pathFileName = udf((fileName: String, pathParts: Int) => fileName.split("/").takeRight(pathParts).mkString("/"))
-
             val finalDF = landingDF
                 .withColumn("feed_date", lit(cliArgs.date.toString))
-                .withColumn("file_name", pathFileName(input_file_name, lit(pathParts)))
+                .withColumn("file_name", pathFileName(input_file_name, lit(config.pathParts)))
                 .withColumn("cxi_id", expr("uuid()"))
 
-            val saveMode = if (DeltaTable.isDeltaTable(spark, targetPath)) saveModeFromContract else "errorifexists"
+            val saveMode = if (DeltaTable.isDeltaTable(spark, config.targetPath)) config.saveModeFromContract else "errorifexists"
 
-            val transformationFunction = transformationFunctionsMap(transformationName)
+            val transformationFunction = transformationFunctionsMap(config.transformationName)
             val transformedDf = transformationFunction(finalDF)
 
-
-            val finalDf = if (np.propIsSet(jobConfigPropName("crypto"))) {
-                val country: String = np.prop[String]("partner.country")
-                val cxiPartnerId: String = np.prop[String]("partner.cxiPartnerId")
-                val lookupDestDbName: String = np.prop[String]("schema.crypto.db_name")
-                val lookupDestTableName: String = np.prop[String]("schema.crypto.lookup_table")
-                val workspaceConfigPath: String = np.prop[String]("databricks_workspace_config")
-
-                val cryptoShredding = new CryptoShredding(spark, country, cxiPartnerId, lookupDestDbName, lookupDestTableName, workspaceConfigPath)
-                val hashFunctionType = np.prop[String](jobConfigPropName("crypto.hash_function_type"))
-                val hashFunctionConfig = np.prop[Map[String, Any]](jobConfigPropName("crypto.hash_function_config"))
-                val cryptoHashedDf = cryptoShredding.applyHashCryptoShredding(hashFunctionType, hashFunctionConfig, transformedDf)
+            val finalDf = if (np.propIsSet(jobConfigPropName(basePropName, "crypto"))) {
+                val cryptoShreddingConf = CryptoShreddingConfig.fromContract(np)
+                val cryptoShredding = new CryptoShredding(spark, cryptoShreddingConf)
+                val hashFunctionType = np.prop[String](jobConfigPropName(basePropName, "crypto.hash_function_type"))
+                val hashFunctionConfig = np.prop[Map[String, Any]](jobConfigPropName(basePropName, "crypto.hash_function_config"))
+                val cryptoHashedDf = cryptoShredding
+                    .applyHashCryptoShredding(hashFunctionType, hashFunctionConfig, transformedDf)
                 cryptoHashedDf
             } else {
                 transformedDf
@@ -137,70 +103,26 @@ object FileIngestionFramework {
             finalDf
                 .write
                 .format("delta")
-                .partitionBy(targetPartitionColumns: _*)
+                .partitionBy(config.targetPartitionColumns: _*)
                 .mode(saveMode)
-                .options(getWriteOptions(transformedDf, writeOptionsFunctionName, writeOptionsFunctionParams, writeOptions))
-                .save(targetPath)
-
+                .options(getWriteOptions(transformedDf, config.writeOptionsFunctionName, config.writeOptionsFunctionParams, config.writeOptions))
+                .save(config.targetPath)
         }
         catch {
             case cryptoShreddingEx: CryptoShreddingException =>
                 logger.error(s"Failed to apply crypto shredding ${cryptoShreddingEx.getMessage}", cryptoShreddingEx)
-                val logContext = new LogContext(
-                    logTable = logTable,
-                    processName = processName,
-                    entity = sourceEntity,
-                    runID = runID,
-                    dpYearStr = dpYear,
-                    dpMonthStr = dpMonth,
-                    dpDayStr = dpDay,
-                    dpHourStr = dpHour,
-                    processStartTime = notebookStartTime,
-                    processEndTime = java.time.LocalDateTime.now.toString,
-                    writeStatus = "0",
-                    errorMessage = cryptoShreddingEx.toString)
-                fnWriteAuditTable(logContext = logContext, logger = logger,  spark = spark)
+                val logContext = buildLogContext(
+                    config = config, processEndTime = java.time.LocalDateTime.now.toString, writeStatus = "0", errorMessage = cryptoShreddingEx.toString)
+                fnWriteAuditTable(logContext = logContext, logger = logger, spark = spark)
                 throw cryptoShreddingEx
             case e: Throwable =>
                 // If run failed write Audit log table to indicate data processing failure
-                val logContext = new LogContext(
-                    logTable = logTable,
-                    processName = processName,
-                    entity = sourceEntity,
-                    runID = runID,
-                    dpYearStr = dpYear,
-                    dpMonthStr = dpMonth,
-                    dpDayStr = dpDay,
-                    dpHourStr = dpHour,
-                    processStartTime = notebookStartTime,
-                    processEndTime = java.time.LocalDateTime.now.toString,
-                    writeStatus = "0",
-                    errorMessage = e.toString)
+                val logContext = buildLogContext(
+                    config = config, processEndTime = java.time.LocalDateTime.now.toString, writeStatus = "0", errorMessage = e.toString)
                 fnWriteAuditTable(logContext = logContext, logger = logger, spark = spark)
-                logger.error(s"Failed to write to delta location $targetPath. Due to error: ${e.toString}")
+                logger.error(s"Failed to write to delta location ${config.targetPath}. Due to error: ${e.toString}")
                 throw e
         }
-
-        val files = filesProcessed.size
-        val logContext = new LogContext(
-            logTable = logTable,
-            processName = processName,
-            entity = sourceEntity,
-            runID = runID,
-            dpYearStr = dpYear,
-            dpMonthStr = dpMonth,
-            dpDayStr = dpDay,
-            dpHourStr = dpHour,
-            processStartTime = notebookStartTime,
-            processEndTime = java.time.LocalDateTime.now.toString,
-            writeStatus = "1",
-            errorMessage = "")
-        fnWriteAuditTable(logContext = logContext, logger = logger, spark = spark)
-        logger.info(s"""Files processed: $files""")
-    }
-
-    private def jobConfigPropName(relativePropName: String): String = {
-        "jobs.databricks.landing_to_raw_job.job_config." + relativePropName
     }
 
     def processFilesBasedOnFileFormat(sourcePath: String,
@@ -227,6 +149,27 @@ object FileIngestionFramework {
         }
     }
 
+    def buildLogContext(
+                           config: FileIngestionFrameworkConfig,
+                           processEndTime: String,
+                           writeStatus: String,
+                           errorMessage: String): LogContext = {
+        LogContext(
+            logTable = config.logTable,
+            processName = config.processName,
+            entity = config.sourceEntity,
+            runID = config.runID,
+            dpYear = config.dpYear,
+            dpMonth = config.dpMonth,
+            dpDay = config.dpDay,
+            dpHour = config.dpHour,
+            processStartTime = config.notebookStartTime,
+            processEndTime = processEndTime,
+            writeStatus = writeStatus,
+            errorMessage = errorMessage
+        )
+    }
+
     private def configureLogger(): Logger = {
         val loggerName = Try(DBUtils.widgets.get("loggerName")).getOrElse("RawLogger")
         val logSystem = Try(DBUtils.widgets.get("logSystem")).getOrElse("App")
@@ -234,21 +177,6 @@ object FileIngestionFramework {
         val logAppender = Try(DBUtils.widgets.get("logAppender")).getOrElse("RawFile")
         val isRootLogEnabled = Try(DBUtils.widgets.get("isRootLogEnabled")).getOrElse("False")
         fnInitializeLogger(loggerName, logSystem, logLevel, logAppender, isRootLogEnabled)
-    }
-
-    private final val PathDelimiter = "/"
-
-    private def concatPaths(parent: String, child: String) = {
-        if (parent.endsWith(PathDelimiter)) {
-            parent + child
-        } else {
-            parent + PathDelimiter + child
-        }
-    }
-
-    /** Creates the final source path from the base path (which comes from a contract) and the processing date. */
-    private def getSourcePath(basePath: String, date: LocalDate, sourceDateDirFormat: DateTimeFormatter): String = {
-        concatPaths(basePath, sourceDateDirFormat.format(date))
     }
 
     case class CliArgs(contractPath: String,
