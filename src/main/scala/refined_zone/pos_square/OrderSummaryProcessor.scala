@@ -83,7 +83,8 @@ object OrderSummaryProcessor {
             .withColumn("total_taxes_amount", col("total_taxes_amount").cast(DoubleType) / 100)
             .withColumn("service_charge_amount", col("service_charge_amount").cast(DoubleType) / 100)
             .withColumn("total_tip_amount", col("total_tip_amount").cast(DoubleType) / 100)
-            .withColumn("ord_sub_total", col("ord_total") - col("total_taxes_amount") - col("total_tip_amount"))
+            .withColumn("ord_sub_total",
+                col("ord_total") - (col("total_taxes_amount") + col("total_tip_amount") + col("service_charge_amount")))
             .withColumn("tender_array", from_json(col("tender_array"), DataTypes.createArrayType(Encoders.product[Tender].schema)))
             .withColumn("tender_ids", col("tender_array.id"))
             .withColumn("feed_date", lit(date))
