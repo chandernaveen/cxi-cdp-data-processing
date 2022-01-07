@@ -102,8 +102,11 @@ object OrderSummaryProcessor {
             s"""
                |MERGE INTO $destTable
                |USING $srcTable
-               |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.location_id = $srcTable.location_id
-               |  AND $destTable.ord_id = $srcTable.ord_id AND $destTable.ord_date = $srcTable.ord_date
+               |ON $destTable.cxi_partner_id <=> "$cxiPartnerId"
+               |  AND $destTable.location_id <=> $srcTable.location_id
+               |  AND $destTable.ord_id <=> $srcTable.ord_id
+               |  AND $destTable.ord_date <=> $srcTable.ord_date
+               |  AND $destTable.item_id <=> $srcTable.item_id
                |WHEN MATCHED
                |  THEN UPDATE SET *
                |WHEN NOT MATCHED
