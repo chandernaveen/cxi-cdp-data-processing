@@ -3,28 +3,22 @@ package refined_zone.pos_square
 
 import raw_zone.pos_square.model.{Fulfillment, LineItem, Tender}
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
-import support.packages.utils.ContractUtils
+
+import com.cxi.cdp.data_processing.refined_zone.pos_square.config.ProcessorConfig
 import org.apache.spark.sql.functions.{col, explode, from_json, lit}
 import org.apache.spark.sql.types.{DataTypes, DoubleType, StringType}
 import org.apache.spark.sql.{DataFrame, Encoders, SparkSession}
 
 object OrderSummaryProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String,
-                cxiCustomerIdsByOrder: DataFrame): Unit = {
+    def process(spark: SparkSession, config: ProcessorConfig, destDbName: String, cxiCustomerIdsByOrder: DataFrame): Unit = {
 
-        val orderSummaryTable = contract.prop[String](getSchemaRefinedPath("order_summary_table"))
+        val orderSummaryTable = config.contract.prop[String](getSchemaRefinedPath("order_summary_table"))
 
-        val orderSummary = readOrderSummary(spark, date, srcDbName, srcTable)
+        val orderSummary = readOrderSummary(spark, config.date, config.srcDbName, config.srcTable)
 
-        val processedOrderSummary = transformOrderSummary(orderSummary, date, cxiPartnerId, cxiCustomerIdsByOrder)
+        val processedOrderSummary = transformOrderSummary(orderSummary, config.date, config.cxiPartnerId, cxiCustomerIdsByOrder)
 
-        writeOrderSummary(processedOrderSummary, cxiPartnerId, s"$destDbName.$orderSummaryTable")
+        writeOrderSummary(processedOrderSummary, config.cxiPartnerId, s"$destDbName.$orderSummaryTable")
     }
 
     def readOrderSummary(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
@@ -41,8 +35,8 @@ object OrderSummaryProcessor {
                |get_json_object(record_value, "$$.fulfillments") as fulfillments,
                |get_json_object(record_value, "$$.discounts.uid") as discount_id,
                |get_json_object(record_value, "$$.line_items") as line_items,
-               |get_json_object(record_value, "$$.total_tax_money.amount") as total_taxes_amount,
                |get_json_object(record_value, "$$.total_service_charge_money.amount") as service_charge_amount,
+               |get_json_object(record_value, "$$.total_tax_money.amount") as total_taxes_amount,
                |get_json_object(record_value, "$$.total_tip_money.amount") as total_tip_amount,
                |get_json_object(record_value, "$$.customer_id") as customer_id,
                |get_json_object(record_value, "$$.tenders") as tender_array
@@ -80,8 +74,8 @@ object OrderSummaryProcessor {
             .withColumn("guest_check_line_item_id", col("line_item.uid"))
             .withColumn("taxes_id", col("line_item.applied_taxes.tax_uid"))
             .withColumn("taxes_amount", col("line_item.total_tax_money.amount").cast(DoubleType) / 100)
-            .withColumn("total_taxes_amount", col("total_taxes_amount").cast(DoubleType) / 100)
             .withColumn("service_charge_amount", col("service_charge_amount").cast(DoubleType) / 100)
+            .withColumn("total_taxes_amount", col("total_taxes_amount").cast(DoubleType) / 100)
             .withColumn("total_tip_amount", col("total_tip_amount").cast(DoubleType) / 100)
             .withColumn("ord_sub_total",
                 col("ord_total") - (col("total_taxes_amount") + col("total_tip_amount") + col("service_charge_amount")))
@@ -93,7 +87,7 @@ object OrderSummaryProcessor {
                 "cxi_partner_id", "location_id", "ord_state", "ord_type", "ord_originate_channel_id",
                 "ord_target_channel_id", "item_quantity", "item_total", "emp_id", "discount_id", "dsp_qty",
                 "dsp_ttl", "guest_check_line_item_id", "line_id", "taxes_id", "taxes_amount", "item_id",
-                "item_price_id", "reason_code_id", "service_charge_id", "total_taxes_amount", "service_charge_amount",
+                "item_price_id", "reason_code_id", "service_charge_id", "service_charge_amount", "total_taxes_amount",
                 "total_tip_amount", "tender_ids", "ord_pay_total", "ord_sub_total", "feed_date")
             .join(cxiCustomerIdsByOrder, orderSummary("ord_id") === cxiCustomerIdsByOrder("ord_id"), "left") // adds cxi_customer_id_array
             .drop(cxiCustomerIdsByOrder("ord_id"))

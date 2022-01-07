@@ -246,3 +246,9 @@ class ContractUtils(jsonPath: String) extends Serializable {
   }
 
 }
+
+object ContractUtils {
+    def jobConfigPropName(basePropName: String, relativePropName: String): String = {
+        s"$basePropName.$relativePropName"
+    }
+}

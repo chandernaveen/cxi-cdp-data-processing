@@ -3,34 +3,28 @@ package refined_zone.pos_square
 
 import raw_zone.pos_square.model.{Fulfillment, Tender}
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.{getSchemaRefinedHubPath, getSchemaRefinedPath}
+import refined_zone.pos_square.config.ProcessorConfig
 import support.crypto_shredding.CryptoShredding
-import support.packages.utils.ContractUtils
+import support.crypto_shredding.config.CryptoShreddingConfig
 
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DataTypes
 import org.apache.spark.sql.{Column, DataFrame, Encoders, SparkSession}
 
 object CxiCustomersProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String,
-                payments: DataFrame): DataFrame = {
+    def process(spark: SparkSession, config: ProcessorConfig, destDbName: String, payments: DataFrame): DataFrame = {
 
-        val refinedDbTable = contract.prop[String](getSchemaRefinedPath("db_name"))
-        val customersDimTable = contract.prop[String](getSchemaRefinedPath("customer_table"))
-        val customersTable = contract.prop[String](getSchemaRefinedHubPath("customer_table"))
+        val refinedDbTable = config.contract.prop[String](getSchemaRefinedPath("db_name"))
+        val customersDimTable = config.contract.prop[String](getSchemaRefinedPath("customer_table"))
+        val customersTable = config.contract.prop[String](getSchemaRefinedHubPath("customer_table"))
 
         val customers = broadcast(readAllCustomersDim(spark, refinedDbTable, customersDimTable))
 
-        val orderCustomersData = readOrderCustomersData(spark, date, srcDbName, srcTable)
-        val transformedOrderCustomersData = transformOrderCustomersData(orderCustomersData, cxiPartnerId)
+        val orderCustomersData = readOrderCustomersData(spark, config.date, config.srcDbName, config.srcTable)
+        val transformedOrderCustomersData = transformOrderCustomersData(orderCustomersData, config.cxiPartnerId)
 
-        val orderCustomersPickupData = readOrderCustomersPickupData(spark, date, srcDbName, srcTable)
-        val transformedOrderCustomersPickupData = transformOrderCustomersPickupData(orderCustomersPickupData, cxiPartnerId)
+        val orderCustomersPickupData = readOrderCustomersPickupData(spark, config.date, config.srcDbName, config.srcTable)
+        val transformedOrderCustomersPickupData = transformOrderCustomersPickupData(orderCustomersPickupData, config.cxiPartnerId)
             .cache()
 
         val fullCustomerData = transformCustomers(transformedOrderCustomersData, customers, payments)
@@ -38,11 +32,11 @@ object CxiCustomersProcessor {
 
         val strongIds = computeWeight3CxiCustomerId(fullCustomerData, transformedOrderCustomersPickupData)
         val hashedCombinations = computeWeight2CxiCustomerId(spark,
-            cxiPartnerId,
-            contract.prop[String]("partner.country"),
-            contract.prop[String]("schema.crypto.db_name"),
-            contract.prop[String]("schema.crypto.lookup_table"),
-            contract.prop[String]("databricks_workspace_config"),
+            config.cxiPartnerId,
+            config.contract.prop[String]("partner.country"),
+            config.contract.prop[String]("schema.crypto.db_name"),
+            config.contract.prop[String]("schema.crypto.lookup_table"),
+            config.contract.prop[String]("databricks_workspace_config"),
             fullCustomerData)
 
         val allCustomerIds = strongIds.unionAll(hashedCombinations)
@@ -201,13 +195,48 @@ object CxiCustomersProcessor {
                                     lookupDestTableName: String,
                                     workspaceConfigPath: String,
                                     fullCustomerData: DataFrame): DataFrame = {
-        val commonCombinationFilters: Column =
-                col("exp_month").isNotNull and
-                col("exp_year").isNotNull and
-                col("card_brand").isNotNull and
-                col("pan").isNotNull
 
-        val nameExpTypePanCombination = fullCustomerData
+        val nameExpTypePanCombination = getNameExpTypePanCombination(fullCustomerData)
+
+        val binExpTypePanCombination = getBinExpTypePanCombination(fullCustomerData)
+
+        // for weight 2 source has already created combination, simply hash it and treat it as weight 3
+        val combinationsIds = nameExpTypePanCombination.unionAll(binExpTypePanCombination)
+            .withColumnRenamed("source_id", "cxi_customer_id")
+            .withColumnRenamed("source_type", "customer_type")
+            .withColumnRenamed("source_weight", "customer_weight")
+
+        // consider combinations ids as PII
+        val cryptoShreddingConfig = CryptoShreddingConfig(
+            country = country,
+            cxiPartnerId = cxiPartnerId,
+            lookupDestDbName = lookupDestDbName,
+            lookupDestTableName = lookupDestTableName,
+            workspaceConfigPath = workspaceConfigPath)
+        val hashedCombinations = new CryptoShredding(spark, cryptoShreddingConfig)
+            .applyHashCryptoShredding("common", Map("dataColName" -> "cxi_customer_id"), combinationsIds)
+        hashedCombinations
+    }
+
+    private def getBinExpTypePanCombination(fullCustomerData: DataFrame) = {
+        fullCustomerData
+            .filter(col("bin").isNotNull and commonCombinationFilters)
+            .select(
+                col("ord_id"),
+                col("ord_timestamp"),
+                col("ord_location_id"),
+                concat(
+                    lower(col("bin")), lit("-"),
+                    lower(col("exp_month")), lit("-"),
+                    lower(col("exp_year")), lit("-"),
+                    lower(col("card_brand")), lit("-"),
+                    lower(col("pan"))).as("source_id"),
+                lit("combination-bin").as("source_type"),
+                lit(2).as("source_weight"))
+    }
+
+    private def getNameExpTypePanCombination(fullCustomerData: DataFrame) = {
+        fullCustomerData
             .filter(commonCombinationFilters)
             .withColumn("name_transformed",
                 when(col("name").isNotNull and (col("name") notEqual "") and !(col("name") contains "CARDHOLDER"),
@@ -233,34 +262,13 @@ object CxiCustomersProcessor {
                 ).as("source_id"))
             .withColumn("source_type", lit("combination-card"))
             .withColumn("source_weight", lit(2))
-
-
-        val binExpTypePanCombination = fullCustomerData
-            .filter(col("bin").isNotNull and commonCombinationFilters)
-            .select(
-                col("ord_id"),
-                col("ord_timestamp"),
-                col("ord_location_id"),
-                concat(
-                    lower(col("bin")), lit("-"),
-                    lower(col("exp_month")), lit("-"),
-                    lower(col("exp_year")), lit("-"),
-                    lower(col("card_brand")), lit("-"),
-                    lower(col("pan"))).as("source_id"),
-                lit("combination-bin").as("source_type"),
-                lit(2).as("source_weight"))
-
-        // for weight 2 source has already created combination, simply hash it and treat it as weight 3
-        val combinationsIds = nameExpTypePanCombination.unionAll(binExpTypePanCombination)
-            .withColumnRenamed("source_id", "cxi_customer_id")
-            .withColumnRenamed("source_type", "customer_type")
-            .withColumnRenamed("source_weight", "customer_weight")
-
-        // consider combinations ids as PII
-        val hashedCombinations = new CryptoShredding(spark, country, cxiPartnerId, lookupDestDbName, lookupDestTableName, workspaceConfigPath)
-            .applyHashCryptoShredding("common", Map("dataColName" -> "cxi_customer_id"), combinationsIds)
-        hashedCombinations
     }
+
+    private def commonCombinationFilters: Column =
+        col("exp_month").isNotNull and
+            col("exp_year").isNotNull and
+            col("card_brand").isNotNull and
+            col("pan").isNotNull
 
     def writeCxiCustomers(df: DataFrame, destTable: String): Unit = {
         val srcTable = "newCustomers"

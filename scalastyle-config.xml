@@ -96,7 +96,7 @@
    <parameter name="doubleLineAllowed"><![CDATA[false]]></parameter>
   </parameters>
  </check>
- <check level="warning" class="org.scalastyle.scalariform.MethodLengthChecker" enabled="false"> <!--TODO: uncomment after fixing styling issues-->
+ <check level="warning" class="org.scalastyle.scalariform.MethodLengthChecker" enabled="true">
   <parameters>
    <parameter name="maxLength"><![CDATA[50]]></parameter>
   </parameters>

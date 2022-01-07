@@ -3,29 +3,24 @@ package refined_zone.pos_square
 
 import com.cxi.cdp.data_processing.support.cleansing.udfs.cleanseZipCode
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.{getSchemaRefinedHubPath, getSchemaRefinedPath}
-import support.packages.utils.ContractUtils
-import org.apache.spark.sql.functions.{broadcast, col, get_json_object, lit, upper, when}
+import refined_zone.pos_square.config.ProcessorConfig
+
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object LocationsProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String): Unit = {
+    def process(spark: SparkSession, config: ProcessorConfig, destDbName: String): Unit = {
 
-        val locationTable = contract.prop[String](getSchemaRefinedPath("location_table"))
-        val postalCodeDb = contract.prop[String](getSchemaRefinedHubPath("db_name"))
-        val postalCodeTable = contract.prop[String](getSchemaRefinedHubPath("postal_code_table"))
+        val locationTable = config.contract.prop[String](getSchemaRefinedPath("location_table"))
+        val postalCodeDb = config.contract.prop[String](getSchemaRefinedHubPath("db_name"))
+        val postalCodeTable = config.contract.prop[String](getSchemaRefinedHubPath("postal_code_table"))
 
-        val locations = readLocations(spark, date, s"$srcDbName.$srcTable")
+        val locations = readLocations(spark, config.date, s"${config.srcDbName}.${config.srcTable}")
         val postalCodes = readPostalCodes(spark,s"$postalCodeDb.$postalCodeTable")
 
-        val processedLocations = transformLocations(locations, broadcast(postalCodes), cxiPartnerId)
+        val processedLocations = transformLocations(locations, broadcast(postalCodes), config.cxiPartnerId)
 
-        writeLocation(processedLocations, cxiPartnerId, s"$destDbName.$locationTable")
+        writeLocation(processedLocations, config.cxiPartnerId, s"$destDbName.$locationTable")
     }
 
     def readLocations(spark: SparkSession, date: String, table: String): DataFrame = {

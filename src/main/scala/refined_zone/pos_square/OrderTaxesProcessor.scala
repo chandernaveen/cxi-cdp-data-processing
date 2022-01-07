@@ -3,28 +3,22 @@ package refined_zone.pos_square
 
 import raw_zone.pos_square.model.Tax
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
-import support.packages.utils.ContractUtils
+import refined_zone.pos_square.config.ProcessorConfig
 
 import org.apache.spark.sql.functions.{col, explode, from_json, lit}
 import org.apache.spark.sql.types.DataTypes
 import org.apache.spark.sql.{DataFrame, Encoders, SparkSession}
 
 object OrderTaxesProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String): Unit = {
+    def process(spark: SparkSession,config: ProcessorConfig, destDbName: String): Unit = {
 
-        val orderTaxTable = contract.prop[String](getSchemaRefinedPath("order_tax_table"))
+        val orderTaxTable = config.contract.prop[String](getSchemaRefinedPath("order_tax_table"))
 
-        val orderTaxes = readOrderTaxes(spark, date, srcDbName, srcTable)
+        val orderTaxes = readOrderTaxes(spark, config.date, config.srcDbName, config.srcTable)
 
-        val processedOrderTaxes = transformOrderTaxes(orderTaxes, cxiPartnerId)
+        val processedOrderTaxes = transformOrderTaxes(orderTaxes, config.cxiPartnerId)
 
-        writeOrderTaxes(processedOrderTaxes, cxiPartnerId, s"$destDbName.$orderTaxTable")
+        writeOrderTaxes(processedOrderTaxes, config.cxiPartnerId, s"$destDbName.$orderTaxTable")
     }
 
     def readOrderTaxes(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {

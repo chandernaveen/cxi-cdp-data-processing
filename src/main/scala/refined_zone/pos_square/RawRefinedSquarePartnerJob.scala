@@ -1,6 +1,7 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
+import refined_zone.pos_square.config.ProcessorConfig
 import support.SparkSessionFactory
 import support.packages.utils.ContractUtils
 
@@ -30,15 +31,17 @@ object RawRefinedSquarePartnerJob {
         val destDbName = contract.prop[String](getSchemaRefinedPath("db_name"))
         val refinedHubDestDbName = contract.prop[String](getSchemaRefinedHubPath("db_name"))
 
-        LocationsProcessor.process(spark, contract, date, cxiPartnerId, srcDbName, srcTable, destDbName)
-        CategoriesProcessor.process(spark, contract, date, cxiPartnerId, srcDbName, srcTable, destDbName)
-        MenuItemsProcessor.process(spark, contract, date, cxiPartnerId, srcDbName, srcTable, destDbName)
-        CustomersProcessor.process(spark, contract, date, cxiPartnerId, srcDbName, srcTable, destDbName)
-        val payments = PaymentsProcessor.process(spark, contract, date, cxiPartnerId, srcDbName, srcTable, destDbName)
-        val cxiCustomerIdsByOrder = CxiCustomersProcessor.process(spark, contract, date, cxiPartnerId, srcDbName, srcTable, refinedHubDestDbName, payments)
-        OrderTaxesProcessor.process(spark, contract, date, cxiPartnerId, srcDbName, srcTable, destDbName)
-        OrderTenderTypesProcessor.process(spark, contract, date, cxiPartnerId, srcDbName, srcTable, destDbName)
-        OrderSummaryProcessor.process(spark, contract, date, cxiPartnerId, srcDbName, srcTable, destDbName, cxiCustomerIdsByOrder)
+        val processorCommonConfig = ProcessorConfig(contract, date, cxiPartnerId, srcDbName, srcTable)
+
+        LocationsProcessor.process(spark, processorCommonConfig, destDbName)
+        CategoriesProcessor.process(spark, processorCommonConfig, destDbName)
+        MenuItemsProcessor.process(spark, processorCommonConfig, destDbName)
+        CustomersProcessor.process(spark, processorCommonConfig, destDbName)
+        val payments = PaymentsProcessor.process(spark, processorCommonConfig, destDbName)
+        val cxiCustomerIdsByOrder = CxiCustomersProcessor.process(spark, processorCommonConfig, refinedHubDestDbName, payments)
+        OrderTaxesProcessor.process(spark, processorCommonConfig, destDbName)
+        OrderTenderTypesProcessor.process(spark, processorCommonConfig, destDbName)
+        OrderSummaryProcessor.process(spark, processorCommonConfig, destDbName, cxiCustomerIdsByOrder)
     }
 
     def getSchemaRawPath(relativePath: String): String = s"schema.raw.$relativePath"

@@ -2,27 +2,21 @@ package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
-import support.packages.utils.ContractUtils
+import refined_zone.pos_square.config.ProcessorConfig
 
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object CustomersProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String): Unit = {
+    def process(spark: SparkSession, config: ProcessorConfig, destDbName: String): Unit = {
 
-        val customersTable = contract.prop[String](getSchemaRefinedPath("customer_table"))
+        val customersTable = config.contract.prop[String](getSchemaRefinedPath("customer_table"))
 
-        val customers = readCustomers(spark, date, s"$srcDbName.$srcTable")
+        val customers = readCustomers(spark, config.date, s"${config.srcDbName}.${config.srcTable}")
 
-        val transformedCustomers = transformCustomers(customers, cxiPartnerId)
+        val transformedCustomers = transformCustomers(customers, config.cxiPartnerId)
 
-        writeCustomers(transformedCustomers, cxiPartnerId, s"$destDbName.$customersTable")
+        writeCustomers(transformedCustomers, config.cxiPartnerId, s"$destDbName.$customersTable")
     }
 
     def readCustomers(spark: SparkSession, date: String, table: String): DataFrame = {

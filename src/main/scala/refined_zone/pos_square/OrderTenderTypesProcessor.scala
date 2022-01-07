@@ -3,28 +3,22 @@ package refined_zone.pos_square
 
 import raw_zone.pos_square.model.Tender
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
-import support.packages.utils.ContractUtils
+import refined_zone.pos_square.config.ProcessorConfig
 
 import org.apache.spark.sql.functions.{col, explode, from_json, lit}
 import org.apache.spark.sql.types.DataTypes
 import org.apache.spark.sql.{DataFrame, Encoders, SparkSession}
 
 object OrderTenderTypesProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String): Unit = {
+    def process(spark: SparkSession, config: ProcessorConfig, destDbName: String): Unit = {
 
-        val orderTenderTypeTable = contract.prop[String](getSchemaRefinedPath("order_tender_type_table"))
+        val orderTenderTypeTable = config.contract.prop[String](getSchemaRefinedPath("order_tender_type_table"))
 
-        val orderTenderTypes = readOrderTenderTypes(spark, date, srcDbName, srcTable)
+        val orderTenderTypes = readOrderTenderTypes(spark, config.date, config.srcDbName, config.srcTable)
 
-        val processedOrderTenderTypes = transformOrderTenderTypes(orderTenderTypes, cxiPartnerId)
+        val processedOrderTenderTypes = transformOrderTenderTypes(orderTenderTypes, config.cxiPartnerId)
 
-        writeOrderTenderTypes(processedOrderTenderTypes, cxiPartnerId, s"$destDbName.$orderTenderTypeTable")
+        writeOrderTenderTypes(processedOrderTenderTypes, config.cxiPartnerId, s"$destDbName.$orderTenderTypeTable")
     }
 
     def readOrderTenderTypes(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
