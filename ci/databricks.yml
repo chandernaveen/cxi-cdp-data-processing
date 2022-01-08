@@ -4,14 +4,26 @@ trigger:
     - develop
 
 variables:
+- group: cxi-cdp-data-processing
 - name: version.MajorMinor
-  value: '1.0' # Manually adjust the version number as needed for semantic versioning. Revision is auto-incremented.
+  value: '1.1' # Manually adjust the version number as needed for semantic versioning. Revision is auto-incremented.
 - name: version.Revision
   value: $[counter(variables['version.MajorMinor'], 0)]
+- name: version.Patсh
+  value: $[counter(variables['build.reason'], 0)]
 - name: versionNumber
-  value: $[format('{0}.{1}', variables['version.MajorMinor'], variables['version.Revision'])]
+  ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
+    value: ${{ variables['version.MajorMinor'] }}
+  ${{ if ne(variables['Build.Reason'], 'PullRequest') }}:
+    value: $[format('{0}.{1}', variables['version.MajorMinor'], variables['version.Patсh'])]
+  #value: $[format('{0}.{1}', variables['version.MajorMinor'], variables['version.Revision'])]
+
 - name: BranchName
   value: $[ replace(variables['System.PullRequest.SourceBranch'], 'refs/heads/', '') ]
+
+#${{ if ne(variables['Build.Reason'], 'PullRequest') }}:
+#name: variables['version.MajorMinor']
+#${{ else }}:
 
 name: $(versionNumber)
 
@@ -75,11 +87,25 @@ stages:
            targetType: 'inline'
            script: 'sbt jacoco'
        - task: PublishBuildArtifacts@1
+         condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
          displayName: publish artifacts
+         enabled: true
          inputs:
-            PathtoPublish: 'target/scala-2.12/cxi_cdp_data_processing_assembly_2_12.jar'
-            ArtifactName: 'cxi_cdp_data_processing_assembly'
-            publishLocation: 'Container'
+           PathtoPublish: 'target/scala-2.12/cxi_cdp_data_processing_assembly_2_12.jar'
+           ArtifactName: 'cxi_cdp_data_processing_assembly'
+           publishLocation: 'Container'
+
+       - task: Bash@3
+         condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
+         displayName: publish pr artifacts
+         inputs:
+           targetType: 'inline'
+           script: |
+             mkdir -p $(Build.SourcesDirectory)/pr/$(BranchName)
+             cp $(Build.SourcesDirectory)/target/scala-2.12/cxi_cdp_data_processing_assembly_2_12.jar $(Build.SourcesDirectory)/pr/$(BranchName) 
+             azcopy copy '$(Build.SourcesDirectory)/pr/' 'https://dls2deveastus2cxi.blob.core.windows.net/azdevops?$(dls2deveastus2cxi)' --recursive
+           workingDirectory: '$(Build.SourcesDirectory)'
+           failOnStderr: true
 
        - task: PublishTestResults@2
          displayName: publish tests result
@@ -98,6 +124,8 @@ stages:
       steps:
        - checkout: none
        - task: DownloadBuildArtifacts@1
+         condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+         displayName: download build
          inputs:
            buildType: 'current'
            downloadType: 'single'
@@ -112,7 +140,15 @@ stages:
             region: 'eastus2'
             LocalRootFolder: '$(System.ArtifactsDirectory)/cxi_cdp_data_processing_assembly/'
             FilePattern: '*.jar'
-            TargetLocation: '/FileStore/jars/cxi/'
+            TargetLocation: '/FileStore/jars/cxi/$(versionNumber)/'
+       - task: Bash@3
+         condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
+         displayName: download pr artifact  
+         inputs:
+           targetType: 'inline'
+           script: |
+             mkdir -p $(System.ArtifactsDirectory)/pr/$(BranchName)/cxi_cdp_data_processing_assembly/
+             azcopy copy  'https://dls2deveastus2cxi.blob.core.windows.net/azdevops/pr/$(BranchName)/*?$(dls2deveastus2cxi)' '$(System.ArtifactsDirectory)/pr/$(BranchName)/cxi_cdp_data_processing_assembly/'
 
        - task: databricksDeployDBFSFilesTask@0
          condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
@@ -120,7 +156,7 @@ stages:
             authMethod: 'bearer'
             bearerToken: $(BEARERTOKEN)
             region: 'eastus2'
-            LocalRootFolder: '$(System.ArtifactsDirectory)/cxi_cdp_data_processing_assembly/'
+            LocalRootFolder: '$(System.ArtifactsDirectory)/pr/$(BranchName)/cxi_cdp_data_processing_assembly/'
             FilePattern: '*.jar'
             TargetLocation: '/FileStore/jars/cxi/PR/$(BranchName)/'
 
@@ -140,3 +176,6 @@ stages:
               cliSources: '.'
           - task: SonarQubeAnalyze@4
             enabled: true
+          - task: SonarQubePublish@5
+            inputs:
+              pollingTimeoutSec: '300'
