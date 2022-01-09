@@ -12,6 +12,14 @@ import org.apache.log4j.Logger
 import org.apache.spark.sql.functions.{col, size}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
+/** This Spark job extracts identity relationships from order summary and writes them into identity_relationship table.
+  *
+  * The job can run in two modes:
+  * 1. (default) Query newly added orders (using Change Data Feed), extract identity relationships,
+  *    and merge them into identity_relationship table.
+  * 2. Full reprocess. Remove existing identity relationships, get all available orders,
+  *    and then import identity relationships from them.
+  */
 object UpdateIdentityRelationshipsJob {
 
     final val CdfConsumerId = "update_identity_relationships_job"
