@@ -14,16 +14,16 @@ class SimpleUnionSourceTest extends BaseSparkBatchJobTest with Matchers with Opt
     val firstTable = "firstTable"
     val secondTable = "secondTable"
 
-    test("SimpleUnion.queryChanges when schemas are compatible") {
+    test("SimpleUnion.queryChangeData when schemas are compatible") {
         val sparkSpy = spy(spark)
         val cdfService = mock(classOf[ChangeDataFeedService])
 
         val firstTableDF = spark.createDataset(Seq(Row("Alice", 25))).toDF
-        val firstTableMetadata = ChangeDataQueryResult.TableMetadata("firstTable", None, 0L, 2L)
+        val firstTableMetadata = ChangeDataQueryResult.TableMetadata("firstTable", 0L, 2L)
         val firstTableChangeData = ChangeDataQueryResult(consumerId, Seq(firstTableMetadata), Some(firstTableDF))
 
         val secondTableDF = spark.createDataset(Seq(Row("Bob", 33), Row("Chris", 45))).toDF
-        val secondTableMetadata = ChangeDataQueryResult.TableMetadata("secondTable", Some(1L), 2L, 3L)
+        val secondTableMetadata = ChangeDataQueryResult.TableMetadata("secondTable", 2L, 3L)
         val secondTableChangeData = ChangeDataQueryResult(consumerId, Seq(secondTableMetadata), Some(secondTableDF))
 
         doReturn(firstTableDF, Seq.empty: _*).when(sparkSpy).table("firstTable")
@@ -43,19 +43,19 @@ class SimpleUnionSourceTest extends BaseSparkBatchJobTest with Matchers with Opt
 
         actualResult.consumerId shouldBe expectedResult.consumerId
         actualResult.tableMetadataSeq shouldBe expectedResult.tableMetadataSeq
-        actualResult.changeData.value.collect should contain theSameElementsAs expectedResult.changeData.value.collect
+        actualResult.data.value.collect should contain theSameElementsAs expectedResult.data.value.collect
     }
 
-    test("SimpleUnion.queryChanges when schemas are incompatible") {
+    test("SimpleUnion.queryChangeData when schemas are incompatible") {
         val sparkSpy = spy(spark)
         val cdfService = mock(classOf[ChangeDataFeedService])
 
         val firstTableDF = spark.createDataset(Seq(Row("Alice", 25))).toDF
-        val firstTableMetadata = ChangeDataQueryResult.TableMetadata("firstTable", None, 0L, 2L)
+        val firstTableMetadata = ChangeDataQueryResult.TableMetadata("firstTable", 0L, 2L)
         val firstTableChangeData = ChangeDataQueryResult(consumerId, Seq(firstTableMetadata), Some(firstTableDF))
 
         val secondTableDF = spark.createDataset(Seq(AnotherRow(33))).toDF
-        val secondTableMetadata = ChangeDataQueryResult.TableMetadata("secondTable", Some(1L), 2L, 3L)
+        val secondTableMetadata = ChangeDataQueryResult.TableMetadata("secondTable", 2L, 3L)
         val secondTableChangeData = ChangeDataQueryResult(consumerId, Seq(secondTableMetadata), Some(secondTableDF))
 
         doReturn(firstTableDF, Seq.empty: _*).when(sparkSpy).table("firstTable")

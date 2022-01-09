@@ -49,10 +49,15 @@ object CxiCustomersProcessor {
 
         writeCxiCustomers(cxiCustomers, s"$destDbName.$customersTable")
 
-        val cxiCustomerIdsByOrder = allCustomerIds.select("ord_id", "cxi_customer_id")
+        val cxiIdentitiesByOrder = allCustomerIds.select("ord_id", "customer_type", "cxi_customer_id")
             .groupBy("ord_id")
-            .agg(collect_list("cxi_customer_id") as "cxi_customer_id_array")
-        cxiCustomerIdsByOrder
+            .agg(collect_list(
+                    struct(
+                        col("customer_type"),
+                        col("cxi_customer_id").as("cxi_identity_id"))
+                ).as("cxi_identity_id_array"))
+
+        cxiIdentitiesByOrder
     }
 
     def readOrderCustomersData(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
@@ -80,7 +85,7 @@ object CxiCustomersProcessor {
             .withColumn("ord_customer_id_2", col("tender.customer_id"))
             .withColumn("ord_customer_id", when(col("ord_customer_id_1").isNull or col("ord_customer_id_1") === "",
                 col("ord_customer_id_2")).otherwise(col("ord_customer_id_1")))
-            .drop("tender_array", "tender", "cxi_customer_id_array", "cxi_customer_id_1", "cxi_customer_id_2")
+            .drop("tender_array", "tender", "ord_customer_id_1", "ord_customer_id_2")
     }
 
     def readOrderCustomersPickupData(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {

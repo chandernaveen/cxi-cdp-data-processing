@@ -100,10 +100,9 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
             }
 
         val tableMetadata = ChangeDataQueryResult.TableMetadata(
-            table,
-            latestProcessedVersion,
-            earliestUnprocessedVersion,
-            latestAvailableVersion)
+            table = table,
+            startVersion = earliestUnprocessedVersion,
+            endVersion = latestAvailableVersion)
 
         ChangeDataQueryResult(consumerId, List(tableMetadata), changeData)
     }
@@ -134,4 +133,17 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
         }
     }
 
+}
+
+object ChangeDataFeedService {
+
+    final val ChangeTypeColumnName = "_change_type"
+    final val ChangeTypeColumn = col(ChangeTypeColumnName)
+
+    object ChangeType {
+        final val Insert = "insert"
+        final val UpdatePreImage = "update_preimage"
+        final val UpdatePostImage = "update_postimage"
+        final val Delete = "delete"
+    }
 }

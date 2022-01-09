@@ -6,15 +6,15 @@ import org.apache.spark.sql.DataFrame
 case class ChangeDataQueryResult(
                                     consumerId: String,
                                     tableMetadataSeq: Seq[ChangeDataQueryResult.TableMetadata],
-                                    changeData: Option[DataFrame]
+                                    data: Option[DataFrame]
                                 )
 
 object ChangeDataQueryResult {
 
     case class TableMetadata(
                                 table: String,
-                                latestProcessedVersion: Option[Long],
-                                earliestUnprocessedVersion: Long,
-                                latestAvailableVersion: Long)
+                                startVersion: Long,
+                                endVersion: Long
+                            )
 
 }

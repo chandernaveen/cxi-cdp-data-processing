@@ -42,7 +42,7 @@ object TotalMarketInsightsJob {
 
         val orderSummaryChangeDataResult = orderSummaryCdf.queryChangeData(CdfConsumerId)
 
-        orderSummaryChangeDataResult.changeData match {
+        orderSummaryChangeDataResult.data match {
             case None => logger.info("No updates found since the last run")
 
             case Some(changeData) =>

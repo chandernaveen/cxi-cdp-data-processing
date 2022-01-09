@@ -3,7 +3,6 @@ package refined_zone.pos_square
 
 import raw_zone.pos_square.model.{Fulfillment, LineItem, Tender}
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
-import support.packages.utils.ContractUtils
 
 import com.cxi.cdp.data_processing.refined_zone.pos_square.config.ProcessorConfig
 import org.apache.spark.sql.functions.{col, explode, from_json, lit}
@@ -87,7 +86,7 @@ object OrderSummaryProcessor {
                 "dsp_ttl", "guest_check_line_item_id", "line_id", "taxes_id", "taxes_amount", "item_id",
                 "item_price_id", "reason_code_id", "service_charge_id", "service_charge_amount", "tender_id",
                 "ord_pay_total", "ord_sub_total", "feed_date")
-            .join(cxiCustomerIdsByOrder, orderSummary("ord_id") === cxiCustomerIdsByOrder("ord_id"), "left") // adds cxi_customer_id_array
+            .join(cxiCustomerIdsByOrder, orderSummary("ord_id") === cxiCustomerIdsByOrder("ord_id"), "left") // adds cxi_identity_id_array
             .drop(cxiCustomerIdsByOrder("ord_id"))
             .dropDuplicates("cxi_partner_id", "location_id", "ord_id", "ord_date")
     }
