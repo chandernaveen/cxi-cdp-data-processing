@@ -2,7 +2,6 @@ package com.cxi.cdp.data_processing
 package curated_zone.tmi
 
 import support.BaseSparkBatchJobTest
-
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal}
 
 class TotalMarketInsightsJobTest extends BaseSparkBatchJobTest {
@@ -78,6 +77,22 @@ class TotalMarketInsightsJobTest extends BaseSparkBatchJobTest {
             actualPartnerMarketInsightsData.length should equal(expected.length)
             actualPartnerMarketInsightsData should contain theSameElementsAs expected
         }
+    }
+
+    test("test getOrderDatesToProcess for empty change data") {
+        import spark.implicits._
+        val df = List.empty[java.sql.Date].toDF("ord_date")
+        TotalMarketInsightsJob.getOrderDatesToProcess(df) shouldBe Set.empty
+    }
+
+    test("test getOrderDatesToProcess for non-empty change data with nulls") {
+        import spark.implicits._
+        val df = List(sqlDate(2021, 10, 1), null, sqlDate(2021, 10, 2)).toDF("ord_date")
+        TotalMarketInsightsJob.getOrderDatesToProcess(df) shouldBe Set("2021-10-01", "2021-10-02")
+    }
+
+    private def sqlDate(year: Int, month: Int, day: Int): java.sql.Date = {
+        java.sql.Date.valueOf(java.time.LocalDate.of(year, java.time.Month.of(month), day))
     }
 
 }

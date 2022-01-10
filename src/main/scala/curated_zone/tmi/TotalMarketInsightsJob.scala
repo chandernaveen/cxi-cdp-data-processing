@@ -18,6 +18,8 @@ object TotalMarketInsightsJob {
 
     final val CdfConsumerId = "total_market_insights_job"
 
+    final val CompletedOrderState = "COMPLETED"
+
     def main(args: Array[String]): Unit = {
         logger.info(s"""Received following args: ${args.mkString(",")}""")
 
@@ -46,16 +48,20 @@ object TotalMarketInsightsJob {
             case None => logger.info("No updates found since the last run")
 
             case Some(changeData) =>
-                process(contract, changeData)
+                val orderDates = getOrderDatesToProcess(changeData)
+                if (orderDates.isEmpty) {
+                    logger.info(s"No order dates to process")
+                } else {
+                    logger.info(s"Order dates to process: $orderDates")
+                    process(contract, orderDates)
+                }
 
                 logger.info(s"Update CDF tracker: ${orderSummaryChangeDataResult.tableMetadataSeq}")
                 orderSummaryCdf.markProcessed(orderSummaryChangeDataResult)
         }
     }
 
-    def process(contract: ContractUtils, orderSummaryChangeData: DataFrame)(implicit spark: SparkSession): Unit = {
-        val orderDates = getOrderDatesToProcess(orderSummaryChangeData)
-
+    def process(contract: ContractUtils, orderDates: Set[String])(implicit spark: SparkSession): Unit = {
         val refinedHubDb = contract.prop[String]("schema.refined_hub.db_name")
         val orderSummaryTable = contract.prop[String]("schema.refined_hub.order_summary_table")
         val locationTable = contract.prop[String]("schema.refined_hub.location_table")
@@ -85,18 +91,20 @@ object TotalMarketInsightsJob {
         }
     }
 
-    def getOrderDatesToProcess(orderSummaryChangeData: DataFrame)(implicit spark: SparkSession): Seq[String] = {
-        import spark.implicits._
+    def getOrderDatesToProcess(orderSummaryChangeData: DataFrame): Set[String] = {
+        val ordDateColumnName = "ord_date"
+        val ordDateColumn = col(ordDateColumnName)
 
         orderSummaryChangeData
-            .select($"ord_date")
+            .select(ordDateColumn)
+            .filter(ordDateColumn.isNotNull)
             .distinct
             .collect
-            .map(_.getAs[java.sql.Date]("ord_date").toString)
-            .sorted
+            .map(_.getAs[java.sql.Date](ordDateColumnName).toString)
+            .toSet
     }
 
-    def readOrderSummary(orderDates: Seq[String],
+    def readOrderSummary(orderDates: Set[String],
                          orderSummaryTable: String,
                          locationTable: String)(implicit spark: SparkSession): DataFrame = {
         import spark.implicits._
@@ -106,8 +114,9 @@ object TotalMarketInsightsJob {
 
         val getLocationTypeUdf = udf(getLocationType _)
 
-        orderSummaryDF.join(locationDF, usingColumn = "location_id")
-            .filter($"ord_date".isInCollection(orderDates))
+        orderSummaryDF
+            .filter($"ord_state" === CompletedOrderState && $"ord_date".isInCollection(orderDates))
+            .join(locationDF, usingColumn = "location_id")
             .select(
                 orderSummaryDF("cxi_partner_id"),
                 getLocationTypeUdf(locationDF("location_type")).as("location_type"),

@@ -143,7 +143,9 @@ object UnifiedFrameworkFunctions {
         Map[String, String]("replaceWhere" -> replaceWhereCondition)
     }
 
-    val writeOptionsFunctionsMap: Map[String, (DataFrame, Map[String, String]) => Map[String, String]] =
+    type WriteOptionsFunction = (DataFrame, Map[String, String]) => Map[String, String]
+
+    val writeOptionsFunctionsMap: Map[String, WriteOptionsFunction] =
         Map("replaceWhereForSingleColumn" -> replaceWhereForSingleColumnWriteOption)
 
     /**
