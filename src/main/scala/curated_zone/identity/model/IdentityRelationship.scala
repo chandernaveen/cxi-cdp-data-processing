@@ -7,7 +7,6 @@ case class IdentityRelationship(
                                       target: String,
                                       target_type: String,
                                       relationship: String,
-                                      confidence_score: Double,
                                       frequency: Int,
                                       created_date: java.sql.Date,
                                       last_seen_date: java.sql.Date,

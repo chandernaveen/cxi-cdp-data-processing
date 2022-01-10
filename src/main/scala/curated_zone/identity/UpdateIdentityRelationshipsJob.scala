@@ -134,7 +134,6 @@ object UpdateIdentityRelationshipsJob {
                             target = targetIdentity.cxi_identity_id,
                             target_type = targetIdentity.customer_type,
                             relationship = RelationshipType,
-                            confidence_score = 0.0,
                             frequency = 1,
                             created_date = relatedIdentites.date,
                             last_seen_date = relatedIdentites.date,
@@ -175,7 +174,6 @@ object UpdateIdentityRelationshipsJob {
 
     def mergeIdentityRelationships(first: IdentityRelationship, second: IdentityRelationship): IdentityRelationship = {
         first.copy(
-            // TODO: merge confidence_scores when it is defined
             frequency = first.frequency + second.frequency,
             created_date = dateOrdering.min(first.created_date, second.created_date),
             last_seen_date = dateOrdering.max(first.last_seen_date, second.last_seen_date)

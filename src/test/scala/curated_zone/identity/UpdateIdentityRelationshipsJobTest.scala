@@ -55,7 +55,6 @@ class UpdateIdentityRelationshipsJobTest extends BaseSparkBatchJobTest with Matc
             target = "target_id_1",
             target_type = "target_type_1",
             relationship = "pos_related",
-            confidence_score = 0.0,
             frequency = 3,
             created_date = sqlDate(2021, 10, 10),
             last_seen_date = sqlDate(2021, 10, 15),
