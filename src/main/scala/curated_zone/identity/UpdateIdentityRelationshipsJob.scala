@@ -17,6 +17,8 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
   * The job can run in two modes:
   * 1. (default) Query newly added orders (using Change Data Feed), extract identity relationships,
   *    and merge them into identity_relationship table.
+  *    In this mode we are looking at "inserted" records only. In theory it is possible to handle updates
+  *    as well, but the logic becomes too complicated. If there are updates, it's better to do a full reprocess.
   * 2. Full reprocess. Remove existing identity relationships, get all available orders,
   *    and then import identity relationships from them.
   */
@@ -57,7 +59,8 @@ object UpdateIdentityRelationshipsJob {
             if (cliArgs.fullReprocess) {
                 orderSummaryCdf.queryAllData(CdfConsumerId)
             } else {
-                orderSummaryCdf.queryChangeData(CdfConsumerId)
+                val queryResult = orderSummaryCdf.queryChangeData(CdfConsumerId)
+                queryResult.copy(data = queryResult.data.map(_.filter(ChangeTypeColumn === ChangeType.Insert)))
             }
 
         orderSummaryChangeDataResult.data match {
