@@ -116,6 +116,15 @@ stages:
            mergeTestResults: true
            testRunTitle: 'JUnit'
 
+       - task: PublishCodeCoverageResults@1
+         displayName: publish JaCoCo code coverage results
+         inputs:
+           codeCoverageTool: 'JaCoCo'
+           summaryFileLocation: '**/target/scala-2.12/jacoco/report/*.xml'
+           reportDirectory: '**/target/scala-2.12/jacoco/report/html/'
+           failIfCoverageEmpty: true
+
+
 - stage: deploy
   pool:
    vmimage: windows-latest

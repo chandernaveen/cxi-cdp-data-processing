@@ -72,15 +72,15 @@ scalastyleFailOnWarning := true
 compileScalastyle := scalastyle.in(Compile).toTask("").value
 (compile in Compile) := ((compile in Compile) dependsOn compileScalastyle).value
 
-jacocoReportSettings := JacocoReportSettings()
-    .withThresholds(
-        JacocoThresholds(
-            instruction = 8.28,
+jacocoReportSettings := JacocoReportSettings(
+  "Jacoco Coverage Report",
+  None,
+  JacocoThresholds( instruction = 8.28,
             method = 3.69,
             branch = 1.52,
             complexity = 2.60,
             line = 14.30,
-            clazz = 12.49)
-    )
+            clazz = 12.49),
+  Seq(JacocoReportFormats.ScalaHTML, JacocoReportFormats.XML), "utf-8")
 
 (Test / test) := ((Test / test) dependsOn assembly).value
