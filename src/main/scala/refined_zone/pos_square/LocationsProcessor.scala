@@ -1,6 +1,7 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
+import com.cxi.cdp.data_processing.support.cleansing.udfs.cleanseZipCode
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.{getSchemaRefinedHubPath, getSchemaRefinedPath}
 import refined_zone.pos_square.config.ProcessorConfig
 
@@ -23,26 +24,26 @@ object LocationsProcessor {
     }
 
     def readLocations(spark: SparkSession, date: String, table: String): DataFrame = {
-        spark.sql(
-            s"""
-               |SELECT
-               |get_json_object(record_value, "$$.id") as location_id,
-               |get_json_object(record_value, "$$.name") as location_nm,
-               |get_json_object(record_value, "$$.type") as location_type,
-               |get_json_object(record_value, "$$.status") as active_flg,
-               |get_json_object(record_value, "$$.address.address_line_1") as address_1,
-               |get_json_object(record_value, "$$.address.postal_code") as zip_code,
-               |get_json_object(record_value, "$$.coordinates.latitude") as lat,
-               |get_json_object(record_value, "$$.coordinates.longitude") as long,
-               |get_json_object(record_value, "$$.phone_number") as phone,
-               |get_json_object(record_value, "$$.address.country") as country_code,
-               |get_json_object(record_value, "$$.timezone") as timezone,
-               |get_json_object(record_value, "$$.currency") as currency,
-               |get_json_object(record_value, "$$.created_at") as open_dt,
-               |get_json_object(record_value, "$$.website_url") as location_website
-               |FROM $table
-               |WHERE record_type = "locations" AND feed_date = "$date"
-               |""".stripMargin)
+        import spark.implicits._
+
+        spark.table(table)
+            .filter($"record_type" === "locations" && $"feed_date" === date)
+            .select(
+                get_json_object($"record_value", "$.id").as("location_id"),
+                get_json_object($"record_value", "$.name").as("location_nm"),
+                get_json_object($"record_value", "$.type").as("location_type"),
+                get_json_object($"record_value", "$.status").as("active_flg"),
+                get_json_object($"record_value", "$.address.address_line_1").as("address_1"),
+                cleanseZipCode(get_json_object($"record_value", "$.address.postal_code")).as("zip_code"),
+                get_json_object($"record_value", "$.coordinates.latitude").as("lat"),
+                get_json_object($"record_value", "$.coordinates.longitude").as("long"),
+                get_json_object($"record_value", "$.phone_number").as("phone"),
+                get_json_object($"record_value", "$.address.country").as("country_code"),
+                get_json_object($"record_value", "$.timezone").as("timezone"),
+                get_json_object($"record_value", "$.currency").as("currency"),
+                get_json_object($"record_value", "$.created_at").as("open_dt"),
+                get_json_object($"record_value", "$.website_url").as("location_website")
+            )
     }
 
     def readPostalCodes(spark: SparkSession, table: String): DataFrame = {

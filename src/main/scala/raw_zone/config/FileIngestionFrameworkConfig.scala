@@ -26,7 +26,7 @@ case class FileIngestionFrameworkConfig
         saveModeFromContract: String,
         configOptions: Map[String, Any],
         writeOptions: Map[String, String],
-        writeOptionsFunctionName: String,
+        writeOptionsFunctionName: Option[String],
         writeOptionsFunctionParams: Map[String, String],
         runID: Int,
         dpYear: Int,
@@ -63,7 +63,7 @@ object FileIngestionFrameworkConfig {
             saveModeFromContract = contractUtils.propOrElse[String](jobConfigPropName(basePropName, "write.saveMode"), "append"),
             configOptions = contractUtils.propOrElse[Map[String, Any]](jobConfigPropName(basePropName, "spark.configOptions"), Map[String, Any]()),
             writeOptions = contractUtils.propOrElse[Map[String, String]](jobConfigPropName(basePropName, "write.writeOptions"), Map[String, String]()),
-            writeOptionsFunctionName = contractUtils.propOrElse[String](jobConfigPropName(basePropName, "write.writeOptionsFunction"), ""),
+            writeOptionsFunctionName = contractUtils.propOrNone(jobConfigPropName(basePropName, "write.writeOptionsFunction")),
             writeOptionsFunctionParams =
                 contractUtils.propOrElse[Map[String, String]](jobConfigPropName(basePropName, "write.writeOptionsFunctionParams"), Map[String, String]()),
             runID = 1,

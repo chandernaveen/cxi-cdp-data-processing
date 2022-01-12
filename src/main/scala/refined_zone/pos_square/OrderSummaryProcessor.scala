@@ -36,10 +36,12 @@ object OrderSummaryProcessor {
                |get_json_object(record_value, "$$.discounts.uid") as discount_id,
                |get_json_object(record_value, "$$.line_items") as line_items,
                |get_json_object(record_value, "$$.total_service_charge_money.amount") as service_charge_amount,
+               |get_json_object(record_value, "$$.total_tax_money.amount") as total_taxes_amount,
+               |get_json_object(record_value, "$$.total_tip_money.amount") as total_tip_amount,
                |get_json_object(record_value, "$$.customer_id") as customer_id,
                |get_json_object(record_value, "$$.tenders") as tender_array
                |FROM $dbName.$table
-               |WHERE record_type="orders" AND get_json_object(record_value, "$$.state")="COMPLETED" AND feed_date="$date"
+               |WHERE record_type="orders" AND feed_date="$date"
                |""".stripMargin)
     }
 
@@ -61,7 +63,6 @@ object OrderSummaryProcessor {
             .withColumn("reason_code_id", lit(null))
             .withColumn("service_charge_id", lit(null))
             .withColumn("guest_check_line_item_id", lit(null))
-            .withColumn("taxes_amount", lit(null))
             .withColumn("ord_originate_channel_id", lit(null))
             .withColumn("service_charge", lit(null))
             .withColumn("line_items", from_json(col("line_items"), DataTypes.createArrayType(Encoders.product[LineItem].schema)))
@@ -74,21 +75,23 @@ object OrderSummaryProcessor {
             .withColumn("taxes_id", col("line_item.applied_taxes.tax_uid"))
             .withColumn("taxes_amount", col("line_item.total_tax_money.amount").cast(DoubleType) / 100)
             .withColumn("service_charge_amount", col("service_charge_amount").cast(DoubleType) / 100)
-            .withColumn("ord_sub_total", col("ord_total") - col("taxes_amount") - col("discount_amount") - col("service_charge_amount"))
+            .withColumn("total_taxes_amount", col("total_taxes_amount").cast(DoubleType) / 100)
+            .withColumn("total_tip_amount", col("total_tip_amount").cast(DoubleType) / 100)
+            .withColumn("ord_sub_total",
+                col("ord_total") - (col("total_taxes_amount") + col("total_tip_amount") + col("service_charge_amount")))
             .withColumn("tender_array", from_json(col("tender_array"), DataTypes.createArrayType(Encoders.product[Tender].schema)))
-            .withColumn("tender", explode(col("tender_array")))
-            .withColumn("tender_id", col("tender.id"))
+            .withColumn("tender_ids", col("tender_array.id"))
             .withColumn("feed_date", lit(date))
             .select(
                 "ord_id", "ord_desc", "ord_total", "ord_date", "ord_timestamp", "discount_amount",
                 "cxi_partner_id", "location_id", "ord_state", "ord_type", "ord_originate_channel_id",
                 "ord_target_channel_id", "item_quantity", "item_total", "emp_id", "discount_id", "dsp_qty",
                 "dsp_ttl", "guest_check_line_item_id", "line_id", "taxes_id", "taxes_amount", "item_id",
-                "item_price_id", "reason_code_id", "service_charge_id", "service_charge_amount", "tender_id",
-                "ord_pay_total", "ord_sub_total", "feed_date")
+                "item_price_id", "reason_code_id", "service_charge_id", "service_charge_amount", "total_taxes_amount",
+                "total_tip_amount", "tender_ids", "ord_pay_total", "ord_sub_total", "feed_date")
             .join(cxiCustomerIdsByOrder, orderSummary("ord_id") === cxiCustomerIdsByOrder("ord_id"), "left") // adds cxi_identity_id_array
             .drop(cxiCustomerIdsByOrder("ord_id"))
-            .dropDuplicates("cxi_partner_id", "location_id", "ord_id", "ord_date")
+            .dropDuplicates("cxi_partner_id", "location_id", "ord_id", "ord_date", "item_id")
     }
 
     def writeOrderSummary(df: DataFrame, cxiPartnerId: String, destTable: String): Unit = {
@@ -99,8 +102,11 @@ object OrderSummaryProcessor {
             s"""
                |MERGE INTO $destTable
                |USING $srcTable
-               |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.location_id = $srcTable.location_id
-               |  AND $destTable.ord_id = $srcTable.ord_id AND $destTable.ord_date = $srcTable.ord_date
+               |ON $destTable.cxi_partner_id <=> "$cxiPartnerId"
+               |  AND $destTable.location_id <=> $srcTable.location_id
+               |  AND $destTable.ord_id <=> $srcTable.ord_id
+               |  AND $destTable.ord_date <=> $srcTable.ord_date
+               |  AND $destTable.item_id <=> $srcTable.item_id
                |WHEN MATCHED
                |  THEN UPDATE SET *
                |WHEN NOT MATCHED

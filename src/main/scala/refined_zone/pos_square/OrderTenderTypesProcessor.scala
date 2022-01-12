@@ -28,7 +28,7 @@ object OrderTenderTypesProcessor {
                |get_json_object(record_value, "$$.tenders") as tenders,
                |get_json_object(record_value, "$$.location_id") as location_id
                |FROM $dbName.$table
-               |WHERE record_type = "orders" AND get_json_object(record_value, "$$.state")= "COMPLETED" AND feed_date="$date"
+               |WHERE record_type = "orders" AND feed_date = "$date"
                |""".stripMargin)
     }
 

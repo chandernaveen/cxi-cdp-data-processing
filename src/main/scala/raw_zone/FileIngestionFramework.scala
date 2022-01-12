@@ -78,8 +78,9 @@ object FileIngestionFramework {
         (logger: Logger, cliArgs: CliArgs, np: ContractUtils, config: FileIngestionFrameworkConfig, spark: SparkSession, landingDF: DataFrame): Unit = {
         try {
             val pathFileName = udf((fileName: String, pathParts: Int) => fileName.split("/").takeRight(pathParts).mkString("/"))
+            val feedDate = cliArgs.date.toString
             val finalDF = landingDF
-                .withColumn("feed_date", lit(cliArgs.date.toString))
+                .withColumn("feed_date", lit(feedDate))
                 .withColumn("file_name", pathFileName(input_file_name, lit(config.pathParts)))
                 .withColumn("cxi_id", expr("uuid()"))
 
@@ -105,10 +106,9 @@ object FileIngestionFramework {
                 .format("delta")
                 .partitionBy(config.targetPartitionColumns: _*)
                 .mode(saveMode)
-                .options(getWriteOptions(transformedDf, config.writeOptionsFunctionName, config.writeOptionsFunctionParams, config.writeOptions))
+                .options(getWriteOptions(transformedDf, feedDate, config))
                 .save(config.targetPath)
-        }
-        catch {
+        } catch {
             case cryptoShreddingEx: CryptoShreddingException =>
                 logger.error(s"Failed to apply crypto shredding ${cryptoShreddingEx.getMessage}", cryptoShreddingEx)
                 val logContext = buildLogContext(
@@ -141,11 +141,24 @@ object FileIngestionFramework {
         }
     }
 
-    def getWriteOptions(df: DataFrame, functionName: String, functionParams: Map[String, String], options: Map[String, String]): Map[String, String] = {
-        if (functionName.isEmpty) {
-            options
-        } else {
-            writeOptionsFunctionsMap(functionName)(df, functionParams)
+    /** Creates WriteOptionsFunction to only overwrite records with the provided feedDate.
+      *
+      * Without this ingesting data for a specific feedDate will overwrite data for previously imported feedDates.
+      * Should be used together with SaveMode.Overwrite.
+      *
+      * Using this function instead of `replaceWhereForSingleColumnWriteOption` helps to avoid a full scan before write.
+      */
+    def replaceWhereForFeedDate(feedDate: String): WriteOptionsFunction = (_, _) => {
+        Map("replaceWhere" -> s"feed_date = '$feedDate'")
+    }
+
+    def getWriteOptions(df: DataFrame, feedDate: String, config: FileIngestionFrameworkConfig): Map[String, String] = {
+        val functionsMap: Map[String, WriteOptionsFunction] =
+            writeOptionsFunctionsMap + ("replaceWhereForFeedDate" -> replaceWhereForFeedDate(feedDate))
+
+        config.writeOptionsFunctionName match {
+            case None => config.writeOptions
+            case Some(functionName) => functionsMap(functionName)(df, config.writeOptionsFunctionParams)
         }
     }
 
