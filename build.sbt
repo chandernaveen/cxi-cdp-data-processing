@@ -40,6 +40,7 @@ libraryDependencies ++= Seq(
   "org.mongodb.spark" %% "mongo-spark-connector" % "3.0.1",
   "com.github.scopt" %% "scopt" % "4.0.1",
   "com.jayway.jsonpath" % "json-path" % "2.6.0" exclude("org.slf4j", "slf4j-api"),
+  "com.beachape" %% "enumeratum" % "1.7.0",
   "org.scalatest" %% "scalatest" % "3.0.8" % Test,
   "io.delta" %% "delta-core" % "1.0.0" % Provided,
   "com.databricks" %% "dbutils-api" % "0.0.5" % Provided)

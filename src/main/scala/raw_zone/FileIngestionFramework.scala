@@ -141,17 +141,6 @@ object FileIngestionFramework {
         }
     }
 
-    /** Creates WriteOptionsFunction to only overwrite records with the provided feedDate.
-      *
-      * Without this ingesting data for a specific feedDate will overwrite data for previously imported feedDates.
-      * Should be used together with SaveMode.Overwrite.
-      *
-      * Using this function instead of `replaceWhereForSingleColumnWriteOption` helps to avoid a full scan before write.
-      */
-    def replaceWhereForFeedDate(feedDate: String): WriteOptionsFunction = (_, _) => {
-        Map("replaceWhere" -> s"feed_date = '$feedDate'")
-    }
-
     def getWriteOptions(df: DataFrame, feedDate: String, config: FileIngestionFrameworkConfig): Map[String, String] = {
         val functionsMap: Map[String, WriteOptionsFunction] =
             writeOptionsFunctionsMap + ("replaceWhereForFeedDate" -> replaceWhereForFeedDate(feedDate))
