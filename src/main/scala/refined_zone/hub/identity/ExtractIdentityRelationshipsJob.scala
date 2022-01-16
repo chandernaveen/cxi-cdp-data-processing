@@ -1,9 +1,9 @@
 package com.cxi.cdp.data_processing
-package curated_zone.identity
+package refined_zone.hub.identity
 
 import java.nio.file.Paths
 
-import com.cxi.cdp.data_processing.curated_zone.identity.model._
+import com.cxi.cdp.data_processing.refined_zone.hub.identity.model._
 import com.cxi.cdp.data_processing.refined_zone.hub.ChangeDataFeedViews
 import com.cxi.cdp.data_processing.support.SparkSessionFactory
 import com.cxi.cdp.data_processing.support.change_data_feed.ChangeDataFeedService.{ChangeType, ChangeTypeColumn}
@@ -16,17 +16,17 @@ import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
   *
   * The job can run in two modes:
   * 1. (default) Query newly added orders (using Change Data Feed), extract identity relationships,
-  *    and merge them into identity_relationship table.
-  *    In this mode we are looking at "inserted" records only. In theory it is possible to handle updates
-  *    as well, but the logic becomes too complicated. If there are updates, it's better to do a full reprocess.
+  * and merge them into identity_relationship table.
+  * In this mode we are looking at "inserted" records only. In theory it is possible to handle updates
+  * as well, but the logic becomes too complicated. If there are updates, it's better to do a full reprocess.
   * 2. Full reprocess. Remove existing identity relationships, get all available orders,
-  *    and then import identity relationships from them.
+  * and then import identity relationships from them.
   */
-object UpdateIdentityRelationshipsJob {
+object ExtractIdentityRelationshipsJob {
 
-    final val CdfConsumerId = "update_identity_relationships_job"
+    final val CdfConsumerId = "extract_identity_relationships_job"
 
-    final val RelationshipType = "pos_related"
+    final val RelationshipType = "posRelated"
 
     private val logger = Logger.getLogger(this.getClass.getName)
 
@@ -59,19 +59,16 @@ object UpdateIdentityRelationshipsJob {
             if (cliArgs.fullReprocess) {
                 orderSummaryCdf.queryAllData(CdfConsumerId)
             } else {
-                val queryResult = orderSummaryCdf.queryChangeData(CdfConsumerId)
-                queryResult.copy(data = queryResult.data.map(_.filter(ChangeTypeColumn === ChangeType.Insert)))
+                orderSummaryCdf.queryChangeData(CdfConsumerId, changeTypes = Seq(ChangeType.Insert))
             }
 
         orderSummaryChangeDataResult.data match {
             case None => logger.info("No updates found since the last run")
 
             case Some(changeData) =>
-                val relatedIdentities = extractRelatedEntities({
-                    changeData.filter(ChangeTypeColumn === ChangeType.Insert)
-                })
+                val relatedIdentities = extractRelatedEntities(changeData)
 
-                val identityRelationships = calculateIdentityRelationships(relatedIdentities)
+                val identityRelationships = createIdentityRelationships(relatedIdentities)
                 writeIdentityRelationships(identityRelationships, identityRelationshipTable)
 
                 logger.info(s"Update CDF tracker: ${orderSummaryChangeDataResult.tableMetadataSeq}")
@@ -79,29 +76,29 @@ object UpdateIdentityRelationshipsJob {
         }
     }
 
-    def getCdfTrackerTable(contract: ContractUtils): String = {
-        val dataServicesDb = contract.prop[String]("schema.data_services.db_name")
-        val cdfTrackerTable = contract.prop[String]("schema.data_services.cdf_tracker_table")
-        s"$dataServicesDb.$cdfTrackerTable"
+    private def getCdfTrackerTable(contract: ContractUtils): String = {
+        val db = contract.prop[String]("schema.data_services.db_name")
+        val table = contract.prop[String]("schema.data_services.cdf_tracker_table")
+        s"$db.$table"
     }
 
-    def getOrderSummaryTables(contract: ContractUtils): Seq[String] = {
+    private def getOrderSummaryTables(contract: ContractUtils): Seq[String] = {
         val refinedSquareDb = contract.prop[String]("schema.refined_square.db_name")
         val orderSummaryTable = contract.prop[String]("schema.refined_square.order_summary_table")
         Seq(s"$refinedSquareDb.$orderSummaryTable")
     }
 
-    def getIdentityRelationshipTable(contract: ContractUtils): String = {
-        val curatedDb = contract.prop[String]("schema.curated.db_name")
-        val identityRelationshipTable = contract.prop[String]("schema.curated.identity_relationship_table")
-        s"$curatedDb.$identityRelationshipTable"
+    private def getIdentityRelationshipTable(contract: ContractUtils): String = {
+        val db = contract.prop[String]("schema.refined_hub.db_name")
+        val table = contract.prop[String]("schema.refined_hub.identity_relationship_table")
+        s"$db.$table"
     }
 
-    def removeIdentityRelationships(identityRelationshipTable: String)(implicit spark: SparkSession): Unit = {
+    private def removeIdentityRelationships(identityRelationshipTable: String)(implicit spark: SparkSession): Unit = {
         spark.sql(s"DELETE FROM $identityRelationshipTable")
     }
 
-    def extractRelatedEntities(orderSummaryDF: DataFrame)(implicit spark: SparkSession): Dataset[RelatedIdentities] = {
+    private[identity] def extractRelatedEntities(orderSummaryDF: DataFrame)(implicit spark: SparkSession): Dataset[RelatedIdentities] = {
         import spark.implicits._
 
         orderSummaryDF
@@ -113,13 +110,14 @@ object UpdateIdentityRelationshipsJob {
             .as[RelatedIdentities]
     }
 
-    def calculateIdentityRelationships(
-                                        relatedIdentitiesDS: Dataset[RelatedIdentities]
-                                    )(implicit spark: SparkSession): Dataset[IdentityRelationship] = {
+    private[identity] def createIdentityRelationships(
+                                          relatedIdentitiesDS: Dataset[RelatedIdentities]
+                                      )(implicit spark: SparkSession): Dataset[IdentityRelationship] = {
         import spark.implicits._
 
         relatedIdentitiesDS
             .flatMap({ relatedIdentites =>
+                // sort identitites so that source-target order is deterministically defined
                 val sortedIdentites = relatedIdentites
                     .identities
                     .sorted(IdentityId.SourceToTargetOrdering)
@@ -146,7 +144,7 @@ object UpdateIdentityRelationshipsJob {
             .map(_._2)
     }
 
-    def writeIdentityRelationships(ds: Dataset[IdentityRelationship], destTable: String): Unit = {
+    private def writeIdentityRelationships(ds: Dataset[IdentityRelationship], destTable: String): Unit = {
         val df = ds.toDF
 
         val srcTable = "newIdentityRelationsips"
@@ -172,7 +170,11 @@ object UpdateIdentityRelationshipsJob {
                |""".stripMargin)
     }
 
-    def mergeIdentityRelationships(first: IdentityRelationship, second: IdentityRelationship): IdentityRelationship = {
+    /** Merges together two IdentityRelationship record.
+      * It is assumed that these records have the same key (source/source_type/target/target_type). */
+    private[identity] def mergeIdentityRelationships(
+                                                        first: IdentityRelationship,
+                                                        second: IdentityRelationship): IdentityRelationship = {
         first.copy(
             frequency = first.frequency + second.frequency,
             created_date = dateOrdering.min(first.created_date, second.created_date),

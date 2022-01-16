@@ -1,6 +1,7 @@
 package com.cxi.cdp.data_processing
 package support.change_data_feed
 
+import com.cxi.cdp.data_processing.support.change_data_feed.ChangeDataFeedService.{ChangeType, ChangeTypeColumn}
 import org.apache.spark.sql.SparkSession
 
 trait ChangeDataFeedSource {
@@ -10,7 +11,21 @@ trait ChangeDataFeedSource {
     /** Returns data changed between the last processed version and the latest available version for this consumer ID */
     def queryChangeData(consumerId: String)(implicit spark: SparkSession): ChangeDataQueryResult
 
-    /** Returns all data for this source. */
+    def queryChangeData(consumerId: String, changeTypes: Seq[String])(implicit spark: SparkSession): ChangeDataQueryResult = {
+        val changeData = queryChangeData(consumerId)
+        changeData.copy(data = changeData.data.map(_.filter(ChangeTypeColumn === ChangeType.Insert)))
+    }
+
+    /** Returns all data for this source.
+      *
+      * The difference between this method and a simple table query is that we get table versions as well, thus
+      * we can reliably commit table versions for this consumer after we've finished the processing.
+      *
+      * The main use case is the following:
+      * 1. Use `queryChangeData` for usual incremental processing - process only newly added/updated data.
+      * 2. If using `queryChangeData` is not possible (e.g. a lot of data was changed in a way that cannot be
+      * incrementally reprocessed), use `queryAllData` to reprocess everything from the start.
+      */
     def queryAllData(consumerId: String)(implicit spark: SparkSession): ChangeDataQueryResult
 
     def markProcessed(result: ChangeDataQueryResult)(implicit spark: SparkSession): Unit = {

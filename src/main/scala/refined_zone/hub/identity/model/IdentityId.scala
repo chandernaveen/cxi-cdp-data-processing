@@ -1,5 +1,5 @@
 package com.cxi.cdp.data_processing
-package curated_zone.identity.model
+package refined_zone.hub.identity.model
 
 case class IdentityId(customer_type: String, cxi_identity_id: String)
 
