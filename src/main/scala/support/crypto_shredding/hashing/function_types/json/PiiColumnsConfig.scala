@@ -1,12 +1,13 @@
 package com.cxi.cdp.data_processing
 package support.crypto_shredding.hashing.function_types.json
 
+import support.crypto_shredding.hashing.function_types.json.PiiColumnsConfig._
+import support.crypto_shredding.hashing.transform.TransformFunctions.parseTransformFunction
 import support.exceptions.CryptoShreddingException
-import PiiColumnsConfig._
 
 import scala.util.Try
 
-case class PiiColumnsConfig(columns: Seq[(OuterColumn, InnerColumn)]) extends Serializable
+case class PiiColumnsConfig(columns: Seq[(OuterColumn, InnerColumn, String => String)]) extends Serializable
 
 object PiiColumnsConfig {
 
@@ -24,7 +25,8 @@ object PiiColumnsConfig {
         val columns = rawConfig.map(columnConfig => {
             val outerColumn = parseOuterColumn(columnConfig)
             val innerColumn = parseInnerColumn(columnConfig)
-            outerColumn -> innerColumn
+            val transformFunction = parseTransformFunction(columnConfig)
+            (outerColumn, innerColumn, transformFunction)
         })
         PiiColumnsConfig(columns)
     }

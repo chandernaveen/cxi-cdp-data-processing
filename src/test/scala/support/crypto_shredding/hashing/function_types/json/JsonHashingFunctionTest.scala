@@ -165,6 +165,65 @@ class JsonHashingFunctionTest extends BaseSparkBatchJobTest {
         }
     }
 
+    test("test json hash with transform function") {
+        // given
+        import spark.implicits._
+        val salt = ""
+        val hashFunctionConfig = Map(
+            "pii_columns" -> List(
+                Map("outerCol" -> "record_value",
+                    "innerCol" -> Map("type" -> "jsonPath", "jsonPath" -> "$.pii_credit_card_column")),
+                Map("outerCol" -> "record_value",
+                    "innerCol" -> Map("type" -> "jsonPath", "jsonPath" -> "$.email_address"),
+                    "transform" -> Map("transformationName" -> "normalizeEmail")
+                )))
+        val jsonHashingFunction = new JsonHashingFunction(hashFunctionConfig, salt)
+        val landingData = List(
+            (s"""{"pii_credit_card_column": "****1234", "email_address" : "PauL@Mailbox.Com", "some_other_col_inside_json_object" : 9}""", 40),
+            (s"""{"pii_credit_card_column": "****5918", "email_address" : "GEORGE@mailbox.COM"}""", 50),
+            (s"""{"pii_credit_card_column": "****1892", "email_address" : "rinGO@mailboX.com"}""", 60),
+        ).toDF("record_value", "some_other_top_level_column")
+
+        // when
+        val (hashedOriginalDf, extractedPersonalInformationDf) = jsonHashingFunction.hash(landingData)
+
+        // then
+        // check pii df
+        val actualFieldsReturnedForPiiDf = extractedPersonalInformationDf.schema.fields.map(f => f.name)
+        withClue("Actual fields returned for pii data frame:\n" + extractedPersonalInformationDf.schema.treeString) {
+            actualFieldsReturnedForPiiDf shouldEqual Array("original_value", "hashed_value")
+        }
+        val actualExtractedPiiData = extractedPersonalInformationDf.collect()
+        withClue("Actual extracted PII data do not match") {
+            val expected = List(
+                ("paul@mailbox.com", "c6d350e268541121fe992734ce63ae64288a0dd46ec716991dbf6809eada1e91"),
+                ("george@mailbox.com", "f13d2bcb9f2cf5a3818ceb4ac26df50fef3a24d8565f18fb23b76a2514480f3c"),
+                ("ringo@mailbox.com", "e78b37db08be40533170866d8c275c9a56bb85188fb92ddaf7a77dee9ec0c877"),
+                ("****1234", "c74189fc7708f42eea476b3572f624096283b832b082e60432ee620969a153e6"),
+                ("****5918", "19d8e1a307d593d525c4f9b5372b8fc38ea8f9abe31a89359d013c18e21b1c8e"),
+                ("****1892", "f343a79ac41d584201b7a5bc9536c503b876de1bed2b528602c1cd55b141c660"),
+            ).toDF("original_value", "hashed_value").collect()
+            extractedPersonalInformationDf.show(false)
+            actualExtractedPiiData.length should equal(expected.length)
+            actualExtractedPiiData should contain theSameElementsAs expected
+        }
+        // check hashed df
+        val actualFieldsReturnedForHashedDf = hashedOriginalDf.schema.fields.map(f => f.name)
+        withClue("Actual fields returned for hashed data frame:\n" + hashedOriginalDf.schema.treeString) {
+            actualFieldsReturnedForHashedDf shouldEqual Array("record_value", "some_other_top_level_column")
+        }
+        val actualHashedOriginalDfData = hashedOriginalDf.collect()
+        withClue("Actual hashed data frame data do not match") {
+            val expected = List(
+                (s"""{"pii_credit_card_column":"c74189fc7708f42eea476b3572f624096283b832b082e60432ee620969a153e6","email_address":"c6d350e268541121fe992734ce63ae64288a0dd46ec716991dbf6809eada1e91","some_other_col_inside_json_object":9}""", 40),
+                (s"""{"pii_credit_card_column":"19d8e1a307d593d525c4f9b5372b8fc38ea8f9abe31a89359d013c18e21b1c8e","email_address":"f13d2bcb9f2cf5a3818ceb4ac26df50fef3a24d8565f18fb23b76a2514480f3c"}""", 50),
+                (s"""{"pii_credit_card_column":"f343a79ac41d584201b7a5bc9536c503b876de1bed2b528602c1cd55b141c660","email_address":"e78b37db08be40533170866d8c275c9a56bb85188fb92ddaf7a77dee9ec0c877"}""", 60),
+            ).toDF("record_value", "some_other_top_level_column").collect()
+            actualHashedOriginalDfData.length should equal(expected.length)
+            actualHashedOriginalDfData should contain theSameElementsAs expected
+        }
+    }
+
     // TODO: add support (if needed) for other pii data types, not only strings
     ignore("test json hash on numeric pii columns") {
 

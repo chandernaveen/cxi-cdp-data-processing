@@ -40,7 +40,7 @@ class JsonNodeHasher(
         val hashedData = result.putArray("hashed_data")
 
         for (piiField <- config.columns) {
-            val (outerCol, innerCol) = piiField
+            val (outerCol, innerCol, transformFunction) = piiField
 
             if (result.has(outerCol)) {
                 val node = result.get(outerCol)
@@ -56,11 +56,13 @@ class JsonNodeHasher(
                                     case None => originalValue.asInstanceOf[Object]
 
                                     case Some(originalValueAsString) =>
-                                        val hashedValue: String = Hash.sha256Hash(originalValueAsString, salt)
+
+                                        val normalizedValue = transformFunction(originalValueAsString)
+                                        val hashedValue: String = Hash.sha256Hash(normalizedValue, salt)
 
                                         // extract pii info to a separate top level column
                                         val entry = hashedData.addObject()
-                                        entry.put("original_value", originalValueAsString)
+                                        entry.put("original_value", normalizedValue)
                                         entry.put("hashed_value", hashedValue)
 
                                         hashedValue

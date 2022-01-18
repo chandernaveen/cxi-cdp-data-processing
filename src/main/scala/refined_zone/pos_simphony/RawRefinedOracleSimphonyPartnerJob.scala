@@ -521,6 +521,10 @@ object OrderServiceChargesProcessor {
     }
 }
 
+// TODO:
+//  1. Change schema of `refined_simphony.order_summary` table:
+//      cxi_customer_id_array(string) -> cxi_identity_ids ARRAY<STRUCT<identity_type:STRING,cxi_identity_id:String>>
+//  2. Include `refined_simphony.order_summary` into `refined_hub.order_summary` view
 object OrderSummaryProcessor {
     def process(spark: SparkSession,
                 contract: ContractUtils,

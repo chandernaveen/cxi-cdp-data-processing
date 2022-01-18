@@ -90,7 +90,7 @@ object FileIngestionFramework {
             val transformedDf = transformationFunction(finalDF)
 
             val finalDf = if (np.propIsSet(jobConfigPropName(basePropName, "crypto"))) {
-                val cryptoShreddingConf = CryptoShreddingConfig.fromContract(np)
+                val cryptoShreddingConf = CryptoShreddingConfig(np)
                 val cryptoShredding = new CryptoShredding(spark, cryptoShreddingConf)
                 val hashFunctionType = np.prop[String](jobConfigPropName(basePropName, "crypto.hash_function_type"))
                 val hashFunctionConfig = np.prop[Map[String, Any]](jobConfigPropName(basePropName, "crypto.hash_function_config"))

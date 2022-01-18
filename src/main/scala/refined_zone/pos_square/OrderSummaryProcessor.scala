@@ -5,6 +5,7 @@ import model.ChannelType
 import raw_zone.pos_square.model.{Fulfillment, LineItem, Tender}
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
 import refined_zone.pos_square.config.ProcessorConfig
+
 import org.apache.spark.sql.functions.{col, explode, from_json, lit, udf}
 import org.apache.spark.sql.types.{DataTypes, DoubleType}
 import org.apache.spark.sql.{Column, DataFrame, Encoders, SparkSession}
@@ -45,7 +46,7 @@ object OrderSummaryProcessor {
                |""".stripMargin)
     }
 
-    def transformOrderSummary(orderSummary: DataFrame, date: String, cxiPartnerId: String, cxiCustomerIdsByOrder: DataFrame): DataFrame = {
+    def transformOrderSummary(orderSummary: DataFrame, date: String, cxiPartnerId: String, cxiIdentityIdsByOrder: DataFrame): DataFrame = {
         orderSummary
             .withColumn("cxi_partner_id", lit(cxiPartnerId))
             .withColumn("ord_desc", lit(null))
@@ -88,8 +89,8 @@ object OrderSummaryProcessor {
                 "dsp_ttl", "guest_check_line_item_id", "line_id", "taxes_id", "taxes_amount", "item_id",
                 "item_price_id", "reason_code_id", "service_charge_id", "service_charge_amount", "total_taxes_amount",
                 "total_tip_amount", "tender_ids", "ord_pay_total", "ord_sub_total", "feed_date")
-            .join(cxiCustomerIdsByOrder, orderSummary("ord_id") === cxiCustomerIdsByOrder("ord_id"), "left") // adds cxi_customer_id_array
-            .drop(cxiCustomerIdsByOrder("ord_id"))
+            .join(cxiIdentityIdsByOrder, orderSummary("ord_id") === cxiIdentityIdsByOrder("ord_id"), "left") // adds cxi_identity_ids
+            .drop(cxiIdentityIdsByOrder("ord_id"))
             .dropDuplicates("cxi_partner_id", "location_id", "ord_id", "ord_date", "item_id")
     }
 

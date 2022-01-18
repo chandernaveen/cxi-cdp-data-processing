@@ -3,20 +3,27 @@ package support.crypto_shredding.hashing.function_types.common
 
 import support.crypto_shredding.hashing.Hash
 import support.crypto_shredding.hashing.function_types.IHashFunction
+import support.crypto_shredding.hashing.transform.TransformFunctions.parseTransformFunction
 
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{udf, _}
+import org.apache.spark.sql.functions._
 
 class CommonHashingFunction(val hashFunctionConfig: Map[String, Any], val salt: String) extends IHashFunction {
+    private val normalizedValueCol = "normalized_value"
     private val dataColName: String = hashFunctionConfig("dataColName").asInstanceOf[String]
+    private val transformFunction = parseTransformFunction(hashFunctionConfig)
 
     override def hash(originalDf: DataFrame): (DataFrame, DataFrame) = {
+
+        val normalizeFunction = udf(transformFunction)
+        val normalizedDf = originalDf.withColumn(normalizedValueCol, normalizeFunction(col(dataColName)))
+
         val hashUdf = createHashUdf()
-        val hashedOriginalDf = originalDf.withColumn("hashed_value", hashUdf(col(dataColName)))
+        val hashedOriginalDf = normalizedDf.withColumn("hashed_value", hashUdf(col(normalizedValueCol)))
 
         val extractedPersonalInformationLookupDf = hashedOriginalDf
-            .select(col(dataColName).as("original_value"), col("hashed_value"))
+            .select(col(normalizedValueCol).as("original_value"), col("hashed_value"))
 
         (
             hashedOriginalDf
