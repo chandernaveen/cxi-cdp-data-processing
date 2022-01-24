@@ -1,8 +1,8 @@
 package com.cxi.cdp.data_processing
 package raw_zone.config
 
-import support.packages.utils.{ContractUtils, PathUtils}
-import support.packages.utils.ContractUtils.jobConfigPropName
+import support.utils.{ContractUtils, PathUtils}
+import support.utils.ContractUtils.jobConfigPropName
 import com.databricks.service.DBUtils
 import org.apache.spark.sql.types.{DataType, StructType}
 import java.time.LocalDate

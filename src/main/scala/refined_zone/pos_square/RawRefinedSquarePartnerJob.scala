@@ -3,7 +3,7 @@ package refined_zone.pos_square
 
 import refined_zone.pos_square.config.ProcessorConfig
 import support.SparkSessionFactory
-import support.packages.utils.ContractUtils
+import support.utils.ContractUtils
 
 import org.apache.log4j.Logger
 import org.apache.spark.sql.SparkSession

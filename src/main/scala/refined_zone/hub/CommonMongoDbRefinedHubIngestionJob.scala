@@ -1,7 +1,7 @@
 package com.cxi.cdp.data_processing
 package refined_zone.hub
 
-import support.packages.utils.ContractUtils
+import support.utils.ContractUtils
 import support.{SparkSessionFactory, WorkspaceConfigReader}
 
 import com.databricks.service.DBUtils

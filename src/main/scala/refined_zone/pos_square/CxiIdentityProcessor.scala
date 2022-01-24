@@ -9,7 +9,7 @@ import refined_zone.service.MetadataService.extractMetadata
 import support.WorkspaceConfigReader
 import support.crypto_shredding.config.CryptoShreddingConfig
 import support.crypto_shredding.{CryptoShredding, PrivacyFunctions}
-import support.packages.utils.ContractUtils
+import support.utils.ContractUtils
 
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DataTypes

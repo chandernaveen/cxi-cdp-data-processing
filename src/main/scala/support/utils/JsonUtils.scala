@@ -1,6 +1,6 @@
 // Databricks notebook source
 package com.cxi.cdp.data_processing
-package support.packages.utils
+package support.utils
 
 import com.cxi.cdp.data_processing.support.SparkSessionFactory.getSparkSession
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}

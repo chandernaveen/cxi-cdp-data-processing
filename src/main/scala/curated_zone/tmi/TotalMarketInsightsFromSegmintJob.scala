@@ -4,7 +4,7 @@ package curated_zone.tmi
 import java.nio.file.Paths
 
 import com.cxi.cdp.data_processing.support.SparkSessionFactory
-import com.cxi.cdp.data_processing.support.packages.utils.ContractUtils
+import com.cxi.cdp.data_processing.support.utils.ContractUtils
 import org.apache.log4j.Logger
 import org.apache.spark.sql.{DataFrame, SparkSession}
 

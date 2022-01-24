@@ -5,7 +5,7 @@ import java.nio.file.Paths
 
 import com.cxi.cdp.data_processing.refined_zone.hub.ChangeDataFeedViews
 import com.cxi.cdp.data_processing.support.{SparkSessionFactory, WorkspaceConfigReader}
-import com.cxi.cdp.data_processing.support.packages.utils.ContractUtils
+import com.cxi.cdp.data_processing.support.utils.ContractUtils
 import com.databricks.service.DBUtils
 import org.apache.log4j.Logger
 import org.apache.spark.sql.functions._

@@ -1,7 +1,7 @@
 package com.cxi.cdp.data_processing
 package support.crypto_shredding.config
 
-import support.packages.utils.ContractUtils
+import support.utils.ContractUtils
 
 case class CryptoShreddingConfig
     (

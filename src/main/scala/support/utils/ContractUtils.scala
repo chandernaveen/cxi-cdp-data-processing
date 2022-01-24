@@ -1,5 +1,5 @@
 package com.cxi.cdp.data_processing
-package support.packages.utils
+package support.utils
 
 import scala.collection.mutable.Map
 import scala.reflect.ClassTag

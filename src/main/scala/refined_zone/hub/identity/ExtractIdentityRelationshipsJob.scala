@@ -6,8 +6,8 @@ import java.nio.file.Paths
 import com.cxi.cdp.data_processing.refined_zone.hub.identity.model._
 import com.cxi.cdp.data_processing.refined_zone.hub.ChangeDataFeedViews
 import com.cxi.cdp.data_processing.support.SparkSessionFactory
-import com.cxi.cdp.data_processing.support.change_data_feed.ChangeDataFeedService.{ChangeType, ChangeTypeColumn}
-import com.cxi.cdp.data_processing.support.packages.utils.ContractUtils
+import com.cxi.cdp.data_processing.support.change_data_feed.ChangeDataFeedService.ChangeType
+import com.cxi.cdp.data_processing.support.utils.ContractUtils
 import org.apache.log4j.Logger
 import org.apache.spark.sql.functions.{col, size}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}

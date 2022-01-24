@@ -1,5 +1,5 @@
 package com.cxi.cdp.data_processing
-package support.packages.utils
+package support.utils
 
 import org.apache.commons.lang3.StringUtils
 
