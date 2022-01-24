@@ -140,6 +140,14 @@ object ChangeDataFeedService {
     final val ChangeTypeColumnName = "_change_type"
     final val ChangeTypeColumn = col(ChangeTypeColumnName)
 
+    /** Change Data Feed result will have additional fields, one of them is `_change_type`.
+      * It shows how exactly this particular record was changed:
+      * 1. If it is a new record, its change type is `insert`
+      * 2. If the record was updated, we will get two records: one with the change type of `update_preimage`,
+      *    showing the record before the update, and the other with the change type of `update_postimage`,
+      *    showing the record after the update.
+      * 3. If the record was deleted, we will get this record with the change type of `deleted`.
+      */
     object ChangeType {
         final val Insert = "insert"
         final val UpdatePreImage = "update_preimage"

@@ -111,38 +111,53 @@ object ExtractIdentityRelationshipsJob {
             .as[RelatedIdentities]
     }
 
+    /** Creates a dataset of identity relationships from a dataset of related identities.
+      *
+      * The output dataset will not have duplicates based on source/source_type/target/target_type,
+      * all duplicate records will be merged.
+      */
     private[identity] def createIdentityRelationships(
                                           relatedIdentitiesDS: Dataset[RelatedIdentities]
                                       )(implicit spark: SparkSession): Dataset[IdentityRelationship] = {
         import spark.implicits._
 
         relatedIdentitiesDS
-            .flatMap({ relatedIdentites =>
-                // sort identitites so that source-target order is deterministically defined
-                val sortedIdentites = relatedIdentites
-                    .identities
-                    .sorted(IdentityId.SourceToTargetOrdering)
-                    .distinct
-
-                sortedIdentites
-                    .combinations(2)
-                    .map({ case Seq(sourceIdentity, targetIdentity) =>
-                        IdentityRelationship(
-                            source = sourceIdentity.cxi_identity_id,
-                            source_type = sourceIdentity.identity_type,
-                            target = targetIdentity.cxi_identity_id,
-                            target_type = targetIdentity.identity_type,
-                            relationship = RelationshipType,
-                            frequency = 1,
-                            created_date = relatedIdentites.date,
-                            last_seen_date = relatedIdentites.date,
-                            active_flag = true
-                        )
-                    })
-            })
+            .flatMap(relatedIdentities => createIdentityRelationships(relatedIdentities))
             .groupByKey(r => (r.source, r.source_type, r.target, r.target_type))
             .reduceGroups(mergeIdentityRelationships _)
             .map(_._2)
+    }
+
+    /** Creates identity relationships for a single case of related identities.
+      *
+      * When we see identities grouped together, we consider them related, and create an identity relationship
+      * for every combination of two drawn from these identities
+      *
+      * Note that for combinations - in the mathematical sense - the order does not matter.
+      * Thus, for deterministic results, identities are sorted before drawing combinations.
+      */
+    private def createIdentityRelationships(relatedIdentities: RelatedIdentities): Iterator[IdentityRelationship] = {
+        // sort identities so that source-target order is deterministically defined
+        val sortedIdentities = relatedIdentities
+            .identities
+            .sorted(IdentityId.SourceToTargetOrdering)
+            .distinct
+
+        sortedIdentities
+            .combinations(2)
+            .map({ case Seq(sourceIdentity, targetIdentity) =>
+                IdentityRelationship(
+                    source = sourceIdentity.cxi_identity_id,
+                    source_type = sourceIdentity.identity_type,
+                    target = targetIdentity.cxi_identity_id,
+                    target_type = targetIdentity.identity_type,
+                    relationship = RelationshipType,
+                    frequency = 1,
+                    created_date = relatedIdentities.date,
+                    last_seen_date = relatedIdentities.date,
+                    active_flag = true
+                )
+            })
     }
 
     private def writeIdentityRelationships(ds: Dataset[IdentityRelationship], destTable: String): Unit = {
@@ -171,7 +186,8 @@ object ExtractIdentityRelationshipsJob {
     }
 
     /** Merges together two IdentityRelationship record.
-      * It is assumed that these records have the same key (source/source_type/target/target_type). */
+      * It is assumed that these records have the same key (source/source_type/target/target_type).
+      */
     private[identity] def mergeIdentityRelationships(
                                                         first: IdentityRelationship,
                                                         second: IdentityRelationship): IdentityRelationship = {
