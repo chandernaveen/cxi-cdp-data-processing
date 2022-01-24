@@ -151,8 +151,6 @@ object ExtractIdentityRelationshipsJob {
         val srcTable = "newIdentityRelationsips"
         df.createOrReplaceTempView(srcTable)
 
-        df.show(false)
-
         df.sqlContext.sql(
             s"""
                |MERGE INTO $destTable
