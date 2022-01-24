@@ -5,6 +5,7 @@ import java.nio.file.Paths
 
 import com.cxi.cdp.data_processing.refined_zone.hub.identity.model._
 import com.cxi.cdp.data_processing.refined_zone.hub.ChangeDataFeedViews
+import com.cxi.cdp.data_processing.refined_zone.hub.model.CxiIdentity
 import com.cxi.cdp.data_processing.support.SparkSessionFactory
 import com.cxi.cdp.data_processing.support.change_data_feed.ChangeDataFeedService.ChangeType
 import com.cxi.cdp.data_processing.support.utils.ContractUtils
@@ -102,9 +103,9 @@ object ExtractIdentityRelationshipsJob {
         import spark.implicits._
 
         orderSummaryDF
-            .filter(size(col("cxi_identity_id_array")) > 1)
+            .filter(size(col(CxiIdentity.CxiIdentityIds)) > 1)
             .select(
-                col("cxi_identity_id_array").as("identities"),
+                col(CxiIdentity.CxiIdentityIds).as("identities"),
                 col("ord_date").as("date")
             )
             .as[RelatedIdentities]
@@ -128,9 +129,9 @@ object ExtractIdentityRelationshipsJob {
                     .map({ case Seq(sourceIdentity, targetIdentity) =>
                         IdentityRelationship(
                             source = sourceIdentity.cxi_identity_id,
-                            source_type = sourceIdentity.customer_type,
+                            source_type = sourceIdentity.identity_type,
                             target = targetIdentity.cxi_identity_id,
-                            target_type = targetIdentity.customer_type,
+                            target_type = targetIdentity.identity_type,
                             relationship = RelationshipType,
                             frequency = 1,
                             created_date = relatedIdentites.date,

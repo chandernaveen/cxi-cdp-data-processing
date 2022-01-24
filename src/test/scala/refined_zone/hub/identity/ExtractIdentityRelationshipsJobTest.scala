@@ -148,7 +148,7 @@ class ExtractIdentityRelationshipsJobTest extends BaseSparkBatchJobTest with Mat
 object ExtractIdentityRelationshipsJobTest {
 
     case class OrderSummary(
-                               cxi_identity_id_array: Seq[IdentityId],
+                               cxi_identity_ids: Seq[IdentityId],
                                ord_date: java.sql.Date
                            )
 
