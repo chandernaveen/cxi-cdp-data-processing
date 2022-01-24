@@ -165,7 +165,8 @@ object ExtractIdentityRelationshipsJob {
                |  THEN UPDATE SET
                |    frequency = $destTable.frequency + $srcTable.frequency,
                |    created_date = ARRAY_MIN(ARRAY($destTable.created_date, $srcTable.created_date)),
-               |    last_seen_date = ARRAY_MAX(ARRAY($destTable.last_seen_date, $srcTable.last_seen_date))
+               |    last_seen_date = ARRAY_MAX(ARRAY($destTable.last_seen_date, $srcTable.last_seen_date)),
+               |    active_flag = $destTable.active_flag AND $srcTable.active_flag
                |WHEN NOT MATCHED
                |  THEN INSERT *
                |""".stripMargin)
@@ -179,7 +180,8 @@ object ExtractIdentityRelationshipsJob {
         first.copy(
             frequency = first.frequency + second.frequency,
             created_date = dateOrdering.min(first.created_date, second.created_date),
-            last_seen_date = dateOrdering.max(first.last_seen_date, second.last_seen_date)
+            last_seen_date = dateOrdering.max(first.last_seen_date, second.last_seen_date),
+            active_flag = first.active_flag && second.active_flag
         )
     }
 
