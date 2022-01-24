@@ -6,6 +6,19 @@ case class Fulfillment(pickup_details: PickupDetails = null,
                        `type`: String = null,
                        uid: String = null)
 
+object Fulfillment {
+
+    object State {
+        final val Completed = "COMPLETED"
+        final val Proposed = "PROPOSED"
+    }
+
+    object Type {
+        final val Pickup = "PICKUP"
+    }
+
+}
+
 case class PickupDetails(accepted_at: String = null,
                          curbside_pickup_details: CurbsidePickupDetails = null,
                          picked_up_at: String = null,

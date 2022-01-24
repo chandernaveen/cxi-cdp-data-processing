@@ -90,7 +90,7 @@ object FileIngestionFramework {
             val transformedDf = transformationFunction(finalDF)
 
             val finalDf = if (np.propIsSet(jobConfigPropName(basePropName, "crypto"))) {
-                val cryptoShreddingConf = CryptoShreddingConfig.fromContract(np)
+                val cryptoShreddingConf = CryptoShreddingConfig(np)
                 val cryptoShredding = new CryptoShredding(spark, cryptoShreddingConf)
                 val hashFunctionType = np.prop[String](jobConfigPropName(basePropName, "crypto.hash_function_type"))
                 val hashFunctionConfig = np.prop[Map[String, Any]](jobConfigPropName(basePropName, "crypto.hash_function_config"))
@@ -139,17 +139,6 @@ object FileIngestionFramework {
         } else {
             throw new RuntimeException(s"The folder $sourcePath does not contain data files we are looking for.")
         }
-    }
-
-    /** Creates WriteOptionsFunction to only overwrite records with the provided feedDate.
-      *
-      * Without this ingesting data for a specific feedDate will overwrite data for previously imported feedDates.
-      * Should be used together with SaveMode.Overwrite.
-      *
-      * Using this function instead of `replaceWhereForSingleColumnWriteOption` helps to avoid a full scan before write.
-      */
-    def replaceWhereForFeedDate(feedDate: String): WriteOptionsFunction = (_, _) => {
-        Map("replaceWhere" -> s"feed_date = '$feedDate'")
     }
 
     def getWriteOptions(df: DataFrame, feedDate: String, config: FileIngestionFrameworkConfig): Map[String, String] = {

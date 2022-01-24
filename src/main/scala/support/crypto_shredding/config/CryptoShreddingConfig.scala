@@ -13,7 +13,7 @@ case class CryptoShreddingConfig
     )
 
 object CryptoShreddingConfig {
-    def fromContract(contractUtils: ContractUtils): CryptoShreddingConfig = {
+    def apply(contractUtils: ContractUtils): CryptoShreddingConfig = {
         CryptoShreddingConfig(
             country = contractUtils.prop[String]("partner.country"),
             cxiPartnerId = contractUtils.prop[String]("partner.cxiPartnerId"),

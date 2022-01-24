@@ -38,10 +38,10 @@ object RawRefinedSquarePartnerJob {
         MenuItemsProcessor.process(spark, processorCommonConfig, destDbName)
         CustomersProcessor.process(spark, processorCommonConfig, destDbName)
         val payments = PaymentsProcessor.process(spark, processorCommonConfig, destDbName)
-        val cxiIdentitiesByOrder = CxiCustomersProcessor.process(spark, processorCommonConfig, refinedHubDestDbName, payments)
+        val cxiIdentityIdsByOrder = CxiIdentityProcessor.process(spark, processorCommonConfig, refinedHubDestDbName, payments)
         OrderTaxesProcessor.process(spark, processorCommonConfig, destDbName)
         OrderTenderTypesProcessor.process(spark, processorCommonConfig, destDbName)
-        OrderSummaryProcessor.process(spark, processorCommonConfig, destDbName, cxiIdentitiesByOrder)
+        OrderSummaryProcessor.process(spark, processorCommonConfig, destDbName, cxiIdentityIdsByOrder)
     }
 
     def getSchemaRawPath(relativePath: String): String = s"schema.raw.$relativePath"

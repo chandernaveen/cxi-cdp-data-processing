@@ -1,13 +1,14 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
+import model.ChannelType
 import raw_zone.pos_square.model.{Fulfillment, LineItem, Tender}
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
+import refined_zone.pos_square.config.ProcessorConfig
 
-import com.cxi.cdp.data_processing.refined_zone.pos_square.config.ProcessorConfig
-import org.apache.spark.sql.functions.{col, explode, from_json, lit}
-import org.apache.spark.sql.types.{DataTypes, DoubleType, StringType}
-import org.apache.spark.sql.{DataFrame, Encoders, SparkSession}
+import org.apache.spark.sql.functions.{col, explode, from_json, lit, udf}
+import org.apache.spark.sql.types.{DataTypes, DoubleType}
+import org.apache.spark.sql.{Column, DataFrame, Encoders, SparkSession}
 
 object OrderSummaryProcessor {
     def process(spark: SparkSession, config: ProcessorConfig, destDbName: String, cxiCustomerIdsByOrder: DataFrame): Unit = {
@@ -45,7 +46,7 @@ object OrderSummaryProcessor {
                |""".stripMargin)
     }
 
-    def transformOrderSummary(orderSummary: DataFrame, date: String, cxiPartnerId: String, cxiCustomerIdsByOrder: DataFrame): DataFrame = {
+    def transformOrderSummary(orderSummary: DataFrame, date: String, cxiPartnerId: String, cxiIdentityIdsByOrder: DataFrame): DataFrame = {
         orderSummary
             .withColumn("cxi_partner_id", lit(cxiPartnerId))
             .withColumn("ord_desc", lit(null))
@@ -54,8 +55,8 @@ object OrderSummaryProcessor {
             .withColumn("discount_amount", col("discount_amount").cast(DoubleType) / 100)
             .withColumn("ord_type", lit(null))
             .withColumn("fulfillments", from_json(col("fulfillments"), DataTypes.createArrayType(Encoders.product[Fulfillment].schema)))
-            .withColumn("ord_target_channel_id", col("fulfillments.type").cast(StringType))
-            .withColumn("ord_originate_channel_id", lit(null))
+            .withColumn("ord_target_channel_id", getOrdTargetChannelId(col("fulfillments")))
+            .withColumn("ord_originate_channel_id", getOrdOriginateChannelId())
             .withColumn("line_id", lit(null))
             .withColumn("emp_id", lit(null))
             .withColumn("dsp_qty", lit(null))
@@ -63,7 +64,6 @@ object OrderSummaryProcessor {
             .withColumn("reason_code_id", lit(null))
             .withColumn("service_charge_id", lit(null))
             .withColumn("guest_check_line_item_id", lit(null))
-            .withColumn("ord_originate_channel_id", lit(null))
             .withColumn("service_charge", lit(null))
             .withColumn("line_items", from_json(col("line_items"), DataTypes.createArrayType(Encoders.product[LineItem].schema)))
             .withColumn("line_item", explode(col("line_items")))
@@ -89,9 +89,29 @@ object OrderSummaryProcessor {
                 "dsp_ttl", "guest_check_line_item_id", "line_id", "taxes_id", "taxes_amount", "item_id",
                 "item_price_id", "reason_code_id", "service_charge_id", "service_charge_amount", "total_taxes_amount",
                 "total_tip_amount", "tender_ids", "ord_pay_total", "ord_sub_total", "feed_date")
-            .join(cxiCustomerIdsByOrder, orderSummary("ord_id") === cxiCustomerIdsByOrder("ord_id"), "left") // adds cxi_identity_id_array
-            .drop(cxiCustomerIdsByOrder("ord_id"))
+            .join(cxiIdentityIdsByOrder, orderSummary("ord_id") === cxiIdentityIdsByOrder("ord_id"), "left") // adds cxi_identity_ids
+            .drop(cxiIdentityIdsByOrder("ord_id"))
             .dropDuplicates("cxi_partner_id", "location_id", "ord_id", "ord_date", "item_id")
+    }
+
+    val getOrdTargetChannelId = udf((fulfillments: Option[Seq[Fulfillment]]) => {
+        val (completedFulfillments, otherFulfillments) = fulfillments
+            .getOrElse(Seq.empty[Fulfillment])
+            .partition(_.state == Fulfillment.State.Completed)
+
+        // prefer (non-null) type from COMPLETED fulfillments
+        val fulfillmentType = (completedFulfillments ++ otherFulfillments)
+            .flatMap(fulfillment => Option(fulfillment.`type`))
+            .headOption
+
+        fulfillmentType match {
+            case Some(Fulfillment.Type.Pickup) => ChannelType.PhysicalPickup.code
+            case _ => ChannelType.Unknown.code
+        }
+    })
+
+    def getOrdOriginateChannelId(): Column = {
+        lit(ChannelType.PhysicalLane.code)
     }
 
     def writeOrderSummary(df: DataFrame, cxiPartnerId: String, destTable: String): Unit = {

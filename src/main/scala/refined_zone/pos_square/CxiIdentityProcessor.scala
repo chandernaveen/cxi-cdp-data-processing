@@ -2,21 +2,26 @@ package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
 import raw_zone.pos_square.model.{Fulfillment, Tender}
+import refined_zone.hub.model.CxiIdentity._
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.{getSchemaRefinedHubPath, getSchemaRefinedPath}
 import refined_zone.pos_square.config.ProcessorConfig
-import support.crypto_shredding.CryptoShredding
+import refined_zone.service.MetadataService.extractMetadata
+import support.WorkspaceConfigReader
 import support.crypto_shredding.config.CryptoShreddingConfig
+import support.crypto_shredding.{CryptoShredding, PrivacyFunctions}
+import support.packages.utils.ContractUtils
 
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DataTypes
 import org.apache.spark.sql.{Column, DataFrame, Encoders, SparkSession}
 
-object CxiCustomersProcessor {
+object CxiIdentityProcessor {
+
     def process(spark: SparkSession, config: ProcessorConfig, destDbName: String, payments: DataFrame): DataFrame = {
 
         val refinedDbTable = config.contract.prop[String](getSchemaRefinedPath("db_name"))
         val customersDimTable = config.contract.prop[String](getSchemaRefinedPath("customer_table"))
-        val customersTable = config.contract.prop[String](getSchemaRefinedHubPath("customer_table"))
+        val identityTable = config.contract.prop[String](getSchemaRefinedHubPath("identity_table"))
 
         val customers = broadcast(readAllCustomersDim(spark, refinedDbTable, customersDimTable))
 
@@ -39,25 +44,15 @@ object CxiCustomersProcessor {
             config.contract.prop[String]("databricks_workspace_config"),
             fullCustomerData)
 
-        val allCustomerIds = strongIds.unionAll(hashedCombinations)
+        val allIdentitiesIds = strongIds.unionAll(hashedCombinations)
             .cache()
 
-        val cxiCustomers = allCustomerIds
-            .select("cxi_customer_id", "customer_type", "customer_weight")
-            .withColumn("customer_metadata", lit(null))
-            .dropDuplicates("cxi_customer_id")
+        writeCxiIdentities(spark, allIdentitiesIds, s"$destDbName.$identityTable", config.contract)
 
-        writeCxiCustomers(cxiCustomers, s"$destDbName.$customersTable")
-
-        val cxiIdentitiesByOrder = allCustomerIds.select("ord_id", "customer_type", "cxi_customer_id")
+        val cxiIdentitiesIdsByOrder = allIdentitiesIds
             .groupBy("ord_id")
-            .agg(collect_list(
-                    struct(
-                        col("customer_type"),
-                        col("cxi_customer_id").as("cxi_identity_id"))
-                ).as("cxi_identity_id_array"))
-
-        cxiIdentitiesByOrder
+            .agg(collect_list(struct(col(Type) as "identity_type", col(CxiIdentityId))) as CxiIdentityIds)
+        cxiIdentitiesIdsByOrder
     }
 
     def readOrderCustomersData(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
@@ -188,9 +183,9 @@ object CxiCustomersProcessor {
         val allPhones = phoneSource.unionAll(phonesPickup)
 
         allEmails.unionAll(allPhones)
-            .withColumnRenamed("source_id", "cxi_customer_id") // Not hashing cause it is supposed to be hash already (weight 3 was in crypto for Landing/Raw)
-            .withColumnRenamed("source_type", "customer_type")
-            .withColumnRenamed("source_weight", "customer_weight")
+            .withColumnRenamed("source_id", CxiIdentityId) // Not hashing cause it is supposed to be hash already (weight 3 was in crypto for Landing/Raw)
+            .withColumnRenamed("source_type", Type)
+            .withColumnRenamed("source_weight", Weight)
     }
 
     def computeWeight2CxiCustomerId(spark: SparkSession,
@@ -207,9 +202,9 @@ object CxiCustomersProcessor {
 
         // for weight 2 source has already created combination, simply hash it and treat it as weight 3
         val combinationsIds = nameExpTypePanCombination.unionAll(binExpTypePanCombination)
-            .withColumnRenamed("source_id", "cxi_customer_id")
-            .withColumnRenamed("source_type", "customer_type")
-            .withColumnRenamed("source_weight", "customer_weight")
+            .withColumnRenamed("source_id", CxiIdentityId)
+            .withColumnRenamed("source_type", Type)
+            .withColumnRenamed("source_weight", Weight)
 
         // consider combinations ids as PII
         val cryptoShreddingConfig = CryptoShreddingConfig(
@@ -219,7 +214,7 @@ object CxiCustomersProcessor {
             lookupDestTableName = lookupDestTableName,
             workspaceConfigPath = workspaceConfigPath)
         val hashedCombinations = new CryptoShredding(spark, cryptoShreddingConfig)
-            .applyHashCryptoShredding("common", Map("dataColName" -> "cxi_customer_id"), combinationsIds)
+            .applyHashCryptoShredding("common", Map("dataColName" -> CxiIdentityId), combinationsIds)
         hashedCombinations
     }
 
@@ -275,18 +270,50 @@ object CxiCustomersProcessor {
             col("card_brand").isNotNull and
             col("pan").isNotNull
 
-    def writeCxiCustomers(df: DataFrame, destTable: String): Unit = {
-        val srcTable = "newCustomers"
+    def writeCxiIdentities(spark: SparkSession, allCustomerIds: DataFrame, destTable: String, contract: ContractUtils): Unit = {
 
-        df.createOrReplaceTempView(srcTable)
-        df.sqlContext.sql(
+        val workspaceConfigPath: String = contract.prop[String]("databricks_workspace_config")
+        val workspaceConfig = WorkspaceConfigReader.readWorkspaceConfig(spark, workspaceConfigPath)
+        val privacyFunctions = new PrivacyFunctions(spark, workspaceConfig)
+
+        try {
+            privacyFunctions.authorize()
+            val privacyTable = readPrivacyLookupTable(spark, contract)
+            val cxiIdentities = allCustomerIds
+                .select(CxiIdentityId, Type, Weight)
+                .dropDuplicates(CxiIdentityId)
+                .join(privacyTable, allCustomerIds(CxiIdentityId) === privacyTable("hashed_value"), "left")
+
+            val metadataUdf = udf(extractMetadata _)
+            val cxiIdentitiesWithMetadata = cxiIdentities
+                .withColumn(Metadata, metadataUdf(col(Type), col("original_value")))
+                .drop("original_value", "hashed_value")
+
+            val srcTable = "newIdentities"
+
+            cxiIdentitiesWithMetadata.createOrReplaceTempView(srcTable)
+            cxiIdentitiesWithMetadata.sqlContext.sql(
+                s"""
+                   |MERGE INTO $destTable
+                   |USING $srcTable
+                   |ON $destTable.$CxiIdentityId = $srcTable.$CxiIdentityId
+                   |WHEN NOT MATCHED
+                   |  THEN INSERT *
+                   |""".stripMargin)
+        } finally {
+            privacyFunctions.unauthorize()
+        }
+    }
+
+    def readPrivacyLookupTable(spark: SparkSession, contract: ContractUtils): DataFrame = {
+        val lookupDbName = contract.prop[String]("schema.crypto.db_name")
+        val lookupTableName = contract.prop[String]("schema.crypto.lookup_table")
+        spark.sql(
             s"""
-               |MERGE INTO $destTable
-               |USING $srcTable
-               |ON $destTable.cxi_customer_id = $srcTable.cxi_customer_id
-               |WHEN NOT MATCHED
-               |  THEN INSERT *
-               |""".stripMargin)
+               |SELECT original_value, hashed_value
+               |FROM $lookupDbName.$lookupTableName
+               |""".stripMargin
+        )
     }
 
 }

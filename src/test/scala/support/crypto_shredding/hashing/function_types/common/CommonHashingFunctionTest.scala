@@ -56,4 +56,55 @@ class CommonHashingFunctionTest extends BaseSparkBatchJobTest {
 
     }
 
+    test("test hashing with transform function") {
+        // given
+        import spark.implicits._
+        val salt = ""
+        val hashFunctionConfig = Map(
+            "dataColName" -> "email_address",
+            "transform" -> Map("transformationName" -> "normalizeEmail")
+        )
+        val commonHashingFunction = new CommonHashingFunction(hashFunctionConfig, salt)
+        val landingData = List(
+            ("Paul", 10, "PauL@Mailbox.Com"),
+            ("George", 20, "GEORGE@mailbox.COM"),
+            ("Ringo", 30, "rinGO@mailboX.com")
+        ).toDF("record_value", "some_other_top_level_column", "email_address")
+
+        // when
+        val (hashedOriginalDf, extractedPersonalInformationDf) = commonHashingFunction.hash(landingData)
+
+        // then
+        // check pii df
+        val actualFieldsReturnedForPiiDf = extractedPersonalInformationDf.schema.fields.map(f => f.name)
+        withClue("Actual fields returned for pii data frame:\n" + extractedPersonalInformationDf.schema.treeString) {
+            actualFieldsReturnedForPiiDf shouldEqual Array("original_value", "hashed_value")
+        }
+        val actualExtractedPiiData = extractedPersonalInformationDf.collect()
+        withClue("Actual extracted PII data do not match") {
+            val expected = List(
+                ("paul@mailbox.com", "c6d350e268541121fe992734ce63ae64288a0dd46ec716991dbf6809eada1e91"),
+                ("george@mailbox.com", "f13d2bcb9f2cf5a3818ceb4ac26df50fef3a24d8565f18fb23b76a2514480f3c"),
+                ("ringo@mailbox.com", "e78b37db08be40533170866d8c275c9a56bb85188fb92ddaf7a77dee9ec0c877")
+            ).toDF("original_value", "hashed_value").collect()
+            actualExtractedPiiData.length should equal(expected.length)
+            actualExtractedPiiData should contain theSameElementsAs expected
+        }
+        // check hashed df
+        val actualFieldsReturnedForHashedDf = hashedOriginalDf.schema.fields.map(f => f.name)
+        withClue("Actual fields returned for hashed data frame:\n" + hashedOriginalDf.schema.treeString) {
+            actualFieldsReturnedForHashedDf shouldEqual Array("record_value", "some_other_top_level_column", "email_address")
+        }
+        val actualHashedOriginalDfData = hashedOriginalDf.collect()
+        withClue("Actual hashed data frame data do not match") {
+            val expected = List(
+                ("Paul", 10, "c6d350e268541121fe992734ce63ae64288a0dd46ec716991dbf6809eada1e91"),
+                ("George", 20, "f13d2bcb9f2cf5a3818ceb4ac26df50fef3a24d8565f18fb23b76a2514480f3c"),
+                ("Ringo", 30, "e78b37db08be40533170866d8c275c9a56bb85188fb92ddaf7a77dee9ec0c877")
+            ).toDF("record_value", "some_other_top_level_column", "email_address").collect()
+            actualHashedOriginalDfData.length should equal(expected.length)
+            actualHashedOriginalDfData should contain theSameElementsAs expected
+        }
+    }
+
 }

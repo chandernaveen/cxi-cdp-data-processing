@@ -132,24 +132,7 @@ stages:
     - job: deploy
       steps:
        - checkout: none
-       - task: DownloadBuildArtifacts@1
-         condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
-         displayName: download build
-         inputs:
-           buildType: 'current'
-           downloadType: 'single'
-           artifactName: 'cxi_cdp_data_processing_assembly'
-           downloadPath: '$(System.ArtifactsDirectory)'
-           checkDownloadedFiles: true
-       - task: databricksDeployDBFSFilesTask@0
-         condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
-         inputs:
-            authMethod: 'bearer'
-            bearerToken: $(BEARERTOKEN)
-            region: 'eastus2'
-            LocalRootFolder: '$(System.ArtifactsDirectory)/cxi_cdp_data_processing_assembly/'
-            FilePattern: '*.jar'
-            TargetLocation: '/FileStore/jars/cxi/$(versionNumber)/'
+       
        - task: Bash@3
          condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
          displayName: download pr artifact  

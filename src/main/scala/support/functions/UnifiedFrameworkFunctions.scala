@@ -128,6 +128,8 @@ object UnifiedFrameworkFunctions {
         }
     }
 
+    type WriteOptionsFunction = (DataFrame, Map[String, String]) => Map[String, String]
+
     def replaceWhereForSingleColumnWriteOption(df: DataFrame, params: Map[String, String]): Map[String, String] = {
         val controlCol = params("controlCol")
 
@@ -143,7 +145,19 @@ object UnifiedFrameworkFunctions {
         Map[String, String]("replaceWhere" -> replaceWhereCondition)
     }
 
-    type WriteOptionsFunction = (DataFrame, Map[String, String]) => Map[String, String]
+    /** Creates WriteOptionsFunction to only overwrite records with the provided feedDate.
+      *
+      * Without this ingesting data for a specific feedDate will overwrite data for previously imported feedDates.
+      * Should be used together with SaveMode.Overwrite.
+      *
+      * Using this function instead of `replaceWhereForSingleColumnWriteOption` helps to avoid a full scan before write.
+      *
+      * NOTE: this function is not exposed in `writeOptionsFunctionsMap` as it should be configured with the feedDate.
+      * See `FileIngestionFramework` for an example of how to expose this function.
+      */
+    def replaceWhereForFeedDate(feedDate: String): WriteOptionsFunction = (_, _) => {
+        Map("replaceWhere" -> s"feed_date = '$feedDate'")
+    }
 
     val writeOptionsFunctionsMap: Map[String, WriteOptionsFunction] =
         Map("replaceWhereForSingleColumn" -> replaceWhereForSingleColumnWriteOption)
