@@ -10,7 +10,7 @@ import com.cxi.cdp.data_processing.support.SparkSessionFactory
 import com.cxi.cdp.data_processing.support.change_data_feed.ChangeDataFeedService.ChangeType
 import com.cxi.cdp.data_processing.support.utils.ContractUtils
 import org.apache.log4j.Logger
-import org.apache.spark.sql.functions.{col, size}
+import org.apache.spark.sql.functions.{coalesce, col, lit, size}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 /** This Spark job extracts identity relationships from order summary and writes them into identity_relationship table.
@@ -47,7 +47,7 @@ object ExtractIdentityRelationshipsJob {
 
         val cdfTrackerTable = getCdfTrackerTable(contract)
         val orderSummaryTables = getOrderSummaryTables(contract)
-        val identityRelationshipTable = getIdentityRelationshipTable(contract)
+        val identityRelationshipTable = getPosIdentityRelationshipTable(contract)
 
         if (cliArgs.fullReprocess) {
             logger.info("Full reprocess is requested, removing existing identity relationships")
@@ -89,9 +89,9 @@ object ExtractIdentityRelationshipsJob {
         Seq(s"$refinedSquareDb.$orderSummaryTable")
     }
 
-    private def getIdentityRelationshipTable(contract: ContractUtils): String = {
+    private def getPosIdentityRelationshipTable(contract: ContractUtils): String = {
         val db = contract.prop[String]("schema.refined_hub.db_name")
-        val table = contract.prop[String]("schema.refined_hub.identity_relationship_table")
+        val table = contract.prop[String]("schema.refined_hub.pos_identity_relationship_table")
         s"$db.$table"
     }
 
@@ -102,11 +102,13 @@ object ExtractIdentityRelationshipsJob {
     private[identity] def extractRelatedEntities(orderSummaryDF: DataFrame)(implicit spark: SparkSession): Dataset[RelatedIdentities] = {
         import spark.implicits._
 
+        val ordDateFallback = new java.sql.Date(java.time.Instant.now().toEpochMilli)
+
         orderSummaryDF
             .filter(size(col(CxiIdentity.CxiIdentityIds)) > 1)
             .select(
                 col(CxiIdentity.CxiIdentityIds).as("identities"),
-                col("ord_date").as("date")
+                coalesce(col("ord_date"), lit(ordDateFallback)).as("date")
             )
             .as[RelatedIdentities]
     }
