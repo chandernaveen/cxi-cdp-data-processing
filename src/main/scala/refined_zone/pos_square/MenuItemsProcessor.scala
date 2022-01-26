@@ -41,7 +41,6 @@ object MenuItemsProcessor {
         spark.sql(
             s"""
                |SELECT
-               |get_json_object(record_value, "$$.id") as item_id,
                |get_json_object(record_value, "$$.item_data.variations") as variations
                |FROM $dbName.$table
                |WHERE record_type = "objects" AND get_json_object(record_value, "$$.type")="ITEM" AND feed_date = "$date"
@@ -59,6 +58,7 @@ object MenuItemsProcessor {
             .withColumn("variations", from_json(col("variations"), DataTypes.createArrayType(Encoders.product[Variation].schema)))
             .withColumn("variation", explode(col("variations")))
             .withColumn("item_nm", col("variation.item_variation_data.name"))
+            .withColumn("item_id", col("variation.id"))
             .withColumn("item_desc", lit(null))
             .withColumn("item_type", when(lower(col("variation.type")) === "item", "food")
                 .otherwise(
