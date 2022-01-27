@@ -35,7 +35,8 @@ object RawRefinedSquarePartnerJob {
 
         LocationsProcessor.process(spark, processorCommonConfig, destDbName)
         CategoriesProcessor.process(spark, processorCommonConfig, destDbName)
-        MenuItemsProcessor.process(spark, processorCommonConfig, destDbName)
+        val menuItemTable = contract.prop[String](getSchemaRefinedPath("item_table"))
+        MenuItemsProcessor.process(spark, cxiPartnerId, date, s"$srcDbName.$srcTable", s"$destDbName.$menuItemTable")
         CustomersProcessor.process(spark, processorCommonConfig, destDbName)
         val payments = PaymentsProcessor.process(spark, processorCommonConfig, destDbName)
         val cxiIdentityIdsByOrder = CxiIdentityProcessor.process(spark, processorCommonConfig, refinedHubDestDbName, payments)
