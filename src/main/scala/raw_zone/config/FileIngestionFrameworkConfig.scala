@@ -1,14 +1,13 @@
 package com.cxi.cdp.data_processing
 package raw_zone.config
 
-import support.packages.utils.ContractUtils
-import support.packages.utils.ContractUtils.jobConfigPropName
-
+import support.utils.{ContractUtils, PathUtils}
+import support.utils.ContractUtils.jobConfigPropName
 import com.databricks.service.DBUtils
 import org.apache.spark.sql.types.{DataType, StructType}
-
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+
 import scala.collection.Seq
 
 case class FileIngestionFrameworkConfig
@@ -38,8 +37,6 @@ case class FileIngestionFrameworkConfig
     )
 
 object FileIngestionFrameworkConfig {
-
-    private final val PathDelimiter = "/"
 
     def apply
         (feedDate: LocalDate, sourceDateDirFormatter: DateTimeFormatter, contractUtils: ContractUtils, basePropName: String): FileIngestionFrameworkConfig = {
@@ -80,14 +77,7 @@ object FileIngestionFrameworkConfig {
 
     /** Creates the final source path from the base path (which comes from a contract) and the processing date. */
     private def getSourcePath(basePath: String, date: LocalDate, sourceDateDirFormat: DateTimeFormatter): String = {
-        concatPaths(basePath, sourceDateDirFormat.format(date))
+        PathUtils.concatPaths(basePath, sourceDateDirFormat.format(date))
     }
 
-    private def concatPaths(parent: String, child: String) = {
-        if (parent.endsWith(PathDelimiter)) {
-            parent + child
-        } else {
-            parent + PathDelimiter + child
-        }
-    }
 }

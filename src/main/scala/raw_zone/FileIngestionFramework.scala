@@ -9,8 +9,8 @@ import support.crypto_shredding.config.CryptoShreddingConfig
 import support.exceptions.CryptoShreddingException
 import support.functions.LogContext
 import support.functions.UnifiedFrameworkFunctions._
-import support.packages.utils.ContractUtils
-import support.packages.utils.ContractUtils.jobConfigPropName
+import support.utils.ContractUtils
+import support.utils.ContractUtils.jobConfigPropName
 
 import com.databricks.service.DBUtils
 import io.delta.tables.DeltaTable

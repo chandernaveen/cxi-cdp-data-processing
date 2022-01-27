@@ -9,13 +9,13 @@ import refined_zone.service.MetadataService.extractMetadata
 import support.WorkspaceConfigReader
 import support.crypto_shredding.config.CryptoShreddingConfig
 import support.crypto_shredding.{CryptoShredding, PrivacyFunctions}
-import support.packages.utils.ContractUtils
+import support.utils.ContractUtils
 
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DataTypes
 import org.apache.spark.sql.{Column, DataFrame, Encoders, SparkSession}
 
-object CxIdentityProcessor {
+object CxiIdentityProcessor {
 
     def process(spark: SparkSession, config: ProcessorConfig, destDbName: String, payments: DataFrame): DataFrame = {
 
@@ -80,7 +80,7 @@ object CxIdentityProcessor {
             .withColumn("ord_customer_id_2", col("tender.customer_id"))
             .withColumn("ord_customer_id", when(col("ord_customer_id_1").isNull or col("ord_customer_id_1") === "",
                 col("ord_customer_id_2")).otherwise(col("ord_customer_id_1")))
-            .drop("tender_array", "tender", CxiIdentityIds)
+            .drop("tender_array", "tender", "ord_customer_id_1", "ord_customer_id_2")
     }
 
     def readOrderCustomersPickupData(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {

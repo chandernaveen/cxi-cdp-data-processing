@@ -1,7 +1,7 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square.config
 
-import support.packages.utils.ContractUtils
+import support.utils.ContractUtils
 
 case class ProcessorConfig
     (
