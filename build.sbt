@@ -6,6 +6,7 @@ name := "cxi-cdp-data-processing"
 idePackagePrefix := Some("com.cxi.cdp.data_processing")
 lazy val sparkVersion = "3.1.2"
 lazy val javaVersion = "1.8"
+resolvers += "Spark Packages" at "https://repos.spark-packages.org/"
 
 lazy val setupDatabricksConnect = taskKey[Unit]("Execute scripts that add Databricks jars")
 
@@ -43,7 +44,9 @@ libraryDependencies ++= Seq(
   "com.beachape" %% "enumeratum" % "1.7.0",
   "org.scalatest" %% "scalatest" % "3.0.8" % Test,
   "io.delta" %% "delta-core" % "1.0.0" % Provided,
-  "com.databricks" %% "dbutils-api" % "0.0.5" % Provided)
+  "com.databricks" %% "dbutils-api" % "0.0.5" % Provided,
+  "graphframes" % "graphframes" % "0.8.2-spark3.1-s_2.12"
+)
 
 Test / fork := true
 Test / parallelExecution := false
