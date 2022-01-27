@@ -4,7 +4,7 @@ package curated_zone.audience
 import curated_zone.audience.service.AudienceService
 import refined_zone.hub.model.CxiIdentity.{CxiIdentityId, Metadata, Type, Weight}
 import support.SparkSessionFactory
-import support.packages.utils.ContractUtils
+import support.utils.ContractUtils
 
 import org.apache.log4j.Logger
 import org.apache.spark.sql.SparkSession
