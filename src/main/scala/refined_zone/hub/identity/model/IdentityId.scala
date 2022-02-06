@@ -12,4 +12,15 @@ object IdentityId {
       */
     val SourceToTargetOrdering: Ordering[IdentityId] = Ordering.by(r => (r.cxi_identity_id, r.identity_type))
 
+    def qualifiedIdentityId(identityType: String, cxiIdentityId: String): String = {
+        s"$identityType:$cxiIdentityId"
+    }
+
+    def fromQualifiedIdentityId(qualifiedIdentityId: String): IdentityId = {
+        qualifiedIdentityId.split(":") match {
+            case Array(identityType, cxiIdentityId) => IdentityId(identityType, cxiIdentityId)
+            case _ => throw new Exception("Invalid qualified identity ID format!")
+        }
+    }
+
 }
