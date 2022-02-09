@@ -2,8 +2,8 @@ package com.cxi.cdp.data_processing
 package refined_zone.hub
 
 import support.BaseSparkBatchJobTest
+import support.utils.TransformUtils.{CastDataType, ColumnsMapping, DestCol, SourceCol}
 
-import com.cxi.cdp.data_processing.refined_zone.hub.CommonMongoDbRefinedHubIngestionJob.ColumnsMapping
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal}
 
 class CommonMongoDbRefinedHubIngestionJobTest extends BaseSparkBatchJobTest {
@@ -71,9 +71,9 @@ class CommonMongoDbRefinedHubIngestionJobTest extends BaseSparkBatchJobTest {
         ).toDF("cxiPartnerId", "partner_name", "some_column_to_cast")
 
         val columnsMapping = ColumnsMapping(List(
-            Map("source_col" -> "cxiPartnerId", "dest_col" -> "cxi_partner_id"),
-            Map("source_col" -> "partner_name", "dest_col" -> "partner_nm"),
-            Map("source_col" -> "some_column_to_cast", "dest_col" -> "column_after_cast", "cast_data_type" -> "long"))
+            Map(SourceCol -> "cxiPartnerId", DestCol -> "cxi_partner_id"),
+            Map(SourceCol -> "partner_name", DestCol -> "partner_nm"),
+            Map(SourceCol -> "some_column_to_cast", DestCol -> "column_after_cast", CastDataType -> "long"))
         )
         val feedDate = "2021-10-12"
 

@@ -1,12 +1,14 @@
 package com.cxi.cdp.data_processing
 package curated_zone.tmi
 
-import java.nio.file.Paths
+import support.SparkSessionFactory
+import support.utils.ContractUtils
+import support.utils.mongodb.MongoDbConfigUtils
 
-import com.cxi.cdp.data_processing.support.SparkSessionFactory
-import com.cxi.cdp.data_processing.support.utils.ContractUtils
 import org.apache.log4j.Logger
 import org.apache.spark.sql.{DataFrame, SparkSession}
+
+import java.nio.file.Paths
 
 /** This job populates total market insights from data provided by Segmint.
   *
@@ -35,7 +37,7 @@ object TotalMarketInsightsFromSegmintJob {
         val curatedDb = contract.prop[String]("schema.curated.db_name")
         val totalMarketInsightsTable = contract.prop[String]("schema.curated.total_market_insights_table")
 
-        val mongoDbConfig = TotalMarketInsightsJob.getMongoDbConfig(contract)
+        val mongoDbConfig = MongoDbConfigUtils.getMongoDbConfig(spark, contract)
 
         val totalMarketInsights: DataFrame =
             readTotalMarketInsights("/mnt/" + cliArgs.dataPath, s"$refinedHubDb.$postalCodeTable").cache()

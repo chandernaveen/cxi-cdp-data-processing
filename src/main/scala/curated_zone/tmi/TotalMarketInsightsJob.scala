@@ -1,16 +1,18 @@
 package com.cxi.cdp.data_processing
 package curated_zone.tmi
 
-import java.nio.file.Paths
+import refined_zone.hub.ChangeDataFeedViews
+import support.SparkSessionFactory
+import support.utils.ContractUtils
+import support.utils.mongodb.MongoDbConfigUtils
+import support.utils.mongodb.MongoDbConfigUtils.MongoSparkConnectorClass
 
-import com.cxi.cdp.data_processing.refined_zone.hub.ChangeDataFeedViews
-import com.cxi.cdp.data_processing.support.{SparkSessionFactory, WorkspaceConfigReader}
-import com.cxi.cdp.data_processing.support.utils.ContractUtils
-import com.databricks.service.DBUtils
 import org.apache.log4j.Logger
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+
+import java.nio.file.Paths
 
 object TotalMarketInsightsJob {
 
@@ -70,7 +72,7 @@ object TotalMarketInsightsJob {
         val partnerMarketInsightsTable = contract.prop[String]("schema.curated.partner_market_insights_table")
         val totalMarketInsightsTable = contract.prop[String]("schema.curated.total_market_insights_table")
 
-        val mongoDbConfig = getMongoDbConfig(contract)
+        val mongoDbConfig = MongoDbConfigUtils.getMongoDbConfig(spark, contract)
 
         val orderSummary: DataFrame =
             readOrderSummary(orderDates, s"$refinedHubDb.$orderSummaryTable", s"$refinedHubDb.$locationTable")
@@ -196,7 +198,7 @@ object TotalMarketInsightsJob {
 
         partnerMarketInsights
             .write
-            .format("com.mongodb.spark.sql.DefaultSource")
+            .format(MongoSparkConnectorClass)
             .mode("append")
             .option("database", contract.prop[String]("mongo.db"))
             .option("collection", contract.prop[String]("mongo.partner_market_insights_collection"))
@@ -249,24 +251,6 @@ object TotalMarketInsightsJob {
                |""".stripMargin)
     }
 
-    def getMongoDbConfig(contract: ContractUtils)(implicit spark: SparkSession): MongoDbConfig = {
-        val workspaceConfigPath: String = contract.prop[String]("databricks_workspace_config")
-        val workspaceConfig = WorkspaceConfigReader.readWorkspaceConfig(spark, workspaceConfigPath)
-
-        val username = DBUtils.secrets.get(
-            workspaceConfig.azureKeyVaultScopeName,
-            contract.prop[String]("mongo.username_secret_key"))
-        val password = DBUtils.secrets.get(
-            workspaceConfig.azureKeyVaultScopeName,
-            contract.prop[String]("mongo.password_secret_key"))
-        val scheme = contract.prop[String]("mongo.scheme")
-        val host = DBUtils.secrets.get(
-            workspaceConfig.azureKeyVaultScopeName,
-            contract.prop[String]("mongo.host_secret_key"))
-
-        MongoDbConfig(username = username, password = password, scheme = scheme, host = host)
-    }
-
     def writeToMongoTotalMarketInsights(
                                            totalMarketInsights: DataFrame,
                                            mongoDbUri: String,
@@ -280,7 +264,7 @@ object TotalMarketInsightsJob {
 
         totalMarketInsights
             .write
-            .format("com.mongodb.spark.sql.DefaultSource")
+            .format(MongoSparkConnectorClass)
             .mode(saveMode)
             .option("database", contract.prop[String]("mongo.db"))
             .option("collection", contract.prop[String]("mongo.total_market_insights_collection"))
@@ -310,10 +294,6 @@ object TotalMarketInsightsJob {
                 .getOrElse(throw new IllegalArgumentException("Could not parse arguments"))
         }
 
-    }
-
-    case class MongoDbConfig(username: String, password: String, scheme: String, host: String) {
-        def uri: String = s"$scheme$username:$password@$host"
     }
 
 }

@@ -45,7 +45,7 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.0.8" % Test,
   "io.delta" %% "delta-core" % "1.0.0" % Provided,
   "com.databricks" %% "dbutils-api" % "0.0.5" % Provided,
-  "graphframes" % "graphframes" % "0.8.2-spark3.1-s_2.12"
+  "graphframes" % "graphframes" % "0.8.2-spark3.1-s_2.12" exclude("org.slf4j", "slf4j-api")
 )
 
 Test / fork := true

@@ -1,14 +1,15 @@
 package com.cxi.cdp.data_processing
 package refined_zone.hub
 
-import support.utils.ContractUtils
-import support.{SparkSessionFactory, WorkspaceConfigReader}
+import support.SparkSessionFactory
+import support.utils.TransformUtils.ColumnsMapping
+import support.utils.mongodb.MongoDbConfigUtils
+import support.utils.{ContractUtils, TransformUtils}
 
-import com.databricks.service.DBUtils
 import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.ReadConfig
 import org.apache.log4j.Logger
-import org.apache.spark.sql.functions.{col, lit}
+import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import java.nio.file.Paths
@@ -29,7 +30,7 @@ object CommonMongoDbRefinedHubIngestionJob {
     def run(spark: SparkSession, cliArgs: CliArgs): Unit = {
         val contract: ContractUtils = new ContractUtils(Paths.get(cliArgs.contractPath))
 
-        val mongoDbConfig = getMongoDbConfig(spark, contract)
+        val mongoDbConfig = MongoDbConfigUtils.getMongoDbConfig(spark, contract)
 
         val mongoDbDatabase = contract.prop[String](getJobConfigProp("src_db"))
         val mongoDbCollection = contract.prop[String](getJobConfigProp("src_collection"))
@@ -59,17 +60,8 @@ object CommonMongoDbRefinedHubIngestionJob {
                   destTableKeys: List[String],
                   date: String,
                   dropDuplicates: Boolean): DataFrame = {
-        val selectedCollectionColumns = sourceCollectionDf.select(columnsMapping.sourceColumns.map(col): _*)
 
-        val res = columnsMapping.mappings.foldLeft(selectedCollectionColumns) {
-            case (acc, colMapping) =>
-                val renamedColumn = acc
-                    .withColumnRenamed(colMapping.sourceColName, colMapping.destColName)
-
-                colMapping.castDataType
-                    .map(dt => renamedColumn.withColumn(colMapping.destColName, col(colMapping.destColName).cast(dt)))
-                    .getOrElse(renamedColumn)
-        }
+        val res = TransformUtils.applyColumnMapping(sourceCollectionDf, columnsMapping, includeAllSourceColumns = false)
 
         if (dropDuplicates) {
             res.withColumn("feed_date", lit(date))
@@ -115,36 +107,6 @@ object CommonMongoDbRefinedHubIngestionJob {
     def constructJoinCondition(destTableKeys: List[String], srcTable: String, destTable: String): String = {
         val commonDestKey = "feed_date"
         (commonDestKey +: destTableKeys).map(key => s"$destTable.$key <=> $srcTable.$key").mkString(" AND ")
-    }
-
-    case class MongoDbConfig(username: String, password: String, scheme: String, host: String) {
-        def uri: String = s"$scheme$username:$password@$host"
-    }
-
-    case class ColumnsMapping(colConfigs: List[Map[String, String]]) {
-        val mappings: List[ColumnMapping] = colConfigs.map(colConfig =>
-            ColumnMapping(colConfig("source_col"), colConfig("dest_col"), colConfig.get("cast_data_type")))
-        val sourceColumns: List[String] = mappings.map(_.sourceColName)
-    }
-
-    case class ColumnMapping(sourceColName: String, destColName: String, castDataType: Option[String])
-
-    def getMongoDbConfig(spark: SparkSession, contract: ContractUtils): MongoDbConfig = {
-        val workspaceConfigPath: String = contract.prop[String]("databricks_workspace_config")
-        val workspaceConfig = WorkspaceConfigReader.readWorkspaceConfig(spark, workspaceConfigPath)
-
-        val username = DBUtils.secrets.get(
-            workspaceConfig.azureKeyVaultScopeName,
-            contract.prop[String]("mongo.username_secret_key"))
-        val password = DBUtils.secrets.get(
-            workspaceConfig.azureKeyVaultScopeName,
-            contract.prop[String]("mongo.password_secret_key"))
-        val scheme = contract.prop[String]("mongo.scheme")
-        val host = DBUtils.secrets.get(
-            workspaceConfig.azureKeyVaultScopeName,
-            contract.prop[String]("mongo.host_secret_key"))
-
-        MongoDbConfig(username = username, password = password, scheme = scheme, host = host)
     }
 
     def getJobConfigProp(relativePath: String): String = s"jobs.databricks.refined_hub_mongo_ingestion_job.job_config.$relativePath"
