@@ -56,11 +56,3 @@ class FileIngestionFrameworkQuBeyondTransformationTest extends BaseSparkBatchJob
         }
     }
 }
-
-
-//[
-// QuBeyondRawZoneModel(check,{"check_id":"613a24bde021c2301d5f4e24","location_id":317},2021-09-03,check.json,fc4ecb01-4d6b-4e99-97a0-e3cb218d4fb0,None,None,null,null,DataDelta(09272021,0257),null,null),
-// QuBeyondRawZoneModel(check,{"check_id":"987a48b26a6c897a6ae08efd","location_id":317},2021-09-03,check.json,fc4ecb01-4d6b-4e99-97a0-e3cb218d4fb0,None,None,null,null,DataDelta(09272021,0257),null,null)]
-// did not contain the same elements as List(
-// QuBeyondRawZoneModel(check,{"check_id":613a24bde021c2301d5f4e24,"location_id":317},2021-09-03,check.json,fc4ecb01-4d6b-4e99-97a0-e3cb218d4fb0,None,None,null,null,DataDelta(09272021,0257),null,null),
-// QuBeyondRawZoneModel(check,{"check_id":987a48b26a6c897a6ae08efd,"location_id":317},2021-09-03,check.json,fc4ecb01-4d6b-4e99-97a0-e3cb218d4fb0,None,None,null,null,DataDelta(09272021,0257),null,null))

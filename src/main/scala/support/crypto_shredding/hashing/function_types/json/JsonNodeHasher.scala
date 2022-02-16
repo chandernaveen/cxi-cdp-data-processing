@@ -2,6 +2,8 @@ package com.cxi.cdp.data_processing
 package support.crypto_shredding.hashing.function_types.json
 
 import support.crypto_shredding.hashing.Hash
+
+import com.cxi.cdp.data_processing.support.crypto_shredding.hashing.function_types.CryptoHashingResult
 import com.fasterxml.jackson.databind.node.{ObjectNode, TextNode}
 import com.fasterxml.jackson.databind.{JsonNode, ObjectMapper}
 import com.fasterxml.jackson.module.scala.ScalaObjectMapper
@@ -40,7 +42,7 @@ class JsonNodeHasher(
         val hashedData = result.putArray("hashed_data")
 
         for (piiField <- config.columns) {
-            val (outerCol, innerCol, transformFunction) = piiField
+            val (outerCol, innerCol, transformFunction, identityTypeOpt) = piiField
 
             if (result.has(outerCol)) {
                 val node = result.get(outerCol)
@@ -62,8 +64,9 @@ class JsonNodeHasher(
 
                                         // extract pii info to a separate top level column
                                         val entry = hashedData.addObject()
-                                        entry.put("original_value", normalizedValue)
-                                        entry.put("hashed_value", hashedValue)
+                                        entry.put(CryptoHashingResult.OriginalValueColName, normalizedValue)
+                                        entry.put(CryptoHashingResult.HashedValueColName, hashedValue)
+                                        entry.put(CryptoHashingResult.IdentityTypeValueColName, identityTypeOpt.map(_.code).orNull)
 
                                         hashedValue
                                 }

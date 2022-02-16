@@ -12,15 +12,15 @@ class JsonNodeHasherTest extends FunSuite with Matchers {
     import PiiColumnsConfig._
 
     val piiConfig: PiiColumnsConfig = PiiColumnsConfig(Seq(
-        ("record_value", InnerColumn.JsonPath("$.pii_column"), identity),
-        ("record_value", InnerColumn.JsonPath("$.nested.column"), identity),
-        ("record_value", InnerColumn.JsonPath("$.nested..recursive_column"), identity)
+        ("record_value", InnerColumn.JsonPath("$.pii_column"), identity, Option.empty),
+        ("record_value", InnerColumn.JsonPath("$.nested.column"), identity, Option.empty),
+        ("record_value", InnerColumn.JsonPath("$.nested..recursive_column"), identity, Option.empty)
     ))
 
     val piiConfigWithTransform: PiiColumnsConfig = PiiColumnsConfig(Seq(
-        ("record_value", InnerColumn.JsonPath("$.pii_column"), TransformFunctions.get("normalizeEmail").get),
-        ("record_value", InnerColumn.JsonPath("$.nested.column"), TransformFunctions.get("normalizeEmail").get),
-        ("record_value", InnerColumn.JsonPath("$.nested..recursive_column"), TransformFunctions.get("normalizeEmail").get)
+        ("record_value", InnerColumn.JsonPath("$.pii_column"), TransformFunctions.get("normalizeEmail").get, Option.empty),
+        ("record_value", InnerColumn.JsonPath("$.nested.column"), TransformFunctions.get("normalizeEmail").get, Option.empty),
+        ("record_value", InnerColumn.JsonPath("$.nested..recursive_column"), TransformFunctions.get("normalizeEmail").get, Option.empty)
     ))
 
     val mapper = new ObjectMapper with ScalaObjectMapper
@@ -117,19 +117,24 @@ class JsonNodeHasherTest extends FunSuite with Matchers {
                   },
                   "hashed_data" : [ {
                     "original_value" : "pii_column_value",
-                    "hashed_value" : "3130bd4ad0a7561677969ee92e9773daddbdad31a002f97f326d9bff2128c28d"
+                    "hashed_value" : "3130bd4ad0a7561677969ee92e9773daddbdad31a002f97f326d9bff2128c28d",
+                    "identity_type" : null
                   }, {
                     "original_value" : "nested_column_value",
-                    "hashed_value" : "f4ea2420d0952ddd3f2d8f73592ba7e71042058ad3a7db6d1ed1949c68cb3e4b"
+                    "hashed_value" : "f4ea2420d0952ddd3f2d8f73592ba7e71042058ad3a7db6d1ed1949c68cb3e4b",
+                    "identity_type" : null
                   }, {
                     "original_value" : "nested_recursive_value",
-                    "hashed_value" : "41d814bb4143d8781ddf03b5a18f08b93141a2b1b0a48fc4b98957751e78e040"
+                    "hashed_value" : "41d814bb4143d8781ddf03b5a18f08b93141a2b1b0a48fc4b98957751e78e040",
+                    "identity_type" : null
                   }, {
                     "original_value" : "first_recursive_column_value",
-                    "hashed_value" : "8fdf4987616c3f75c31394b7d7ea355c2804e031e61af946a89922b5ceba07ee"
+                    "hashed_value" : "8fdf4987616c3f75c31394b7d7ea355c2804e031e61af946a89922b5ceba07ee",
+                    "identity_type" : null
                   }, {
                     "original_value" : "second_recursive_column_value",
-                    "hashed_value" : "a635dc72df1525bb09c80b3945c0e876b2d212a3e471577b212b879253bb2210"
+                    "hashed_value" : "a635dc72df1525bb09c80b3945c0e876b2d212a3e471577b212b879253bb2210",
+                    "identity_type" : null
                   } ]
                 }
             """)
@@ -226,19 +231,24 @@ class JsonNodeHasherTest extends FunSuite with Matchers {
                   },
                   "hashed_data" : [ {
                     "original_value" : "pii_column_value",
-                    "hashed_value" : "3130bd4ad0a7561677969ee92e9773daddbdad31a002f97f326d9bff2128c28d"
+                    "hashed_value" : "3130bd4ad0a7561677969ee92e9773daddbdad31a002f97f326d9bff2128c28d",
+                    "identity_type" : null
                   }, {
                     "original_value" : "nested_column_value",
-                    "hashed_value" : "f4ea2420d0952ddd3f2d8f73592ba7e71042058ad3a7db6d1ed1949c68cb3e4b"
+                    "hashed_value" : "f4ea2420d0952ddd3f2d8f73592ba7e71042058ad3a7db6d1ed1949c68cb3e4b",
+                    "identity_type" : null
                   }, {
                     "original_value" : "nested_recursive_value",
-                    "hashed_value" : "41d814bb4143d8781ddf03b5a18f08b93141a2b1b0a48fc4b98957751e78e040"
+                    "hashed_value" : "41d814bb4143d8781ddf03b5a18f08b93141a2b1b0a48fc4b98957751e78e040",
+                    "identity_type" : null
                   }, {
                     "original_value" : "first_recursive_column_value",
-                    "hashed_value" : "8fdf4987616c3f75c31394b7d7ea355c2804e031e61af946a89922b5ceba07ee"
+                    "hashed_value" : "8fdf4987616c3f75c31394b7d7ea355c2804e031e61af946a89922b5ceba07ee",
+                    "identity_type" : null
                   }, {
                     "original_value" : "second_recursive_column_value",
-                    "hashed_value" : "a635dc72df1525bb09c80b3945c0e876b2d212a3e471577b212b879253bb2210"
+                    "hashed_value" : "a635dc72df1525bb09c80b3945c0e876b2d212a3e471577b212b879253bb2210",
+                    "identity_type" : null
                   } ]
                 }
             """)

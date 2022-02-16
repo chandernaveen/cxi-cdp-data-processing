@@ -1,8 +1,8 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
-import com.cxi.cdp.data_processing.model.ChannelType
 import com.cxi.cdp.data_processing.raw_zone.pos_square.model.{Fulfillment, PickupDetails}
+import com.cxi.cdp.data_processing.refined_zone.hub.model.ChannelType
 import com.cxi.cdp.data_processing.support.BaseSparkBatchJobTest
 import org.apache.spark.sql.functions.col
 import org.scalatest.Matchers

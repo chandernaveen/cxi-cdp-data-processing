@@ -1,27 +1,27 @@
 package com.cxi.cdp.data_processing
 package support.crypto_shredding.hashing.function_types.json
 
-import support.crypto_shredding.hashing.function_types.IHashFunction
+import support.crypto_shredding.hashing.function_types.{CryptoHashingResult, IHashFunction}
 import support.exceptions.CryptoShreddingException
+
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.fasterxml.jackson.module.scala.ScalaObjectMapper
+import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DataTypes, StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row}
 
-class JsonHashingFunction(val hashFunctionConfig: Map[String, Any], val salt: String) extends IHashFunction {
+class JsonHashingFunction(val piiConfig: PiiColumnsConfig, val salt: String) extends IHashFunction {
 
-    private val piiConfig: PiiColumnsConfig =
-        PiiColumnsConfig.parse(hashFunctionConfig("pii_columns").asInstanceOf[Seq[Map[String, Any]]])
+    def this(hashFunctionConfig: Map[String, Any], salt: String) {
+        this(PiiColumnsConfig.parse(hashFunctionConfig("pii_columns").asInstanceOf[Seq[Map[String, Any]]]), salt)
+    }
 
-    override def hash(originalDf: DataFrame): (DataFrame, DataFrame) = {
+    override def hash(originalDf: DataFrame): (DataFrame, Dataset[CryptoHashingResult]) = {
         val originalSchemaPlusColumnForHashedData: StructType = originalDf.schema
             .add("hashed_data", DataTypes.createArrayType(
-                DataTypes.createStructType(Array(
-                    StructField("original_value", StringType, nullable = true),
-                    StructField("hashed_value", StringType, nullable = true))
-                ),
+                ScalaReflection.schemaFor[CryptoHashingResult].dataType.asInstanceOf[StructType],
                 true),
                 nullable = true)
 
@@ -35,7 +35,8 @@ class JsonHashingFunction(val hashFunctionConfig: Map[String, Any], val salt: St
         val extractedPersonalInformationLookupDf = hashedOriginalDf
             .withColumn("hashed_data", explode_outer(col("hashed_data")))
             .select("hashed_data.*")
-            .filter(col("original_value").isNotNull and col("hashed_value").isNotNull)
+            .filter(col(CryptoHashingResult.OriginalValueColName).isNotNull and col(CryptoHashingResult.HashedValueColName).isNotNull)
+            .as(Encoders.product[CryptoHashingResult])
 
         (hashedOriginalDf.drop("hashed_data"), extractedPersonalInformationLookupDf)
     }

@@ -1,12 +1,12 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
-import model.ChannelType
 import raw_zone.pos_square.model.{Fulfillment, LineItem, Tender}
+import refined_zone.hub.model.ChannelType
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
 import refined_zone.pos_square.config.ProcessorConfig
 
-import org.apache.spark.sql.functions.{col, explode, from_json, lit, udf}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DataTypes, DoubleType}
 import org.apache.spark.sql.{Column, DataFrame, Encoders, SparkSession}
 

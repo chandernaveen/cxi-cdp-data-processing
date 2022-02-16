@@ -1,5 +1,5 @@
 package com.cxi.cdp.data_processing
-package model
+package refined_zone.hub.model
 
 import enumeratum.values._
 
