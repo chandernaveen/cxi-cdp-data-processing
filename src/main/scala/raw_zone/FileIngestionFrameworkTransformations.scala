@@ -86,12 +86,14 @@ object FileIngestionFrameworkTransformations {
     }
 
     def transformOutlogic(df: DataFrame): DataFrame = {
+        val aaidPlatformName = "AAID"
+        val idfaPlatformName = "IDFA"
         df
-            .withColumn("advertiser_id_AAID", when(col("platform") === "AAID", col("advertiser_id")).otherwise(lit(null)))
-            .withColumn("advertiser_id_IDFA", when(col("platform") === "IDFA", col("advertiser_id")).otherwise(lit(null)))
+            .withColumn("advertiser_id_AAID", when(col("platform") === aaidPlatformName, col("advertiser_id")).otherwise(lit(null)))
+            .withColumn("advertiser_id_IDFA", when(col("platform") === idfaPlatformName, col("advertiser_id")).otherwise(lit(null)))
             .withColumn("advertiser_id_UNKNOWN",
                 when(
-                    col("platform").notEqual(lit("IDFA")) and col("platform").notEqual(lit("AAID")),
+                    col("platform").notEqual(lit(idfaPlatformName)) and col("platform").notEqual(lit(aaidPlatformName)),
                     col("advertiser_id")).otherwise(lit(null)
                 )
             )

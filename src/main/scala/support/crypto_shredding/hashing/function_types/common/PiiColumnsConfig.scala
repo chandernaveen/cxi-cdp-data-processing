@@ -17,9 +17,9 @@ object PiiColumnsConfig {
     def parse(rawConfig: Seq[Map[String, Any]]): PiiColumnsConfig = {
         val columns = rawConfig.map(columnConfig => {
             val column = parseColumn(columnConfig)
-            val identityType = parseIdentityType(columnConfig)
+            val identityTypeOpt = parseIdentityType(columnConfig)
             val transformFunction = parseTransformFunction(columnConfig)
-            (column, transformFunction, identityType)
+            (column, transformFunction, identityTypeOpt)
         })
         PiiColumnsConfig(columns)
     }
