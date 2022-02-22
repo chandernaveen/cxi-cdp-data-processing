@@ -11,6 +11,7 @@ import support.crypto_shredding.config.CryptoShreddingConfig
 import support.crypto_shredding.{CryptoShredding, PrivacyFunctions}
 import support.utils.ContractUtils
 
+import com.cxi.cdp.data_processing.refined_zone.hub.identity.model.IdentityType
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DataTypes
 import org.apache.spark.sql.{Column, DataFrame, Encoders, SparkSession}
@@ -143,9 +144,9 @@ object CxiIdentityProcessor {
                 col("ord_id"),
                 col("ord_timestamp"),
                 col("ord_location_id"),
-                col("email_address").as("source_id"),
-                lit("email").as("source_type"),
-                lit(3).as("source_weight"))
+                col("email_address").as(CxiIdentityId),
+                lit(IdentityType.Email.code).as(Type),
+                lit(3).as(Weight))
 
         val emailsPickup = transformedOrderCustomersPickupData
             .filter(col("email_address").isNotNull)
@@ -153,11 +154,11 @@ object CxiIdentityProcessor {
                 col("ord_id"),
                 col("ord_timestamp"),
                 col("ord_location_id"),
-                col("email_address").as("source_id"),
-                lit("email").as("source_type"),
-                lit(3).as("source_weight"))
+                col("email_address").as(CxiIdentityId),
+                lit(IdentityType.Email.code).as(Type),
+                lit(3).as(Weight))
 
-        val allEmails = emailsSource.unionAll(emailsPickup)
+        val allEmails = emailsSource.unionByName(emailsPickup)
 
         val phoneSource = fullCustomerData
             .filter(col("phone_number").isNotNull)
@@ -165,9 +166,9 @@ object CxiIdentityProcessor {
                 col("ord_id"),
                 col("ord_timestamp"),
                 col("ord_location_id"),
-                col("phone_number").as("source_id"),
-                lit("phone").as("source_type"),
-                lit(3).as("source_weight"))
+                col("phone_number").as(CxiIdentityId),
+                lit(IdentityType.Phone.code).as(Type),
+                lit(3).as(Weight))
 
         val phonesPickup = transformedOrderCustomersPickupData
             .filter(col("phone_number").isNotNull)
@@ -175,17 +176,14 @@ object CxiIdentityProcessor {
                 col("ord_id"),
                 col("ord_timestamp"),
                 col("ord_location_id"),
-                col("phone_number").as("source_id"),
-                lit("phone").as("source_type"),
-                lit(3).as("source_weight"))
+                col("phone_number").as(CxiIdentityId),
+                lit(IdentityType.Phone.code).as(Type),
+                lit(3).as(Weight))
 
 
-        val allPhones = phoneSource.unionAll(phonesPickup)
+        val allPhones = phoneSource.unionByName(phonesPickup)
 
-        allEmails.unionAll(allPhones)
-            .withColumnRenamed("source_id", CxiIdentityId) // Not hashing cause it is supposed to be hash already (weight 3 was in crypto for Landing/Raw)
-            .withColumnRenamed("source_type", Type)
-            .withColumnRenamed("source_weight", Weight)
+        allEmails.unionByName(allPhones) // Not hashing cause it is supposed to be hash already (weight 3 was in crypto for Landing/Raw)
     }
 
     def computeWeight2CxiCustomerId(spark: SparkSession,
@@ -201,21 +199,23 @@ object CxiIdentityProcessor {
         val binExpTypePanCombination = getBinExpTypePanCombination(fullCustomerData)
 
         // for weight 2 source has already created combination, simply hash it and treat it as weight 3
-        val combinationsIds = nameExpTypePanCombination.unionAll(binExpTypePanCombination)
-            .withColumnRenamed("source_id", CxiIdentityId)
-            .withColumnRenamed("source_type", Type)
-            .withColumnRenamed("source_weight", Weight)
-
         // consider combinations ids as PII
         val cryptoShreddingConfig = CryptoShreddingConfig(
             country = country,
-            cxiPartnerId = cxiPartnerId,
+            cxiSource = cxiPartnerId,
             lookupDestDbName = lookupDestDbName,
             lookupDestTableName = lookupDestTableName,
             workspaceConfigPath = workspaceConfigPath)
-        val hashedCombinations = new CryptoShredding(spark, cryptoShreddingConfig)
-            .applyHashCryptoShredding("common", Map("dataColName" -> CxiIdentityId), combinationsIds)
-        hashedCombinations
+        val cryptoShredding = new CryptoShredding(spark, cryptoShreddingConfig)
+
+        val hashedNameExpTypePanCombination = cryptoShredding
+            .applyHashCryptoShredding("common",
+                Map("pii_columns" -> Seq(Map("column" -> CxiIdentityId, "identity_type" -> IdentityType.CombinationCard.code))), nameExpTypePanCombination)
+        val hashedBinExpTypePanCombination = cryptoShredding
+            .applyHashCryptoShredding("common",
+                Map("pii_columns" -> Seq(Map("column" -> CxiIdentityId, "identity_type" -> IdentityType.CombinationBin.code))), binExpTypePanCombination)
+
+        hashedNameExpTypePanCombination.unionByName(hashedBinExpTypePanCombination)
     }
 
     private def getBinExpTypePanCombination(fullCustomerData: DataFrame) = {
@@ -230,9 +230,9 @@ object CxiIdentityProcessor {
                     lower(col("exp_month")), lit("-"),
                     lower(col("exp_year")), lit("-"),
                     lower(col("card_brand")), lit("-"),
-                    lower(col("pan"))).as("source_id"),
-                lit("combination-bin").as("source_type"),
-                lit(2).as("source_weight"))
+                    lower(col("pan"))).as(CxiIdentityId),
+                lit(IdentityType.CombinationBin.code).as(Type),
+                lit(2).as(Weight))
     }
 
     private def getNameExpTypePanCombination(fullCustomerData: DataFrame) = {
@@ -259,9 +259,9 @@ object CxiIdentityProcessor {
                     lower(col("exp_year")), lit("-"),
                     lower(col("card_brand")), lit("-"),
                     lower(col("pan"))
-                ).as("source_id"))
-            .withColumn("source_type", lit("combination-card"))
-            .withColumn("source_weight", lit(2))
+                ).as(CxiIdentityId))
+            .withColumn(Type, lit(IdentityType.CombinationCard.code))
+            .withColumn(Weight, lit(2))
     }
 
     private def commonCombinationFilters: Column =
@@ -281,13 +281,15 @@ object CxiIdentityProcessor {
             val privacyTable = readPrivacyLookupTable(spark, contract)
             val cxiIdentities = allCustomerIds
                 .select(CxiIdentityId, Type, Weight)
-                .dropDuplicates(CxiIdentityId)
-                .join(privacyTable, allCustomerIds(CxiIdentityId) === privacyTable("hashed_value"), "left")
+                .dropDuplicates(CxiIdentityId, Type)
+                .join(privacyTable,
+                    allCustomerIds(CxiIdentityId) === privacyTable("hashed_value") &&
+                    allCustomerIds(Type) === privacyTable("identity_type"), "left")
 
             val metadataUdf = udf(extractMetadata _)
             val cxiIdentitiesWithMetadata = cxiIdentities
                 .withColumn(Metadata, metadataUdf(col(Type), col("original_value")))
-                .drop("original_value", "hashed_value")
+                .drop("original_value", "hashed_value", "identity_type")
 
             val srcTable = "newIdentities"
 
@@ -310,7 +312,7 @@ object CxiIdentityProcessor {
         val lookupTableName = contract.prop[String]("schema.crypto.lookup_table")
         spark.sql(
             s"""
-               |SELECT original_value, hashed_value
+               |SELECT original_value, hashed_value, identity_type
                |FROM $lookupDbName.$lookupTableName
                |""".stripMargin
         )

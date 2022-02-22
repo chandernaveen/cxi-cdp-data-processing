@@ -6,7 +6,7 @@ import support.utils.ContractUtils
 case class CryptoShreddingConfig
     (
         country: String,
-        cxiPartnerId: String,
+        cxiSource: String,
         lookupDestDbName: String,
         lookupDestTableName: String,
         workspaceConfigPath: String
@@ -15,8 +15,8 @@ case class CryptoShreddingConfig
 object CryptoShreddingConfig {
     def apply(contractUtils: ContractUtils): CryptoShreddingConfig = {
         CryptoShreddingConfig(
-            country = contractUtils.prop[String]("partner.country"),
-            cxiPartnerId = contractUtils.prop[String]("partner.cxiPartnerId"),
+            country = contractUtils.prop[String]("crypto.cxi_source_country"),
+            cxiSource = contractUtils.prop[String]("crypto.cxi_source"),
             lookupDestDbName = contractUtils.prop[String]("schema.crypto.db_name"),
             lookupDestTableName = contractUtils.prop[String]("schema.crypto.lookup_table"),
             workspaceConfigPath = contractUtils.prop[String]("databricks_workspace_config")

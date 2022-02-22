@@ -2,50 +2,66 @@ package com.cxi.cdp.data_processing
 package support.crypto_shredding.hashing.function_types.common
 
 import support.crypto_shredding.hashing.Hash
-import support.crypto_shredding.hashing.function_types.IHashFunction
-import support.crypto_shredding.hashing.transform.TransformFunctions.parseTransformFunction
+import support.crypto_shredding.hashing.function_types.{CryptoHashingResult, IHashFunction}
 
-import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{DataFrame, Dataset, Encoders}
 
-class CommonHashingFunction(val hashFunctionConfig: Map[String, Any], val salt: String) extends IHashFunction {
+class CommonHashingFunction(piiConfig: PiiColumnsConfig, salt: String) extends IHashFunction {
+
+    def this(hashFunctionConfig: Map[String, Any], salt: String) {
+        this(PiiColumnsConfig.parse(hashFunctionConfig("pii_columns").asInstanceOf[Seq[Map[String, Any]]]), salt)
+    }
+
     private val normalizedValueCol = "normalized_value"
-    private val dataColName: String = hashFunctionConfig("dataColName").asInstanceOf[String]
-    private val transformFunction = parseTransformFunction(hashFunctionConfig)
 
-    override def hash(originalDf: DataFrame): (DataFrame, DataFrame) = {
-
-        val normalizeFunction = udf(transformFunction)
-        val normalizedDf = originalDf.withColumn(normalizedValueCol, normalizeFunction(col(dataColName)))
+    override def hash(originalDf: DataFrame): (DataFrame, Dataset[CryptoHashingResult]) = {
+        val session = originalDf.sparkSession
+        val extractedPersonalInformationLookupDf = session.emptyDataset[CryptoHashingResult](Encoders.product[CryptoHashingResult])
 
         val hashUdf = createHashUdf()
-        val hashedOriginalDf = normalizedDf.withColumn("hashed_value", hashUdf(col(normalizedValueCol)))
 
-        val extractedPersonalInformationLookupDf = hashedOriginalDf
-            .select(col(normalizedValueCol).as("original_value"), col("hashed_value"))
+        val (hashedOriginalRes, extractedPersonalInformationLookupDfRes) = piiConfig.columns.foldLeft((originalDf, extractedPersonalInformationLookupDf)) {
+            case ((accHashed, accExtracted), piiField) =>
+                val (dataColName, transformFunction, identityTypeOpt) = piiField
+                val normalizeFunction = udf(transformFunction)
+                val dfWithHashedColumn = accHashed
+                    .withColumn(s"$normalizedValueCol-$dataColName", normalizeFunction(col(dataColName)))
+                    .withColumn(s"${CryptoHashingResult.HashedValueColName}-$dataColName", hashUdf(col(s"$normalizedValueCol-$dataColName")))
 
-        (
-            hashedOriginalDf
-            .withColumn(dataColName, col("hashed_value"))
-            .select(originalDf.schema.fieldNames.map(col):_*),
+                val colHashedRes = dfWithHashedColumn
+                    .withColumn(dataColName, col(s"${CryptoHashingResult.HashedValueColName}-$dataColName"))
+                    .select(originalDf.schema.fieldNames.map(col): _*)
 
-            extractedPersonalInformationLookupDf
-        )
+                val colExtractedRes = accExtracted.unionByName(
+                    dfWithHashedColumn
+                        .select(
+                            col(s"$normalizedValueCol-$dataColName").as(CryptoHashingResult.OriginalValueColName),
+                            col(s"${CryptoHashingResult.HashedValueColName}-$dataColName").as(CryptoHashingResult.HashedValueColName),
+                            lit(identityTypeOpt.map(_.code).orNull).as(CryptoHashingResult.IdentityTypeValueColName))
+                        .as(Encoders.product[CryptoHashingResult])
+                        .filter(chr => chr.original_value != null && chr.hashed_value != null)
+                )
+
+                (colHashedRes, colExtractedRes)
+        }
+
+        (hashedOriginalRes, extractedPersonalInformationLookupDfRes)
     }
 
     private def createHashUdf(): UserDefinedFunction = udf((value: String) => {
         val res: CommonOutputValue = valueHash(value)
-        res.hash
+        Some(res).filter(_.isSucceeded).map(_.hash).orNull
     })
 
     private def valueHash(originalPii: String): CommonOutputValue = {
         try {
-            val pii = originalPii.trim
-            if (validate(pii)) {
+            if (validate(originalPii)) {
+                val pii = originalPii.trim
                 CommonOutputValue(isSucceeded = true, pii, Hash.sha256Hash(pii, salt))
             } else {
-                CommonOutputValue(isSucceeded = false, pii, hash = "The validation failed")
+                CommonOutputValue(isSucceeded = false, originalPii, hash = "The validation failed")
             }
         } catch {
             case e: Throwable =>
@@ -53,8 +69,7 @@ class CommonHashingFunction(val hashFunctionConfig: Map[String, Any], val salt: 
         }
     }
 
-    private def validate(pii: String): Boolean = pii.nonEmpty
+    private def validate(pii: String): Boolean = pii != null && pii.trim.nonEmpty
 
     override def getType: String = "common-crypto-hash"
-
 }

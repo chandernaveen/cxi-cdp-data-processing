@@ -11,7 +11,8 @@ object FileIngestionFrameworkTransformations {
         "spaceToUnderscore" -> spaceToUnderScoreInColumnNamesTransformation,
         "transformOracleSim" -> transformOracleSim,
         "transformQuBeyond" -> transformQuBeyond,
-        "transformSquare" -> transformSquare
+        "transformSquare" -> transformSquare,
+        "transformOutlogic" -> transformOutlogic
     )
 
     final val CxiCommonColumns: List[String] = List("feed_date", "file_name", "cxi_id")
@@ -82,6 +83,21 @@ object FileIngestionFrameworkTransformations {
             .withColumn("record_type", coalesce(squareColPerType.map(c => when(col(c).isNotNull, lit(c)).otherwise(lit(null))): _*))
             .withColumn("record_value", coalesce(squareColPerType.map(c => when(col(c).isNotNull, col(c)).otherwise(lit(null))): _*))
             .select(outputColumns: _*)
+    }
+
+    def transformOutlogic(df: DataFrame): DataFrame = {
+        val aaidPlatformName = "AAID"
+        val idfaPlatformName = "IDFA"
+        df
+            .withColumn("advertiser_id_AAID", when(col("platform") === aaidPlatformName, col("advertiser_id")).otherwise(lit(null)))
+            .withColumn("advertiser_id_IDFA", when(col("platform") === idfaPlatformName, col("advertiser_id")).otherwise(lit(null)))
+            .withColumn("advertiser_id_UNKNOWN",
+                when(
+                    col("platform").notEqual(lit(idfaPlatformName)) and col("platform").notEqual(lit(aaidPlatformName)),
+                    col("advertiser_id")).otherwise(lit(null)
+                )
+            )
+            .drop("advertiser_id")
     }
 
     private def transformCompositeColumns(df: DataFrame, columns: Seq[String]): DataFrame = {

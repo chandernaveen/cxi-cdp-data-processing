@@ -5,13 +5,17 @@ import support.crypto_shredding.hashing.function_types.json.PiiColumnsConfig._
 import support.crypto_shredding.hashing.transform.TransformFunctions.parseTransformFunction
 import support.exceptions.CryptoShreddingException
 
+import com.cxi.cdp.data_processing.refined_zone.hub.identity.model.IdentityType
+import com.cxi.cdp.data_processing.support.crypto_shredding.hashing.function_types.common.PiiColumnsConfig.Column
+
 import scala.util.Try
 
-case class PiiColumnsConfig(columns: Seq[(OuterColumn, InnerColumn, String => String)]) extends Serializable
+case class PiiColumnsConfig(columns: Seq[(OuterColumn, InnerColumn, NormalizationFunc, Option[IdentityType])]) extends Serializable
 
 object PiiColumnsConfig {
 
     type OuterColumn = String
+    type NormalizationFunc = String => String
 
     sealed trait InnerColumn extends Product with Serializable
 
@@ -26,7 +30,8 @@ object PiiColumnsConfig {
             val outerColumn = parseOuterColumn(columnConfig)
             val innerColumn = parseInnerColumn(columnConfig)
             val transformFunction = parseTransformFunction(columnConfig)
-            (outerColumn, innerColumn, transformFunction)
+            val identityTypeOpt = parseIdentityType(columnConfig)
+            (outerColumn, innerColumn, transformFunction, identityTypeOpt)
         })
         PiiColumnsConfig(columns)
     }
@@ -55,6 +60,13 @@ object PiiColumnsConfig {
                 }
 
             case _ => throw parseException
+        }
+    }
+
+    private def parseIdentityType(columnConfig: Map[String, Any]): Option[IdentityType] = {
+        columnConfig.get("identity_type") match {
+            case Some(identityTypeCode: String) => Some(IdentityType.withValue(identityTypeCode))
+            case _ => Option.empty
         }
     }
 

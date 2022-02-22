@@ -27,7 +27,7 @@ class CryptoShredding(val spark: SparkSession, config: CryptoShreddingConfig) {
         val lookupDf = extractedPersonalInformationDf
             .withColumn("process_name", lit(function.getType))
             .withColumn("country", lit(config.country))
-            .withColumn("cxi_partner_id", lit(config.cxiPartnerId))
+            .withColumn("cxi_source", lit(config.cxiSource))
 
         val privacyFunctions = new PrivacyFunctions(spark, workspaceConfig)
 
