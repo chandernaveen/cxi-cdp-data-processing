@@ -12,6 +12,7 @@ object FileIngestionFrameworkTransformations {
         "transformOracleSim" -> transformOracleSim,
         "transformQuBeyond" -> transformQuBeyond,
         "transformSquare" -> transformSquare,
+        "transformSegmint" -> transformSegmint,
         "transformOutlogic" -> transformOutlogic
     )
 
@@ -27,6 +28,25 @@ object FileIngestionFrameworkTransformations {
      */
     def identity(df: DataFrame): DataFrame = {
         df
+    }
+
+    /**
+     * @author - Luis Velez
+     * @createdOn - 2/6/2022
+     * @version - 1.0
+     * @Ticket - 1404
+     * @App-Dependency - N/A
+     * @function-desc - Simple Transformation for Segmint data
+     */
+    def transformSegmint(df: DataFrame): DataFrame = {
+        val segmintColPerType = df.columns.filter(col => !CxiCommonColumns.contains(col))
+        val substrStart = "202102_cxi_".length() + 1
+        val recordTypeLength = "202102_cxi_".length() + ".csv.gz".length()
+
+        df
+        .withColumn("record_type", expr(s"substring(file_name, ${substrStart}, length(file_name)- ${recordTypeLength})"))
+        .withColumn("record_value", coalesce(segmintColPerType.map(c => when(col(c).isNotNull, col(c)).otherwise(lit(null))): _*))
+        .select("record_type", "record_value", "feed_date", "file_name", "cxi_id")
     }
 
     /**

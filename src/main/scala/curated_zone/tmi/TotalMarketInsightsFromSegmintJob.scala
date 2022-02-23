@@ -31,44 +31,48 @@ object TotalMarketInsightsFromSegmintJob {
 
         val contract: ContractUtils = new ContractUtils(Paths.get("/mnt/" + cliArgs.contractPath))
 
-        val refinedHubDb = contract.prop[String]("schema.refined_hub.db_name")
-        val postalCodeTable = contract.prop[String]("schema.refined_hub.postal_code_table")
+        val refinedSegmintDb = contract.prop[String]("schema.refined_segmint.db_name")
+        val refinedSegmintTable = contract.prop[String]("schema.refined_segmint.segmint_table")
 
         val curatedDb = contract.prop[String]("schema.curated.db_name")
         val totalMarketInsightsTable = contract.prop[String]("schema.curated.total_market_insights_table")
 
         val mongoDbConfig = MongoDbConfigUtils.getMongoDbConfig(spark, contract)
 
-        val totalMarketInsights: DataFrame =
-            readTotalMarketInsights("/mnt/" + cliArgs.dataPath, s"$refinedHubDb.$postalCodeTable").cache()
+        val totalMarketInsightsSource: DataFrame =
+            readTotalMarketInsights(s"$refinedSegmintDb.$refinedSegmintTable")
 
-        writeToDatalakeTotalMarketInsights(totalMarketInsights, s"$curatedDb.$totalMarketInsightsTable", cliArgs.overwrite)
+        val totalMarketInsights: DataFrame = transformTotalMarketInsights(totalMarketInsightsSource).cache()
+
+        writeToDatalakeTotalMarketInsights(totalMarketInsights, s"$curatedDb.$totalMarketInsightsTable",
+        cliArgs.overwrite)
         writeToMongoTotalMarketInsights(totalMarketInsights, mongoDbConfig.uri, contract, cliArgs.overwrite)
     }
 
-    def readTotalMarketInsights(dataPath: String, postalCodeTable: String)(implicit spark: SparkSession): DataFrame = {
-        // we want to use records from 2020 instead of 2021 as there are more of them and they are of better quality
-        // also shift months by 1 to match our real partner data for demo
+    def readTotalMarketInsights(refinedSegmintTable: String)(implicit spark: SparkSession): DataFrame = {
+            spark.sqlContext.sql(
+            s"""
+                SELECT
+                    location_type, region, state, city, date AS date,
+                    transaction_amount AS transaction_amount,
+                    transaction_quantity AS transaction_quantity
+                FROM ${refinedSegmintTable}
+                where location_type like '%RESTAURANTS%' OR location_type like '%DINER%'
+            """
+        )
+    }
+
+    def transformTotalMarketInsights(refinedSegmintTable: DataFrame)(implicit spark: SparkSession): DataFrame = {
+        refinedSegmintTable.createOrReplaceTempView("sourceData")
         spark.sqlContext.sql(
             s"""
-                SELECT * FROM (
-                    SELECT
-                        CASE WHEN d.location_type = 'FOOD AND DINING' THEN 'Restaurant' ELSE 'Unknown' END AS location_type,
-                        COALESCE(p.region, 'Unknown') as region,
-                        UPPER(COALESCE(p.state_code, d.state)) AS state,
-                        INITCAP(COALESCE(
-                          p.city,
-                          CASE WHEN d.city_name = '' THEN null ELSE d.city_name END
-                        )) AS city,
-                        ADD_MONTHS(TO_DATE(d.ord_date, "MMyyyy"), 13) AS date,
-                        CAST(SUM(d.total_amount) AS Decimal(9,2)) AS transaction_amount,
-                        SUM(d.total_quantity) AS transaction_quantity
-                    FROM delta.`$dataPath` d
-                    LEFT JOIN $postalCodeTable p
-                        ON d.postal_code = p.postal_code
-                    GROUP BY 1, 2, 3, 4, 5
-                ) t
-                WHERE YEAR(date) = 2021
+                SELECT
+                    "Restaurant" as location_type,--TODO: Taxonomy, ticket 1835
+                    region, state, city, date AS date,
+                    SUM(transaction_amount)  AS transaction_amount,
+                    SUM(transaction_quantity) AS transaction_quantity
+                FROM sourceData
+                group by 1, 2, 3, 4, 5
             """
         )
     }
