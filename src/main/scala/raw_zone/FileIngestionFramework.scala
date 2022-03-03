@@ -90,13 +90,7 @@ object FileIngestionFramework {
             val transformedDf = transformationFunction(finalDF)
 
             val finalDf = if (np.propIsSet(jobConfigPropName(basePropName, "crypto"))) {
-                val cryptoShreddingConf = CryptoShreddingConfig(np)
-                val cryptoShredding = new CryptoShredding(spark, cryptoShreddingConf)
-                val hashFunctionType = np.prop[String](jobConfigPropName(basePropName, "crypto.hash_function_type"))
-                val hashFunctionConfig = np.prop[Map[String, Any]](jobConfigPropName(basePropName, "crypto.hash_function_config"))
-                val cryptoHashedDf = cryptoShredding
-                    .applyHashCryptoShredding(hashFunctionType, hashFunctionConfig, transformedDf)
-                cryptoHashedDf
+                applyCryptoShredding(spark, transformedDf, np)
             } else {
                 transformedDf
             }
@@ -125,6 +119,22 @@ object FileIngestionFramework {
         }
     }
 
+    def applyCryptoShredding(spark: SparkSession, transformedDf: DataFrame, np: ContractUtils): DataFrame = {
+        val cryptoShreddingConf = CryptoShreddingConfig(
+            country = np.prop[String](jobConfigPropName(basePropName, "crypto.cxi_source_country")),
+            cxiSource = np.prop[String](jobConfigPropName(basePropName, "crypto.cxi_source")),
+            lookupDestDbName = np.prop[String]("schema.crypto.db_name"),
+            lookupDestTableName = np.prop[String]("schema.crypto.lookup_table"),
+            workspaceConfigPath = np.prop[String]("databricks_workspace_config")
+        )
+        val cryptoShredding = new CryptoShredding(spark, cryptoShreddingConf)
+        val hashFunctionType = np.prop[String](jobConfigPropName(basePropName, "crypto.hash_function_type"))
+        val hashFunctionConfig = np.prop[Map[String, Any]](jobConfigPropName(basePropName, "crypto.hash_function_config"))
+        val cryptoHashedDf = cryptoShredding
+            .applyHashCryptoShredding(hashFunctionType, hashFunctionConfig, transformedDf)
+        cryptoHashedDf
+    }
+
     def processFilesBasedOnFileFormat(sourcePath: String,
                                       files: Seq[String],
                                       format: String,
@@ -147,7 +157,7 @@ object FileIngestionFramework {
 
         config.writeOptionsFunctionName match {
             case None => config.writeOptions
-            case Some(functionName) => functionsMap(functionName)(df, config.writeOptionsFunctionParams)
+            case Some(functionName) => functionsMap(functionName)(df, config.writeOptionsFunctionParams) ++ config.writeOptions
         }
     }
 
