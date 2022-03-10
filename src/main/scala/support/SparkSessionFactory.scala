@@ -20,6 +20,10 @@ object SparkSessionFactory {
         val builder = SparkSession.builder()
         val isLocalEnv: Boolean = SparkSessionFactory.isLocalEnv()
         if (isLocalEnv) {
+            // disable auto-adding dependencies jars to the databricks cluster
+            // (as we already have all dependencies in the uber jar)
+            conf.set("spark.databricks.service.client.checkDeps", "false")
+            conf.set("spark.databricks.service.client.autoAddDeps", "false")
             builder.master("local")
         }
         if (!conf.getAll.isEmpty) {

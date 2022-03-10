@@ -45,7 +45,23 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.0.8" % Test,
   "io.delta" %% "delta-core" % "1.0.0" % Provided,
   "com.databricks" %% "dbutils-api" % "0.0.5" % Provided,
-  "graphframes" % "graphframes" % "0.8.2-spark3.1-s_2.12" exclude("org.slf4j", "slf4j-api")
+  "graphframes" % "graphframes" % "0.8.2-spark3.1-s_2.12" exclude("org.slf4j", "slf4j-api"),
+  "org.elasticsearch" %% "elasticsearch-spark-30" % "7.17.0"
+    excludeAll ExclusionRule(organization = "org.apache.spark")
+    exclude("com.google.protobuf", "protobuf-java")
+    exclude("commons-logging", "commons-logging")
+    exclude("javax.xml.bind", "jaxb-api")
+    exclude("org.scala-lang", "scala-reflect")
+    exclude("org.slf4j", "slf4j-api")
+)
+
+dependencyOverrides ++= Seq(
+    "com.google.protobuf" % "protobuf-java" % "2.6.1",
+    "commons-logging" % "commons-logging" % "1.1.3",
+    "javax.xml.bind" % "jaxb-api" % "2.2.2",
+    "org.scala-lang" %% "scala-reflect" % "2.12.10",
+    "org.slf4j" % "slf4j-api" % "1.7.30",
+    "org.slf4j" % "slf4j-log4j12" % "1.7.30"
 )
 
 Test / fork := true
