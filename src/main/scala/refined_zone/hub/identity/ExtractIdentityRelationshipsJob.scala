@@ -85,9 +85,7 @@ object ExtractIdentityRelationshipsJob {
     }
 
     private def getOrderSummaryTables(contract: ContractUtils): Seq[String] = {
-        val refinedSquareDb = contract.prop[String]("schema.refined_square.db_name")
-        val orderSummaryTable = contract.prop[String]("schema.refined_square.order_summary_table")
-        Seq(s"$refinedSquareDb.$orderSummaryTable")
+        contract.prop[Seq[String]]("schema.order_summary_tables")
     }
 
     private def getPosIdentityRelationshipTable(contract: ContractUtils): String = {
