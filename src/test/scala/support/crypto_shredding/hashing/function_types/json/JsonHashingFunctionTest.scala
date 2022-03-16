@@ -2,8 +2,9 @@ package com.cxi.cdp.data_processing
 package support.crypto_shredding.hashing.function_types.json
 
 import support.BaseSparkBatchJobTest
+import support.crypto_shredding.hashing.function_types.CryptoHashingResult
+import support.crypto_shredding.hashing.transform.TransformFunctions.{NormalizeEmailTransformationName, NormalizePhoneNumberTransformationName}
 
-import com.cxi.cdp.data_processing.support.crypto_shredding.hashing.function_types.CryptoHashingResult
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal}
 
 class JsonHashingFunctionTest extends BaseSparkBatchJobTest {
@@ -145,7 +146,6 @@ class JsonHashingFunctionTest extends BaseSparkBatchJobTest {
                 CryptoHashingResult("****5918", "19d8e1a307d593d525c4f9b5372b8fc38ea8f9abe31a89359d013c18e21b1c8e", null),
                 CryptoHashingResult("****1892", "f343a79ac41d584201b7a5bc9536c503b876de1bed2b528602c1cd55b141c660", null),
             )
-            extractedPersonalInformationDf.show(false)
             actualExtractedPiiData.length should equal(expected.length)
             actualExtractedPiiData should contain theSameElementsAs expected
         }
@@ -176,7 +176,7 @@ class JsonHashingFunctionTest extends BaseSparkBatchJobTest {
                     "innerCol" -> Map("type" -> "jsonPath", "jsonPath" -> "$.pii_credit_card_column")),
                 Map("outerCol" -> "record_value",
                     "innerCol" -> Map("type" -> "jsonPath", "jsonPath" -> "$.email_address"),
-                    "transform" -> Map("transformationName" -> "normalizeEmail")
+                    "transform" -> Map("transformationName" -> NormalizeEmailTransformationName)
                 )))
         val jsonHashingFunction = new JsonHashingFunction(hashFunctionConfig, salt)
         val landingData = List(
@@ -204,7 +204,6 @@ class JsonHashingFunctionTest extends BaseSparkBatchJobTest {
                 CryptoHashingResult("****5918", "19d8e1a307d593d525c4f9b5372b8fc38ea8f9abe31a89359d013c18e21b1c8e", null),
                 CryptoHashingResult("****1892", "f343a79ac41d584201b7a5bc9536c503b876de1bed2b528602c1cd55b141c660", null),
             )
-            extractedPersonalInformationDf.show(false)
             actualExtractedPiiData.length should equal(expected.length)
             actualExtractedPiiData should contain theSameElementsAs expected
         }
@@ -219,6 +218,70 @@ class JsonHashingFunctionTest extends BaseSparkBatchJobTest {
                 (s"""{"pii_credit_card_column":"c74189fc7708f42eea476b3572f624096283b832b082e60432ee620969a153e6","email_address":"c6d350e268541121fe992734ce63ae64288a0dd46ec716991dbf6809eada1e91","some_other_col_inside_json_object":9}""", 40),
                 (s"""{"pii_credit_card_column":"19d8e1a307d593d525c4f9b5372b8fc38ea8f9abe31a89359d013c18e21b1c8e","email_address":"f13d2bcb9f2cf5a3818ceb4ac26df50fef3a24d8565f18fb23b76a2514480f3c"}""", 50),
                 (s"""{"pii_credit_card_column":"f343a79ac41d584201b7a5bc9536c503b876de1bed2b528602c1cd55b141c660","email_address":"e78b37db08be40533170866d8c275c9a56bb85188fb92ddaf7a77dee9ec0c877"}""", 60),
+            ).toDF("record_value", "some_other_top_level_column").collect()
+            actualHashedOriginalDfData.length should equal(expected.length)
+            actualHashedOriginalDfData should contain theSameElementsAs expected
+        }
+    }
+
+    test("test json hash with transform function if pii data is absent for some records") {
+        // given
+        import spark.implicits._
+        val salt = ""
+        val hashFunctionConfig = Map(
+            "pii_columns" -> List(
+                Map("outerCol" -> "record_value",
+                    "innerCol" -> Map("type" -> "jsonPath", "jsonPath" -> "$.phone_number"),
+                    "transform" -> Map("transformationName" -> NormalizePhoneNumberTransformationName),
+                    "identity_type" -> "phone"
+                ),
+                Map("outerCol" -> "record_value",
+                    "innerCol" -> Map("type" -> "jsonPath", "jsonPath" -> "$.email_address"),
+                    "transform" -> Map("transformationName" -> NormalizeEmailTransformationName),
+                    "identity_type" -> "email"
+                )))
+        val jsonHashingFunction = new JsonHashingFunction(hashFunctionConfig, salt)
+        val landingData = List(
+            (s"""{"phone_number": "(423)-456-7832", "some_other_col_inside_json_object" : 9}""", 30),
+            (s"""{"email_address" : "PauL@Mailbox.Com", "some_other_col_inside_json_object" : 9}""", 40),
+            (s"""{"phone_number": "7543567867", "email_address" : "GEORGE@mailbox.COM"}""", 50),
+            (s"""{"phone_number": "212-456-7890", "email_address" : "rinGO@mailboX.com"}""", 60),
+        ).toDF("record_value", "some_other_top_level_column")
+
+        // when
+        val (hashedOriginalDf, extractedPersonalInformationDf) = jsonHashingFunction.hash(landingData)
+
+        // then
+        // check pii df
+        val actualFieldsReturnedForPiiDf = extractedPersonalInformationDf.schema.fields.map(f => f.name)
+        withClue("Actual fields returned for pii data frame:\n" + extractedPersonalInformationDf.schema.treeString) {
+            actualFieldsReturnedForPiiDf shouldEqual Array("original_value", "hashed_value", "identity_type")
+        }
+        val actualExtractedPiiData = extractedPersonalInformationDf.collect()
+        withClue("Actual extracted PII data do not match") {
+            val expected = List(
+                CryptoHashingResult("paul@mailbox.com", "c6d350e268541121fe992734ce63ae64288a0dd46ec716991dbf6809eada1e91", "email"),
+                CryptoHashingResult("george@mailbox.com", "f13d2bcb9f2cf5a3818ceb4ac26df50fef3a24d8565f18fb23b76a2514480f3c", "email"),
+                CryptoHashingResult("ringo@mailbox.com", "e78b37db08be40533170866d8c275c9a56bb85188fb92ddaf7a77dee9ec0c877", "email"),
+                CryptoHashingResult("14234567832", "d31482d479f88bd4b276654212f56c31d9a21ab56eef538214f2d9a7decefff1", "phone"),
+                CryptoHashingResult("17543567867", "59cb29d35495e25a00f21d5bad947d36959e7a5c4b5ba7e89a3136af9b7f4258", "phone"),
+                CryptoHashingResult("12124567890", "a4e1117d112134f422d58a86a75792f3e8c2d4c36ce304454acc7b144ea6d45a", "phone"),
+            )
+            actualExtractedPiiData.length should equal(expected.length)
+            actualExtractedPiiData should contain theSameElementsAs expected
+        }
+        // check hashed df
+        val actualFieldsReturnedForHashedDf = hashedOriginalDf.schema.fields.map(f => f.name)
+        withClue("Actual fields returned for hashed data frame:\n" + hashedOriginalDf.schema.treeString) {
+            actualFieldsReturnedForHashedDf shouldEqual Array("record_value", "some_other_top_level_column")
+        }
+        val actualHashedOriginalDfData = hashedOriginalDf.collect()
+        withClue("Actual hashed data frame data do not match") {
+            val expected = List(
+                (s"""{"phone_number":"d31482d479f88bd4b276654212f56c31d9a21ab56eef538214f2d9a7decefff1","some_other_col_inside_json_object":9}""", 30),
+                (s"""{"email_address":"c6d350e268541121fe992734ce63ae64288a0dd46ec716991dbf6809eada1e91","some_other_col_inside_json_object":9}""", 40),
+                (s"""{"phone_number":"59cb29d35495e25a00f21d5bad947d36959e7a5c4b5ba7e89a3136af9b7f4258","email_address":"f13d2bcb9f2cf5a3818ceb4ac26df50fef3a24d8565f18fb23b76a2514480f3c"}""", 50),
+                (s"""{"phone_number":"a4e1117d112134f422d58a86a75792f3e8c2d4c36ce304454acc7b144ea6d45a","email_address":"e78b37db08be40533170866d8c275c9a56bb85188fb92ddaf7a77dee9ec0c877"}""", 60),
             ).toDF("record_value", "some_other_top_level_column").collect()
             actualHashedOriginalDfData.length should equal(expected.length)
             actualHashedOriginalDfData should contain theSameElementsAs expected

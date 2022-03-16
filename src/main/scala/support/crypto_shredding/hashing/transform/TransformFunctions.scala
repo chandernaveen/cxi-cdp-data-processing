@@ -3,9 +3,17 @@ package support.crypto_shredding.hashing.transform
 
 import support.exceptions.CryptoShreddingException
 
+import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat
+import com.google.i18n.phonenumbers.{NumberParseException, PhoneNumberUtil}
+import org.apache.commons.validator.routines.EmailValidator
+
 object TransformFunctions {
 
-    private final val notNumbers = "[^0-9]".r
+    final val NormalizeEmailTransformationName = "normalizeEmail"
+    final val NormalizePhoneNumberTransformationName = "normalizePhoneNumber"
+
+    private final val EmailValidatorInstance = EmailValidator.getInstance()
+    private final val PhoneNumberUtilInstance = PhoneNumberUtil.getInstance()
 
     def get(key: String): Option[String => String] = {
         transformFunctions.get(key)
@@ -28,20 +36,35 @@ object TransformFunctions {
     }
 
     private val transformFunctions: Map[String, String => String] = Map(
-        "normalizeEmail" -> normalizeEmail,
-        "normalizePhoneNumber" -> normalizePhoneNumber
+        NormalizeEmailTransformationName -> normalizeEmail,
+        NormalizePhoneNumberTransformationName -> normalizePhoneNumber
     )
 
-    def normalizeEmail(value: String): String =  {
-        value.toLowerCase()
+    def normalizeEmail(value: String): String = {
+        Some(value)
+            .filter(_!= null)
+            .map(_.trim)
+            .filter(_.nonEmpty)
+            .filter(email => EmailValidatorInstance.isValid(email))
+            .map(_.toLowerCase)
+            .orNull
     }
 
-    def normalizePhoneNumber(value: String): String =  {
-        var transformed = notNumbers.replaceAllIn(value, "")
-        if (transformed.length < 11) {
-            transformed = "1" + transformed
+    def normalizePhoneNumber(value: String): String = {
+        try {
+            Some(value)
+                .filter(_!= null)
+                .map(_.trim)
+                .filter(_.nonEmpty)
+                .map(value => PhoneNumberUtilInstance.parse(value, "US"))
+                .filter(phoneNumber => PhoneNumberUtilInstance.isValidNumber(phoneNumber))
+                .map(phoneNumber => PhoneNumberUtilInstance.format(phoneNumber, PhoneNumberFormat.E164))
+                // remove leading '+'
+                .map(_.substring(1))
+                .orNull
+        } catch {
+            case _: NumberParseException => null
         }
-        transformed
     }
 
 }

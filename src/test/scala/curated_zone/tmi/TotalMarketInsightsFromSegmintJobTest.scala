@@ -2,8 +2,9 @@ package com.cxi.cdp.data_processing
 package curated_zone.tmi
 
 import support.BaseSparkBatchJobTest
-import org.apache.spark.sql.{Row}
-import org.apache.spark.sql.types.{DataTypes, DoubleType, StringType, StructType, IntegerType}
+
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.types.{DoubleType, IntegerType, StringType, StructType}
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal}
 
 class TotalMarketInsightsFromSegmintJobTest extends BaseSparkBatchJobTest {
@@ -26,10 +27,11 @@ class TotalMarketInsightsFromSegmintJobTest extends BaseSparkBatchJobTest {
             Row("2022-02-06", "Example 1", "RESTAURANTS", "AZ", "1234", 2, 2.99, "City 1", "Region 1"),
             Row("2022-02-06", "Example 1", "RESTAURANTS", "AZ", "1234", 2, 2.99, "City 1", "Region 1"),
             Row("2022-02-06", "Example 1", "DINER", "AZ", "1234", 2, 2.99, "City 1", "Region 1"),
-            Row("2022-02-06", "Example 1", "HOTAL", "AZ", "1234", 2, 2.99, "City 1", "Region 1") //Not Restaurant            
+            Row("2022-02-06", "Example 1", "HOTAL", "AZ", "1234", 2, 2.99, "City 1", "Region 1") //Not Restaurant
         )
 
-        val totalMarketInsightRefined = spark.createDataFrame(spark.sparkContext.parallelize(totalMarketInsightRefinedData), totalMarketInsightRefinedStructure)
+        import collection.JavaConverters._
+        val totalMarketInsightRefined = spark.createDataFrame(totalMarketInsightRefinedData.asJava, totalMarketInsightRefinedStructure)
         val tempTableName = "testRefinedSegmint"
 
         totalMarketInsightRefined.createOrReplaceTempView(tempTableName)
@@ -70,11 +72,12 @@ class TotalMarketInsightsFromSegmintJobTest extends BaseSparkBatchJobTest {
             Row("RESTAURANTS", "Region 1", "AZ", "City 1", "2022-02-06", 2.99, 2),
             Row("RESTAURANTS", "Region 1", "AZ", "City 1", "2022-02-06", 2.99, 2),
             Row("RESTAURANTS", "Region 1", "AZ", "City 1", "2022-02-07", 2.99, 2),
-            Row("DINER", "Region 1", "AZ", "City 1", "2022-02-06", 2.99, 2)         
+            Row("DINER", "Region 1", "AZ", "City 1", "2022-02-06", 2.99, 2)
         )
 
-        val totalMarketInsight = spark.createDataFrame(spark.sparkContext.parallelize(totalMarketInsightData), totalMarketInsightStructure)
-        
+        import collection.JavaConverters._
+        val totalMarketInsight = spark.createDataFrame(totalMarketInsightData.asJava, totalMarketInsightStructure)
+
         // when
         val actual = TotalMarketInsightsFromSegmintJob.transformTotalMarketInsights(totalMarketInsight)(spark)
 

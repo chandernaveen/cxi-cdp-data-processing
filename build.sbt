@@ -42,6 +42,12 @@ libraryDependencies ++= Seq(
   "com.github.scopt" %% "scopt" % "4.0.1",
   "com.jayway.jsonpath" % "json-path" % "2.6.0" exclude("org.slf4j", "slf4j-api"),
   "com.beachape" %% "enumeratum" % "1.7.0",
+  "commons-validator" % "commons-validator" % "1.7"
+    exclude("commons-beanutils", "commons-beanutils")
+    exclude("commons-collections", "commons-collections")
+    exclude("commons-logging", "commons-logging")
+    exclude("commons-digester", "commons-digester"),
+  "com.googlecode.libphonenumber" % "libphonenumber" % "8.12.45",
   "org.scalatest" %% "scalatest" % "3.0.8" % Test,
   "io.delta" %% "delta-core" % "1.0.0" % Provided,
   "com.databricks" %% "dbutils-api" % "0.0.5" % Provided,
@@ -57,7 +63,10 @@ libraryDependencies ++= Seq(
 
 dependencyOverrides ++= Seq(
     "com.google.protobuf" % "protobuf-java" % "2.6.1",
+    "commons-collections" % "commons-collections" % "3.2.2",
     "commons-logging" % "commons-logging" % "1.1.3",
+    "commons-beanutils" % "commons-beanutils" % "1.9.4",
+    "commons-digester" % "commons-digester" % "1.8",
     "javax.xml.bind" % "jaxb-api" % "2.2.2",
     "org.scala-lang" %% "scala-reflect" % "2.12.10",
     "org.slf4j" % "slf4j-api" % "1.7.30",

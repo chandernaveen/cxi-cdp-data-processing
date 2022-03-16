@@ -3,8 +3,9 @@ package refined_zone.segmint
 
 
 import support.BaseSparkBatchJobTest
-import org.apache.spark.sql.{Row}
-import org.apache.spark.sql.types.{DataTypes, DoubleType, StringType, StructType, IntegerType}
+
+import org.apache.spark.sql.Row
+import org.apache.spark.sql.types.{DoubleType, IntegerType, StringType, StructType}
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal}
 
 class RawRefinedSegmintJobTest extends BaseSparkBatchJobTest {
@@ -20,19 +21,19 @@ class RawRefinedSegmintJobTest extends BaseSparkBatchJobTest {
           .add("cxi_id", StringType)
 
         val rawSourceData = Seq(
-            Row("zip_merch", 
+            Row("zip_merch",
             """"2021-02"|"CHEESECAKE FACTORY"|"FOOD AND DINING"|"AMERICAN RESTAURANTS (UNITED STATES)"|""|""|99|105|6265.82|59.67""",
             "2022-02-06", "202102_cxi_zip_merch.csv.gz", "5635dc0e-637f-4765-85ea-974560384d1a"), //No postal code
-            Row("zip_merch", 
+            Row("zip_merch",
             """"2021-02"|"STARBUCKS"|"FOOD AND DINING"|"COFFEE SHOPS"|"AZ"|"2762"|10|10|1209.59|10.25""",
             "2022-02-06", "202102_cxi_zip_merch.csv.gz", "5635dc0e-637f-4765-85ea-974560384d1b"),
-            Row("zip_merch", 
+            Row("zip_merch",
             """"2021-02"|"MCDONALD'S"|"FOOD AND DINING"|"FAST FOOD RESTAURANTS"|"AZ"|"2762"|10|10|42307.88|15.32""",
             "2022-02-06", "202102_cxi_zip_merch.csv.gz", "5635dc0e-637f-4765-85ea-974560384d1c"),
-            Row("zip_merch", 
-            """"2021-02"|"JOLLIBEE"|"FOOD AND DINING"|"FAST FOOD RESTAURANTS"|"AZ"|"2762"|10|10|4537.31|22.80""", 
+            Row("zip_merch",
+            """"2021-02"|"JOLLIBEE"|"FOOD AND DINING"|"FAST FOOD RESTAURANTS"|"AZ"|"2762"|10|10|4537.31|22.80""",
             "2022-02-06", "202102_cxi_zip_merch.csv.gz", "5635dc0e-637f-4765-85ea-974560384d1d"),
-            Row("not_zip", 
+            Row("not_zip",
             """"2021-02"|"JOLLIBEE"|"FOOD AND DINING"|"FAST FOOD RESTAURANTS"|"AZ"|"2762"|184|199|4537.31|22.80""",
             "2022-02-06", "202102_cxi_zip_merch.csv.gz", "5635dc0e-637f-4765-85ea-974560384d1d"), //Wrong record type
             Row("zip_merch",
@@ -40,7 +41,8 @@ class RawRefinedSegmintJobTest extends BaseSparkBatchJobTest {
             "2022-02-06", "202102_cxi_zip_merch.csv.gz", "5635dc0e-637f-4765-85ea-974560384d1e") //No location type
         )
 
-        val rawSource = spark.createDataFrame(spark.sparkContext.parallelize(rawSourceData), rawStruct)
+        import collection.JavaConverters._
+        val rawSource = spark.createDataFrame(rawSourceData.asJava, rawStruct)
         val tempTableName = "testRawSegmint"
 
         rawSource.createOrReplaceTempView(tempTableName)
@@ -63,7 +65,7 @@ class RawRefinedSegmintJobTest extends BaseSparkBatchJobTest {
             actualSegmintRawData.length should equal(expected.length)
             actualSegmintRawData should contain theSameElementsAs expected
         }
-    }  
+    }
 
     test("test segmint transformation") {
         // given
@@ -89,7 +91,8 @@ class RawRefinedSegmintJobTest extends BaseSparkBatchJobTest {
             Row("2021-01-11", "TACO BELL", "MEXICAN RESTAURANTS", "AK", "99504", 2, 3.00)
         )
 
-        val segmintRawSource = spark.createDataFrame(spark.sparkContext.parallelize(segmintRawSourceData), segmintRawStruct)
+        import collection.JavaConverters._
+        val segmintRawSource = spark.createDataFrame(segmintRawSourceData.asJava, segmintRawStruct)
 
         val postalCodeStruct = new StructType()
           .add("postal_code", StringType)
@@ -101,8 +104,8 @@ class RawRefinedSegmintJobTest extends BaseSparkBatchJobTest {
             Row("99503", "City 2", "Region 1"),
             Row("99502", "city 3", "Region 1") //Fix City 3
             )
-        
-        val postalCodeRawSource = spark.createDataFrame(spark.sparkContext.parallelize(postalCodeRawSourceData), postalCodeStruct)
+
+        val postalCodeRawSource = spark.createDataFrame(postalCodeRawSourceData.asJava, postalCodeStruct)
 
         // when
         val actual = RawRefinedSegmintJob.transformSegmint(segmintRawSource, postalCodeRawSource)
@@ -126,5 +129,5 @@ class RawRefinedSegmintJobTest extends BaseSparkBatchJobTest {
             actualSegmintRefinedData.length should equal(expected.length)
             actualSegmintRefinedData should contain theSameElementsAs expected
         }
-    }    
+    }
 }
