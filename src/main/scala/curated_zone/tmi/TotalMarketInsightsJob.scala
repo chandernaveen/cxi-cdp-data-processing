@@ -126,6 +126,7 @@ object TotalMarketInsightsJob {
                 upper(locationDF("state_code")).as("state"),
                 initcap(locationDF("city")).as("city"),
                 col("location_id"),
+                col("location_nm"),
                 orderSummaryDF("ord_date"),
                 orderSummaryDF("ord_pay_total"),
                 orderSummaryDF("ord_id")
@@ -151,6 +152,7 @@ object TotalMarketInsightsJob {
         orderSummary
             .groupBy("cxi_partner_id", "location_type", "region", "state", "city", "location_id", "ord_date")
             .agg(
+                min("location_nm") as "location_nm",
                 sum("ord_pay_total") as "transaction_amount",
                 countDistinct("ord_id").cast(IntegerType) as "transaction_quantity"
             )
@@ -162,6 +164,7 @@ object TotalMarketInsightsJob {
                 $"state",
                 $"city",
                 $"location_id",
+                $"location_nm",
                 $"date",
                 $"transaction_amount",
                 $"transaction_quantity")
