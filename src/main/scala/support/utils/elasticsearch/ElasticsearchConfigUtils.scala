@@ -25,6 +25,7 @@ object ElasticsearchConfigUtils {
             ConfigurationOptions.ES_NODES -> new URL(baseUrl.getProtocol, baseUrl.getHost, baseUrl.getPath).toString,
             ConfigurationOptions.ES_PORT -> baseUrl.getPort.toString,
             ConfigurationOptions.ES_NODES_WAN_ONLY -> "true",
+            ConfigurationOptions.ES_INDEX_AUTO_CREATE -> "false",
             "es.net.http.header.Authorization" -> apiKey
         )
         ElasticsearchConfig(esIndex, esConfig)
