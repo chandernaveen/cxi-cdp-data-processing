@@ -13,7 +13,8 @@ object FileIngestionFrameworkTransformations {
         "transformQuBeyond" -> transformQuBeyond,
         "transformSquare" -> transformSquare,
         "transformSegmint" -> transformSegmint,
-        "transformOutlogic" -> transformOutlogic
+        "transformOutlogic" -> transformOutlogic,
+        "transformVeraset" -> transformVeraset
     )
 
     final val CxiCommonColumns: List[String] = List("feed_date", "file_name", "cxi_id")
@@ -118,6 +119,28 @@ object FileIngestionFrameworkTransformations {
                 )
             )
             .drop("advertiser_id")
+    }
+
+    def transformVeraset(df: DataFrame): DataFrame = {
+        val aaidPlatformName = "aaid"
+        val idfaPlatformName = "idfa"
+        val isIpv6Address = col("ip_address").contains(":")
+
+        // TODO: ticket https://dev.azure.com/Customerxi/Cloud%20Data%20Platform/_workitems/edit/2078 :
+        //extract upper() that manipulates advertiser_id column to common normalization functions
+        df
+            .withColumn("advertiser_id_AAID", when(col("id_type") === aaidPlatformName, upper(col("ad_id"))).otherwise(lit(null)))
+            .withColumn("advertiser_id_IDFA", when(col("id_type") === idfaPlatformName, upper(col("ad_id"))).otherwise(lit(null)))
+            .withColumn("advertiser_id_UNKNOWN",
+                when(
+                    col("id_type").notEqual(lit(idfaPlatformName)) and col("id_type").notEqual(lit(aaidPlatformName)),
+                    upper(col("ad_id"))).otherwise(lit(null)
+                )
+            )
+            .withColumn("ipv_4", when(isIpv6Address, lit(null)).otherwise(col("ip_address")))
+            .withColumn("ipv_6", when(isIpv6Address, col("ip_address")).otherwise(lit(null)))
+            .withColumn("id_type", upper(col("id_type")))
+            .drop("ad_id", "ip_address")
     }
 
     private def transformCompositeColumns(df: DataFrame, columns: Seq[String]): DataFrame = {
