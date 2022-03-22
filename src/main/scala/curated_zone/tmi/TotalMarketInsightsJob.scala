@@ -37,12 +37,11 @@ object TotalMarketInsightsJob {
         val dataServicesDb = contract.prop[String]("schema.data_services.db_name")
         val cdfTrackerTable = contract.prop[String]("schema.data_services.cdf_tracker_table")
 
-        val refinedSquareDb = contract.prop[String]("schema.refined_square.db_name")
-        val orderSummaryTable = contract.prop[String]("schema.refined_square.order_summary_table")
+        val orderSummaryTables = contract.prop[Seq[String]]("schema.order_summary_tables")
 
         val orderSummaryCdf = ChangeDataFeedViews.orderSummary(
             s"$dataServicesDb.$cdfTrackerTable",
-            Seq(s"$refinedSquareDb.$orderSummaryTable"))
+            orderSummaryTables)
 
         val orderSummaryChangeDataResult = orderSummaryCdf.queryChangeData(CdfConsumerId)
 
@@ -118,7 +117,7 @@ object TotalMarketInsightsJob {
 
         orderSummaryDF
             .filter($"ord_state" === CompletedOrderState && $"ord_date".isInCollection(orderDates))
-            .join(locationDF, usingColumn = "location_id")
+            .join(locationDF, usingColumns = Seq("cxi_partner_id", "location_id"))
             .select(
                 orderSummaryDF("cxi_partner_id"),
                 getLocationTypeUdf(locationDF("location_type")).as("location_type"),
