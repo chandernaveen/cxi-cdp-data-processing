@@ -43,7 +43,12 @@ object TotalMarketInsightsJob {
             s"$dataServicesDb.$cdfTrackerTable",
             orderSummaryTables)
 
-        val orderSummaryChangeDataResult = orderSummaryCdf.queryChangeData(CdfConsumerId)
+        val orderSummaryChangeDataResult =
+            if (cliArgs.fullReprocess) {
+                orderSummaryCdf.queryAllData(CdfConsumerId)
+            } else {
+                orderSummaryCdf.queryChangeData(CdfConsumerId)
+            }
 
         orderSummaryChangeDataResult.data match {
             case None => logger.info("No updates found since the last run")
@@ -54,7 +59,7 @@ object TotalMarketInsightsJob {
                     logger.info(s"No order dates to process")
                 } else {
                     logger.info(s"Order dates to process: $orderDates")
-                    process(contract, orderDates)
+                    process(contract, orderDates, cliArgs.fullReprocess)
                 }
 
                 logger.info(s"Update CDF tracker: ${orderSummaryChangeDataResult.tableMetadataSeq}")
@@ -62,7 +67,7 @@ object TotalMarketInsightsJob {
         }
     }
 
-    def process(contract: ContractUtils, orderDates: Set[String])(implicit spark: SparkSession): Unit = {
+    def process(contract: ContractUtils, orderDates: Set[String], fullReprocess: Boolean)(implicit spark: SparkSession): Unit = {
         val refinedHubDb = contract.prop[String]("schema.refined_hub.db_name")
         val orderSummaryTable = contract.prop[String]("schema.refined_hub.order_summary_table")
         val locationTable = contract.prop[String]("schema.refined_hub.location_table")
@@ -72,21 +77,28 @@ object TotalMarketInsightsJob {
         val totalMarketInsightsTable = contract.prop[String]("schema.curated.total_market_insights_table")
 
         val mongoDbConfig = MongoDbConfigUtils.getMongoDbConfig(spark, contract)
+        val mongoDbName = contract.prop[String]("mongo.db")
+        val partnerMarketInsightsMongoCollectionName = contract.prop[String]("mongo.partner_market_insights_collection")
+        val totalMarketInsightsMongoCollectionName = contract.prop[String]("mongo.total_market_insights_collection")
+
+        val shouldComputeTotalMarketInsights =
+            contract.propOrElse[Boolean]("jobs.databricks.total_market_insights_job.job_config.compute_total_market_insights", true)
 
         val orderSummary: DataFrame =
             readOrderSummary(orderDates, s"$refinedHubDb.$orderSummaryTable", s"$refinedHubDb.$locationTable")
 
         val partnerMarketInsights: DataFrame = computePartnerMarketInsights(orderSummary).cache()
-        writeToDatalakePartnerMarketInsights(partnerMarketInsights, s"$curatedDb.$partnerMarketInsightsTable")
-        writeToMongoPartnerMarketInsights(partnerMarketInsights, mongoDbConfig.uri, contract)
-
-        val shouldComputeTotalMarketInsights =
-            contract.propOrElse[Boolean]("jobs.databricks.total_market_insights_job.job_config.compute_total_market_insights", true)
+        writeToDatalakePartnerMarketInsights(partnerMarketInsights,
+            s"$curatedDb.$partnerMarketInsightsTable", fullReprocess)
+        writeToMongoPartnerMarketInsights(partnerMarketInsights,
+            mongoDbConfig.uri, mongoDbName, partnerMarketInsightsMongoCollectionName, fullReprocess)
 
         if (shouldComputeTotalMarketInsights) {
             val totalMarketInsights: DataFrame = computeTotalMarketInsights(partnerMarketInsights).cache()
-            writeToDatalakeTotalMarketInsights(totalMarketInsights, s"$curatedDb.$totalMarketInsightsTable")
-            writeToMongoTotalMarketInsights(totalMarketInsights, mongoDbConfig.uri, contract)
+            writeToDatalakeTotalMarketInsights(totalMarketInsights,
+                s"$curatedDb.$totalMarketInsightsTable", fullReprocess)
+            writeToMongoTotalMarketInsights(totalMarketInsights,
+                mongoDbConfig.uri, mongoDbName, totalMarketInsightsMongoCollectionName, fullReprocess)
         } else {
             logger.info("Skip calculation of total market insights based on a contract")
         }
@@ -169,7 +181,10 @@ object TotalMarketInsightsJob {
                 $"transaction_quantity")
     }
 
-    def writeToDatalakePartnerMarketInsights(partnerMarketInsights: DataFrame, destTable: String): Unit = {
+    def writeToDatalakePartnerMarketInsights(partnerMarketInsights: DataFrame, destTable: String, fullReprocess: Boolean = false): Unit = {
+        if (fullReprocess) {
+            partnerMarketInsights.sqlContext.sql(s"DELETE FROM $destTable")
+        }
         val srcTable = "newPartnerMarketInsight"
 
         partnerMarketInsights.createOrReplaceTempView(srcTable)
@@ -193,17 +208,21 @@ object TotalMarketInsightsJob {
     def writeToMongoPartnerMarketInsights(
                                              partnerMarketInsights: DataFrame,
                                              mongoDbUri: String,
-                                             contract: ContractUtils
+                                             dbName: String,
+                                             collectionName: String,
+                                             fullReprocess: Boolean = false
                                          ): Unit = {
+        val saveMode = if (fullReprocess) SaveMode.Overwrite else SaveMode.Append
+
         // either insert or update a document in Mongo based on these fields
         val shardKey = """{"cxi_partner_id": 1, "date": 1, "location_id": 1}"""
 
         partnerMarketInsights
             .write
             .format(MongoSparkConnectorClass)
-            .mode("append")
-            .option("database", contract.prop[String]("mongo.db"))
-            .option("collection", contract.prop[String]("mongo.partner_market_insights_collection"))
+            .mode(saveMode)
+            .option("database", dbName)
+            .option("collection", collectionName)
             .option("uri", mongoDbUri)
             .option("replaceDocument", "true")
             .option("shardKey", shardKey)
@@ -227,8 +246,8 @@ object TotalMarketInsightsJob {
                 "transaction_quantity")
     }
 
-    def writeToDatalakeTotalMarketInsights(totalMarketInsights: DataFrame, destTable: String, overwrite: Boolean = false): Unit = {
-        if (overwrite) {
+    def writeToDatalakeTotalMarketInsights(totalMarketInsights: DataFrame, destTable: String, fullReprocess: Boolean = false): Unit = {
+        if (fullReprocess) {
             totalMarketInsights.sqlContext.sql(s"DELETE FROM $destTable")
         }
 
@@ -256,31 +275,32 @@ object TotalMarketInsightsJob {
     def writeToMongoTotalMarketInsights(
                                            totalMarketInsights: DataFrame,
                                            mongoDbUri: String,
-                                           contract: ContractUtils,
-                                           overwrite: Boolean = false
+                                           dbName: String,
+                                           collectionName: String,
+                                           fullReprocess: Boolean = false
                                        ): Unit = {
         // either insert or update a document in Mongo based on these fields
         val shardKey = """{"date": 1, "location_type": 1, "region": 1, "state": 1, "city": 1}"""
 
-        val saveMode = if (overwrite) SaveMode.Overwrite else SaveMode.Append
+        val saveMode = if (fullReprocess) SaveMode.Overwrite else SaveMode.Append
 
         totalMarketInsights
             .write
             .format(MongoSparkConnectorClass)
             .mode(saveMode)
-            .option("database", contract.prop[String]("mongo.db"))
-            .option("collection", contract.prop[String]("mongo.total_market_insights_collection"))
+            .option("database", dbName)
+            .option("collection", collectionName)
             .option("uri", mongoDbUri)
             .option("replaceDocument", "true")
             .option("shardKey", shardKey) // allow updates based on these fields
             .save()
     }
 
-    case class CliArgs(contractPath: String)
+    case class CliArgs(contractPath: String, fullReprocess: Boolean)
 
     object CliArgs {
 
-        private val initOptions = CliArgs(contractPath = null)
+        private val initOptions = CliArgs(contractPath = null, fullReprocess = false)
 
         private def optionsParser = new scopt.OptionParser[CliArgs]("Total Market Insight Job") {
 
@@ -288,6 +308,11 @@ object TotalMarketInsightsJob {
                 .action((contractPath, c) => c.copy(contractPath = contractPath))
                 .text("path to a contract for this job")
                 .required
+
+            opt[Boolean]("full-reprocess")
+                .action((fullReprocess, c) => c.copy(fullReprocess = fullReprocess))
+                .text("if true, reprocess TMI fully from the beginning")
+                .optional
 
         }
 

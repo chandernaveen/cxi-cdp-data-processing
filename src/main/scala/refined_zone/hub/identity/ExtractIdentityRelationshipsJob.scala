@@ -215,7 +215,7 @@ object ExtractIdentityRelationshipsJob {
 
             opt[Boolean]("full-reprocess")
                 .action((fullReprocess, c) => c.copy(fullReprocess = fullReprocess))
-                .text("if true, remove current indentity relationships and reprocess them from the beginning")
+                .text("if true, remove current identity relationships and reprocess them from the beginning")
 
         }
 

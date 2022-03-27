@@ -37,6 +37,9 @@ object TotalMarketInsightsFromSegmintJob {
         val curatedDb = contract.prop[String]("schema.curated.db_name")
         val totalMarketInsightsTable = contract.prop[String]("schema.curated.total_market_insights_table")
 
+        val mongoDbName = contract.prop[String]("mongo.db")
+        val totalMarketInsightsMongoCollectionName = contract.prop[String]("mongo.total_market_insights_collection")
+
         val mongoDbConfig = MongoDbConfigUtils.getMongoDbConfig(spark, contract)
 
         val totalMarketInsightsSource: DataFrame =
@@ -44,9 +47,8 @@ object TotalMarketInsightsFromSegmintJob {
 
         val totalMarketInsights: DataFrame = transformTotalMarketInsights(totalMarketInsightsSource).cache()
 
-        writeToDatalakeTotalMarketInsights(totalMarketInsights, s"$curatedDb.$totalMarketInsightsTable",
-        cliArgs.overwrite)
-        writeToMongoTotalMarketInsights(totalMarketInsights, mongoDbConfig.uri, contract, cliArgs.overwrite)
+        writeToDatalakeTotalMarketInsights(totalMarketInsights, s"$curatedDb.$totalMarketInsightsTable", cliArgs.overwrite)
+        writeToMongoTotalMarketInsights(totalMarketInsights, mongoDbConfig.uri, mongoDbName, totalMarketInsightsMongoCollectionName, cliArgs.overwrite)
     }
 
     def readTotalMarketInsights(refinedSegmintTable: String)(implicit spark: SparkSession): DataFrame = {
