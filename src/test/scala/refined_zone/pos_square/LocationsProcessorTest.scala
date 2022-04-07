@@ -83,7 +83,7 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
             actualFieldsReturned shouldEqual Array("location_id", "location_type", "active_flg", "location_nm", "address_1", "zip_code", "lat", "long", "phone", "country_code", "timezone", "currency", "open_dt", "location_website", "cxi_partner_id", "address_2", "fax", "parent_location_id", "extended_attr", "state", "city", "region")
         }
         val actualSquareLocationsData = actual.collect()
-        withClue("POS Square refined categories data do not match") {
+        withClue("POS Square refined locations data do not match") {
             val expected = List(
                 ("L0P0DJ340FXF0", 1, 1, null, null, null, null, null, null, null, null, null, null, null, cxiPartnerId, null, null, null, null, null, null, null),
                 ("ACA0DJ910FPO1", 6, 0, null, null, null, null, null, null, null, null, null, null, null, cxiPartnerId, null, null, null, null, null, null, null),

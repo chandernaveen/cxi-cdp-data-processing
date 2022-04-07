@@ -1,7 +1,7 @@
 package com.cxi.cdp.data_processing
 package support
 
-import com.holdenkarau.spark.testing.DataFrameSuiteBase
+import com.holdenkarau.spark.testing.{DataFrameSuiteBase, SparkSessionProvider}
 import org.apache.spark.SparkConf
 import org.scalatest.{BeforeAndAfter, FunSuite}
 
@@ -17,9 +17,8 @@ class BaseSparkBatchJobTest extends FunSuite with BeforeAndAfter with DataFrameS
   override def beforeAll(): Unit = {
     fixHadoopOnWindows()
     super.beforeAll()
-  }
-  before {
-    spark.sparkContext.addJar(SparkSessionFactory.assemblyJarLocalPath)
+    SparkSessionProvider.sparkSession.sparkContext.addJar(SparkSessionFactory.assemblyJarLocalPath)
+    SparkSessionProvider.sparkSession.sparkContext.addJar("target/scala-2.12/cxi-cdp-data-processing_2.12-1.0.0-tests.jar")
   }
 
   /**

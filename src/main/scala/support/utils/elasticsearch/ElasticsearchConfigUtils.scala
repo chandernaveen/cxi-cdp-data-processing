@@ -12,8 +12,8 @@ import java.net.URL
 
 object ElasticsearchConfigUtils {
 
-    def getElasticsearchConfig
-        (spark: SparkSession, contract: ContractUtils, esIndex: String, elasticsearchProps: ElasticsearchProps = ElasticsearchProps()): ElasticsearchConfig = {
+    def getElasticsearchConfig(spark: SparkSession, contract: ContractUtils,
+                               esIndex: String, idColumnName: String, elasticsearchProps: ElasticsearchProps = ElasticsearchProps()): ElasticsearchConfig = {
 
         val workspaceConfigPath: String = contract.prop[String](elasticsearchProps.workspaceConfigPath)
         val workspaceConfig = WorkspaceConfigReader.readWorkspaceConfig(spark, workspaceConfigPath)
@@ -26,6 +26,7 @@ object ElasticsearchConfigUtils {
             ConfigurationOptions.ES_PORT -> baseUrl.getPort.toString,
             ConfigurationOptions.ES_NODES_WAN_ONLY -> "true",
             ConfigurationOptions.ES_INDEX_AUTO_CREATE -> "false",
+            ConfigurationOptions.ES_MAPPING_ID -> idColumnName,
             "es.net.http.header.Authorization" -> apiKey
         )
         ElasticsearchConfig(esIndex, esConfig)

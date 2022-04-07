@@ -3,7 +3,7 @@ ThisBuild / organization := "com.cxi"
 ThisBuild / scalaVersion := "2.12.10"
 ThisBuild / version      := "1.0.0" // actual artifact version is controlled by azure devops (please check ci/cd for more details)
 name := "cxi-cdp-data-processing"
-idePackagePrefix := Some("com.cxi.cdp.data_processing")
+SettingKey[Option[String]]("ide-package-prefix").withRank(KeyRanks.Invisible) := Option("com.cxi.cdp.data_processing")
 lazy val sparkVersion = "3.1.2"
 lazy val javaVersion = "1.8"
 resolvers += "Spark Packages" at "https://repos.spark-packages.org/"
@@ -104,12 +104,13 @@ compileScalastyle := scalastyle.in(Compile).toTask("").value
 jacocoReportSettings := JacocoReportSettings(
   "Jacoco Coverage Report",
   None,
-  JacocoThresholds( instruction = 8.28,
-            method = 3.69,
-            branch = 1.52,
-            complexity = 2.60,
-            line = 14.30,
-            clazz = 12.49),
+  JacocoThresholds( instruction = 24.84,
+            method = 13.51,
+            branch = 7.67,
+            complexity = 10.40,
+            line = 36.0,
+            clazz = 35.51),
   Seq(JacocoReportFormats.ScalaHTML, JacocoReportFormats.XML), "utf-8")
 
 (Test / test) := ((Test / test) dependsOn assembly).value
+(Test / test) := ((Test / test) dependsOn Keys.`package`.in(Test)).value // package src/test/scala into a separate jar for databricks-connect
