@@ -3,7 +3,7 @@ package refined_zone.hub.model
 
 import enumeratum.values._
 
-sealed abstract class ChannelType(val value: Int) extends IntEnumEntry {
+sealed abstract class ChannelType(val value: Int) extends IntEnumEntry with Serializable {
     def code: Int = value
 }
 
