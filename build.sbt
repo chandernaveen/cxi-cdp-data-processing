@@ -106,7 +106,7 @@ jacocoReportSettings := JacocoReportSettings(
   None,
   JacocoThresholds( instruction = 24.84,
             method = 13.51,
-            branch = 7.67,
+            branch = 7.66,
             complexity = 10.40,
             line = 36.0,
             clazz = 35.51),

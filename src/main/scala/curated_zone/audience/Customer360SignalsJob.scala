@@ -36,6 +36,7 @@ object Customer360SignalsJob {
         val customer360TableName = contract.prop[String]("datalake.curated.customer_360_table")
         val customer360SignalsTableName = contract.prop[String]("datalake.curated.customer_360_signals_table")
         val partnerLocationWeeklySignalsTableName = contract.prop[String]("datalake.curated.partner_location_weekly_signals_table")
+        val partnerLocationDailySignalsTableName = contract.prop[String]("datalake.curated.partner_location_daily_signals_table")
         val refinedHubDbName = contract.prop[String]("datalake.refined_hub.db_name")
         val locationTableName = contract.prop[String]("datalake.refined_hub.location_table")
 
@@ -44,6 +45,7 @@ object Customer360SignalsJob {
             customer360Table = s"$curatedDb.$customer360TableName",
             customer360SignalsTable = s"$curatedDb.$customer360SignalsTableName",
             partnerLocationWeeklySignalsTable = s"$curatedDb.$partnerLocationWeeklySignalsTableName",
+            partnerLocationDailySignalsTable = s"$curatedDb.$partnerLocationDailySignalsTableName",
             locationTable = s"$refinedHubDbName.$locationTableName"
         )
 
@@ -64,7 +66,8 @@ object Customer360SignalsJob {
         val genericSignalsTransformed = processGenericCustomerSignals(spark,
             dlConfig.customer360SignalsTable, signalUniverseDs, feedDate)
         val partnerLocationSignalsTransformed = processPartnerLocationSignals(spark,
-            dlConfig.locationTable, dlConfig.partnerLocationWeeklySignalsTable, signalUniverseDs, feedDate)
+            dlConfig.locationTable, dlConfig.partnerLocationWeeklySignalsTable, dlConfig.partnerLocationDailySignalsTable,
+            signalUniverseDs, feedDate)
 
         customer360Df
             .join(genericSignalsTransformed, Seq("customer_360_id"), "left_outer")
@@ -101,14 +104,18 @@ object Customer360SignalsJob {
     def processPartnerLocationSignals(spark: SparkSession,
                                       locationTableName: String,
                                       partnerLocationWeeklySignalsTableName: String,
+                                      partnerLocationDailySignalsTable: String,
                                       signalUniverseDs: Dataset[SignalUniverse],
                                       feedDate: String): DataFrame = {
         val specificPartnerLocationSignalsConfig = signalUniverseDs.filter(_.signal_type == SignalType.SpecificPartnerLocationSignal.code)
 
         val locationsDf = transformLocations(spark, readLocations(spark, locationTableName))
         val partnerLocationWeeklySignalsDf = readPartnerLocationWeeklySignals(spark, partnerLocationWeeklySignalsTableName, feedDate)
+        val partnerLocationDailySignalsDf = readPartnerLocationDailySignals(spark, partnerLocationDailySignalsTable, feedDate)
 
-        transformPartnerLocationWeeklySignals(spark, partnerLocationWeeklySignalsDf, specificPartnerLocationSignalsConfig, locationsDf)
+        transformPartnerLocationSignals(spark,
+            partnerLocationWeeklySignalsDf.unionByName(partnerLocationDailySignalsDf),
+            specificPartnerLocationSignalsConfig, locationsDf)
     }
 
     def readLocations(spark: SparkSession, locationTableName: String): DataFrame = {
@@ -140,13 +147,21 @@ object Customer360SignalsJob {
         partnerLocationWeeklySignalsDf
     }
 
-    def transformPartnerLocationWeeklySignals(spark: SparkSession,
-                                              partnerLocationWeeklySignalsDf: DataFrame,
-                                              signalUniverseDs: Dataset[SignalUniverse],
-                                              locationsDf: DataFrame): DataFrame = {
+    def readPartnerLocationDailySignals(spark: SparkSession, partnerLocationDailySignalsTableName: String, feedDate: String): DataFrame = {
+        val feedDateCol = to_date(lit(feedDate), "yyyy-MM-dd")
+
+        spark.table(partnerLocationDailySignalsTableName)
+            .select("cxi_partner_id", "location_id", "date_option", "customer_360_id", "signal_domain", "signal_name", "signal_value")
+            .where(col("signal_generation_date") === feedDateCol)
+    }
+
+    def transformPartnerLocationSignals(spark: SparkSession,
+                                        partnerLocationSignalsDf: DataFrame,
+                                        signalUniverseDs: Dataset[SignalUniverse],
+                                        locationsDf: DataFrame): DataFrame = {
         import spark.implicits._
         // take only signals that exist in signal universe
-        val recognizedSignals = partnerLocationWeeklySignalsDf
+        val recognizedSignals = partnerLocationSignalsDf
             .withColumnRenamed("signal_domain", "domain_name")
             .join(signalUniverseDs, Seq("domain_name", "signal_name"), "inner")
             .withColumn("signal_es_name", concat(col("signal_name"), lit("_"), col("es_type")))
@@ -283,6 +298,7 @@ object Customer360SignalsJob {
                                     customer360Table: String,
                                     customer360SignalsTable: String,
                                     partnerLocationWeeklySignalsTable: String,
+                                    partnerLocationDailySignalsTable: String,
                                     locationTable: String)
 
 }

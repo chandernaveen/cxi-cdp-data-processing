@@ -46,7 +46,26 @@ class Customer360SignalsJobCommonTest extends BaseSparkBatchJobTest {
         val timeOfDayEarlyAfternoon = SignalUniverse("time_of_day_metrics", "Time of Day early afternoon", "early_afternoon", "Time of Day early afternoon",
             "time_of_day_metrics.early_afternoon_long", "long", "test description", "number",
             signalConfigCreateDate, signalConfigCreateDate, true, true, SignalType.SpecificPartnerLocationSignal.code, "specific_partner_location_signals")
-        Seq(burgerAffinity, colaAffinity, deliveryPreferred, reachibilityEmail, ageCategory, gender, loyaltyType, timeOfDayEarlyAfternoon).toDS()
+        val  physicalLaneChannelMetric = SignalUniverse("channel_metrics", "Physical Lane", "physical_lane", "Physical Lane",
+            "channel_metrics.physical_lane_long", "long", "test description", "number",
+            signalConfigCreateDate, signalConfigCreateDate, true, true, SignalType.SpecificPartnerLocationSignal.code, "specific_partner_location_signals")
+        val  digitalWebChannelMetric = SignalUniverse("channel_metrics", "Digital Web", "digital_web", "Digital Web",
+            "channel_metrics.digital_web_long", "long", "test description", "number",
+            signalConfigCreateDate, signalConfigCreateDate, true, true, SignalType.SpecificPartnerLocationSignal.code, "specific_partner_location_signals")
+        val  totalOrdersOrderMetric = SignalUniverse("order_metrics", "Total orders", "total_orders", "Total orders",
+            "order_metrics.total_orders_long", "long", "test description", "number",
+            signalConfigCreateDate, signalConfigCreateDate, true, true, SignalType.SpecificPartnerLocationSignal.code, "specific_partner_location_signals")
+        val  cashTenderTypeMetric = SignalUniverse("tender_type_metrics", "Cash Tender Type", "cash", "Cash Tender Type",
+            "tender_type_metrics.cash_long", "long", "test description", "number",
+            signalConfigCreateDate, signalConfigCreateDate, true, true, SignalType.SpecificPartnerLocationSignal.code, "specific_partner_location_signals")
+        Seq(
+            // general customer signals
+            burgerAffinity, colaAffinity, deliveryPreferred, reachibilityEmail, ageCategory, gender,
+            // weekly partner location signals
+            loyaltyType,
+            // daily partner location signals
+            timeOfDayEarlyAfternoon, physicalLaneChannelMetric, digitalWebChannelMetric, totalOrdersOrderMetric, cashTenderTypeMetric
+        ).toDS()
     }
 
     test("test read signal universe") {
@@ -120,8 +139,8 @@ class Customer360SignalsJobCommonTest extends BaseSparkBatchJobTest {
         customer360Df.createOrReplaceTempView(customer360Table)
 
         val customer360SignalsTable = "tempCustomer360SignalsTable"
-        val signalGenerationDate = LocalDate.of(2022, 2, 24)
-        val feedDate = signalGenerationDate.plusDays(1)
+        val feedDate = LocalDate.of(2022, 2, 25)
+        val signalGenerationDate = feedDate.minusDays(1)
         val genericSignalGenerationDateSql = sqlDate(feedDate)
         val customer360SignalsDf = Seq(
             // customer #1
@@ -143,8 +162,28 @@ class Customer360SignalsJobCommonTest extends BaseSparkBatchJobTest {
             ("cust_id3", "food_and_drink_preference", "burger_affinity", "true", genericSignalGenerationDateSql)
         ).toDF("customer_360_id", "signal_domain", "signal_name", "signal_value", "signal_generation_date")
         customer360SignalsDf.createOrReplaceTempView(customer360SignalsTable)
+
+        val partnerLocationDailySignalsTable = "tempPartnerLocationDailySignalsTable"
+        val partnerLocationDailySignals = Seq(
+            // customer #1
+            ("partner1", "locid1", CustomerMetricsTimePeriod.Period7days.value, "cust_id1", "channel_metrics", "physical_lane", 0L.toString, sqlDate(feedDate)),
+            ("partner1", "locid2", CustomerMetricsTimePeriod.Period30days.value, "cust_id1", "channel_metrics", "physical_lane", 1L.toString, sqlDate(feedDate)),
+            ("partner1", "locid3", CustomerMetricsTimePeriod.Period7days.value, "cust_id1", "channel_metrics", "digital_web", 2L.toString, sqlDate(feedDate)),
+            // all locations for partner 1
+            ("partner2", "locid22", CustomerMetricsTimePeriod.Period7days.value, "cust_id1", "order_metrics", "total_orders", 1L.toString, sqlDate(feedDate)),
+            ("partner2", "locid22", CustomerMetricsTimePeriod.Period30days.value, "cust_id1", "order_metrics", "total_orders", 1L.toString, sqlDate(feedDate)),
+            // all locations for partner 2
+            ("partner2", "_ALL", CustomerMetricsTimePeriod.Period7days.value, "cust_id1", "tender_type_metrics", "cash", 1L.toString, sqlDate(feedDate)),
+            ("partner2", "_ALL", CustomerMetricsTimePeriod.Period30days.value, "cust_id1", "tender_type_metrics", "cash", 2L.toString, sqlDate(feedDate)),
+            // customer #2
+            ("partner3", "locid333", CustomerMetricsTimePeriod.Period7days.value, "cust_id2", "time_of_day_metrics", "early_afternoon", 1L.toString, sqlDate(feedDate)),
+            // customer #3 doesn't have any daily signals
+            // only 1 excluded signal, not present in signal universe
+            ("partner5", "locid55555", CustomerMetricsTimePeriod.Period90days.value, "cust_id3", "some_domain123", "some_signal123", "some_signal_value123", sqlDate(feedDate)),
+        ).toDF("cxi_partner_id", "location_id", "date_option", "customer_360_id", "signal_domain", "signal_name", "signal_value", "signal_generation_date")
+        partnerLocationDailySignals.createOrReplaceTempView(partnerLocationDailySignalsTable)
+
         val loyaltyTypeLatestDate = sqlDate(signalGenerationDate)
-        val earlyAfternoonLatestSignalGenerationDate = sqlDate(signalGenerationDate.minusDays(4))
         val partnerLocationWeeklySignalsTable = "tempPartnerLocationWeeklySignalsTable"
         val partnerLocationWeeklySignals = Seq(
             // customer #1
@@ -152,11 +191,7 @@ class Customer360SignalsJobCommonTest extends BaseSparkBatchJobTest {
             ("partner1", "locid2", CustomerMetricsTimePeriod.Period30days.value, "cust_id1", "loyalty", "loyalty_type", "loyal", loyaltyTypeLatestDate),
             ("partner1", "locid3", CustomerMetricsTimePeriod.Period7days.value, "cust_id1", "loyalty", "loyalty_type", "regular", loyaltyTypeLatestDate),
             // all locations for partner 1
-            ("partner1", "_ALL", CustomerMetricsTimePeriod.Period7days.value, "cust_id1", "time_of_day_metrics", "early_afternoon", "0", earlyAfternoonLatestSignalGenerationDate),
             ("partner2", "locid22", CustomerMetricsTimePeriod.Period7days.value, "cust_id1", "loyalty", "loyalty_type", "new", loyaltyTypeLatestDate),
-            ("partner2", "locid22", CustomerMetricsTimePeriod.Period7days.value, "cust_id1", "time_of_day_metrics", "early_afternoon", "0", earlyAfternoonLatestSignalGenerationDate),
-            // all locations for partner 2
-            ("partner2", "_ALL", CustomerMetricsTimePeriod.Period7days.value, "cust_id1", "time_of_day_metrics", "early_afternoon", "0", earlyAfternoonLatestSignalGenerationDate),
             // customer #2
             ("partner3", "locid333", CustomerMetricsTimePeriod.Period7days.value, "cust_id2", "loyalty", "loyalty_type", "new", loyaltyTypeLatestDate),
             // customer #3
@@ -181,127 +216,130 @@ class Customer360SignalsJobCommonTest extends BaseSparkBatchJobTest {
 
         // when
         val actual = Customer360SignalsJob.process(spark,
-            DatalakeTablesConfig(signalUniverseTable, customer360Table, customer360SignalsTable, partnerLocationWeeklySignalsTable, locationsTable), feedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")))
+            DatalakeTablesConfig(signalUniverseTable, customer360Table, customer360SignalsTable, partnerLocationWeeklySignalsTable, partnerLocationDailySignalsTable, locationsTable), feedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")))
 
         // then
         val actualData = actual.collect()
-        withClue("Transform data does not match." + actualData.map(_.json).mkString("\nActual data:\n", "\n-----------------------\n", "")) {
-            val expectedOutput = Seq(
-                Row("cust_id1",
-                    Map("combination-bin" -> Array("combination-bin_1", "combination-bin_2")),
-                    Map(
-                        "campaign" ->
-                            Map("reachability_email_boolean" -> "true"),
-                        "channel_preferences" ->
-                            Map("delivery_preferred_boolean" -> "true"),
-                        "food_and_drink_preference" ->
-                            Map("burger_affinity_boolean" -> "true", "cola_affinity_boolean" -> "true"),
-                        "profile" ->
-                            Map("age_category_keyword" -> "25-30")),
-                    Seq(
-                        Row("partner1",
-                            "locid1",
-                            "Location name 1",
-                            Map(
-                                "loyalty" -> Map("loyalty_type_keyword" -> "at-risk")
-                            ),
-                            null,
-                            null,
-                            null),
-                        Row(
-                            "partner1",
-                            "locid2",
-                            "Location name 2",
-                            null,
-                            Map(
-                                "loyalty" -> Map("loyalty_type_keyword" -> "loyal")
-                            ),
-                            null,
-                            null
+
+        val expectedOutput = Seq(
+            Row("cust_id1",
+                Map("combination-bin" -> Array("combination-bin_1", "combination-bin_2")),
+                Map(
+                    "campaign" ->
+                        Map("reachability_email_boolean" -> "true"),
+                    "channel_preferences" ->
+                        Map("delivery_preferred_boolean" -> "true"),
+                    "food_and_drink_preference" ->
+                        Map("burger_affinity_boolean" -> "true", "cola_affinity_boolean" -> "true"),
+                    "profile" ->
+                        Map("age_category_keyword" -> "25-30")),
+                Seq(
+                    Row("partner1",
+                        "locid1",
+                        "Location name 1",
+                        Map(
+                            "channel_metrics" -> Map("physical_lane_long" -> "0"),
+                            "loyalty" -> Map("loyalty_type_keyword" -> "at-risk")
                         ),
-                        Row(
-                            "partner1",
-                            "locid3",
-                            "Location name 3",
-                            Map(
-                                "loyalty" -> Map("loyalty_type_keyword" -> "regular")
-                            ),
-                            null,
-                            null,
-                            null
+                        null,
+                        null,
+                        null),
+                    Row(
+                        "partner1",
+                        "locid2",
+                        "Location name 2",
+                        null,
+                        Map(
+                            "channel_metrics" -> Map("physical_lane_long" -> "1"),
+                            "loyalty" -> Map("loyalty_type_keyword" -> "loyal")
                         ),
-                        Row(
-                            "partner1",
-                            "_ALL",
-                            "_ALL",
-                            Map(
-                                "time_of_day_metrics" -> Map("early_afternoon_long" -> "0")
-                            ),
-                            null,
-                            null,
-                            null
+                        null,
+                        null
+                    ),
+                    Row(
+                        "partner1",
+                        "locid3",
+                        "Location name 3",
+                        Map(
+                            "channel_metrics" -> Map("digital_web_long" -> "2"),
+                            "loyalty" -> Map("loyalty_type_keyword" -> "regular"),
                         ),
-                        Row(
-                            "partner2",
-                            "locid22",
-                            "Location name 22",
-                            Map(
-                                "loyalty" -> Map("loyalty_type_keyword" -> "new"),
-                                "time_of_day_metrics" -> Map("early_afternoon_long" -> "0")
-                            ),
-                            null,
-                            null,
-                            null
+                        null,
+                        null,
+                        null
+                    ),
+                    Row(
+                        "partner2",
+                        "locid22",
+                        "Location name 22",
+                        Map(
+                            "loyalty" -> Map("loyalty_type_keyword" -> "new"),
+                            "order_metrics" -> Map("total_orders_long" -> "1")
                         ),
-                        Row(
-                            "partner2",
-                            "_ALL",
-                            "_ALL",
-                            Map(
-                                "time_of_day_metrics" -> Map("early_afternoon_long" -> "0")
-                            ),
-                            null,
-                            null,
-                            null
-                        ))
-                ),
-                Row("cust_id2",
-                    Map("email" -> Array("test@domain.com")),
-                    Map("food_and_drink_preference" ->
-                        Map("burger_affinity_boolean" -> "true")),
-                    Seq(
-                        Row(
-                            "partner3",
-                            "locid333",
-                            "Location name 333",
-                            Map(
-                                "loyalty" -> Map("loyalty_type_keyword" -> "new")
-                            ),
-                            null,
-                            null,
-                            null
-                        ))
-                )
+                        Map(
+                            "order_metrics" -> Map("total_orders_long" -> "1")
+                        ),
+                        null,
+                        null
+                    ),
+                    Row(
+                        "partner2",
+                        "_ALL",
+                        "_ALL",
+                        Map(
+                            "tender_type_metrics" -> Map("cash_long" -> "1")
+                        ),
+                        Map(
+                            "tender_type_metrics" -> Map("cash_long" -> "2")
+                        ),
+                        null,
+                        null
+                    ))
+            ),
+            Row("cust_id2",
+                Map("email" -> Array("test@domain.com")),
+                Map("food_and_drink_preference" ->
+                    Map("burger_affinity_boolean" -> "true")),
+                Seq(
+                    Row(
+                        "partner3",
+                        "locid333",
+                        "Location name 333",
+                        Map(
+                            "loyalty" -> Map("loyalty_type_keyword" -> "new"),
+                            "time_of_day_metrics" -> Map("early_afternoon_long" -> "1")
+                        ),
+                        null,
+                        null,
+                        null
+                    ))
             )
-            val partnerLocationEntrySchema = DataTypes.createStructType(Array(
-                StructField("cxi_partner_id_keyword", StringType),
-                StructField("location_id_keyword", StringType),
-                StructField("location_name_keyword", StringType),
-                StructField("time_period_7", DataTypes.createMapType(StringType, DataTypes.createMapType(StringType, StringType, true)), true),
-                StructField("time_period_30", DataTypes.createMapType(StringType, DataTypes.createMapType(StringType, StringType, true)), true),
-                StructField("time_period_60", DataTypes.createMapType(StringType, DataTypes.createMapType(StringType, StringType, true)), true),
-                StructField("time_period_90", DataTypes.createMapType(StringType, DataTypes.createMapType(StringType, StringType, true)), true)
-            ))
-            val outputToEsSchema = DataTypes.createStructType(Array(
-                StructField("customer_360_id", StringType),
-                StructField("customer_identities", DataTypes.createMapType(StringType, DataTypes.createArrayType(StringType, true), true), true),
-                StructField("general_customer_signals", DataTypes.createMapType(StringType, DataTypes.createMapType(StringType, StringType, true), true), true),
-                StructField("specific_partner_location_signals", DataTypes.createArrayType(partnerLocationEntrySchema, false), true)
-            ))
-            import collection.JavaConverters._
-            val expected = spark.createDataFrame(expectedOutput.asJava, outputToEsSchema)
+        )
+        val partnerLocationEntrySchema = DataTypes.createStructType(Array(
+            StructField("cxi_partner_id_keyword", StringType),
+            StructField("location_id_keyword", StringType),
+            StructField("location_name_keyword", StringType),
+            StructField("time_period_7", DataTypes.createMapType(StringType, DataTypes.createMapType(StringType, StringType, true)), true),
+            StructField("time_period_30", DataTypes.createMapType(StringType, DataTypes.createMapType(StringType, StringType, true)), true),
+            StructField("time_period_60", DataTypes.createMapType(StringType, DataTypes.createMapType(StringType, StringType, true)), true),
+            StructField("time_period_90", DataTypes.createMapType(StringType, DataTypes.createMapType(StringType, StringType, true)), true)
+        ))
+        val outputToEsSchema = DataTypes.createStructType(Array(
+            StructField("customer_360_id", StringType),
+            StructField("customer_identities", DataTypes.createMapType(StringType, DataTypes.createArrayType(StringType, true), true), true),
+            StructField("general_customer_signals", DataTypes.createMapType(StringType, DataTypes.createMapType(StringType, StringType, true), true), true),
+            StructField("specific_partner_location_signals", DataTypes.createArrayType(partnerLocationEntrySchema, false), true)
+        ))
+        import collection.JavaConverters._
+        val expected = spark.createDataFrame(expectedOutput.asJava, outputToEsSchema)
+        val expectedData = expected.collect()
+
+        withClue("Transform data does not match." +
+            actualData.map(_.json).mkString("\nActual data:\n", "\n-----------------------\n", "\n-----------------------\n") +
+            expectedData.map(_.json).mkString("\nExpected data:\n", "\n-----------------------\n", "\n-----------------------\n")
+        ) {
             actual.schema shouldEqual expected.schema
-            actualData should contain theSameElementsAs expected.collect()
+            actualData should contain theSameElementsAs expectedData
         }
     }
 
