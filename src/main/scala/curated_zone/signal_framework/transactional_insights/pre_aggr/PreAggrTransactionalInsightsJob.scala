@@ -91,6 +91,7 @@ object PreAggrTransactionalInsightsJob {
             for {
                 orderSummaryChangeData <- cdfResult.data
                 orderDates = getOrderDatesToProcess(orderSummaryChangeData)
+                _ = logger.info(s"Order dates to reprocess: $orderDates")
                 if orderDates.nonEmpty
                 orderSummaryFull <- orderSummaryCdf.queryAllData(CdfConsumerId).data
             } yield {

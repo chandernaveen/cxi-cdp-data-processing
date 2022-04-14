@@ -171,45 +171,13 @@ class PreAggrTransactionalInsightsServiceTest extends BaseSparkBatchJobTest with
                 signal_name = OrderMetric.TotalOrders.signalName,
                 signal_value = 10L),
             PreAggrTransactionalInsightsRecord(
-                ord_date = Date.valueOf("2022-03-02"),
-                customer_360_id = "customer-2",
-                cxi_partner_id = "partner-2",
-                location_id = "location-2",
-                signal_domain = OrderMetric.signalDomainName,
-                signal_name = OrderMetric.TotalAmount.signalName,
-                signal_value = 0L),
-            PreAggrTransactionalInsightsRecord(
-                ord_date = Date.valueOf("2022-03-03"),
-                customer_360_id = "customer-3",
-                cxi_partner_id = "partner-3",
-                location_id = "location-3",
-                signal_domain = OrderMetric.signalDomainName,
-                signal_name = OrderMetric.TotalOrders.signalName,
-                signal_value = 0L),
-            PreAggrTransactionalInsightsRecord(
                 ord_date = Date.valueOf("2022-03-03"),
                 customer_360_id = "customer-3",
                 cxi_partner_id = "partner-3",
                 location_id = "location-3",
                 signal_domain = OrderMetric.signalDomainName,
                 signal_name = OrderMetric.TotalAmount.signalName,
-                signal_value = 987L),
-            PreAggrTransactionalInsightsRecord(
-                ord_date = Date.valueOf("2022-03-04"),
-                customer_360_id = "customer-4",
-                cxi_partner_id = "partner-4",
-                location_id = "location-4",
-                signal_domain = OrderMetric.signalDomainName,
-                signal_name = OrderMetric.TotalOrders.signalName,
-                signal_value = 0L),
-            PreAggrTransactionalInsightsRecord(
-                ord_date = Date.valueOf("2022-03-04"),
-                customer_360_id = "customer-4",
-                cxi_partner_id = "partner-4",
-                location_id = "location-4",
-                signal_domain = OrderMetric.signalDomainName,
-                signal_name = OrderMetric.TotalAmount.signalName,
-                signal_value = 0L)
+                signal_value = 987L)
         )
 
         // when

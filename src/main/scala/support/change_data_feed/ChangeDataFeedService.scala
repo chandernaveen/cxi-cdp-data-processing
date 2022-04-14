@@ -56,22 +56,32 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
             .head
     }
 
+    /** Returns the earliest version for the specified table. */
+    def getEarliestAvailableVersion(table: String)(implicit spark: SparkSession): Long = {
+        import spark.implicits._
+
+        // even a newly created table has one version, so we should get at least one row
+        spark.sql(s"DESCRIBE HISTORY $table")
+            .agg(min($"version"))
+            .as[Long]
+            .head
+    }
+
     /** Returns the version of the specified table when ChangeDataFeed was enabled.
       *
       * The specified table should have CDF enabled, otherwise an exception would be thrown.
       * CDF can be enabled any time.
       * If CDF was enabled at the table creation time, the returned version is 0.
       */
-    def getEarliestCdfEnabledVersion(table: String)(implicit spark: SparkSession): Long = {
+    def getEarliestCdfEnabledVersion(table: String)(implicit spark: SparkSession): Option[Long] = {
         import spark.implicits._
 
         ensureCdfEnabled(table)
 
-        // as CDF is enabled, we should get at least one row
         spark.sql(s"DESCRIBE HISTORY $table")
             .filter(get_json_object($"operationParameters.properties", "$['delta.enableChangeDataFeed']") === "true")
             .agg(max($"version"))
-            .as[Long]
+            .as[Option[Long]]
             .head
     }
 
@@ -79,19 +89,15 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
     def queryChangeData(consumerId: String, table: String)(implicit spark: SparkSession): ChangeDataQueryResult = {
         ensureCdfEnabled(table)
 
-        val latestProcessedVersion = getLatestProcessedVersion(consumerId, table)
-        val earliestUnprocessedVersion = latestProcessedVersion match {
-            case Some(version) => version + 1L
-            case None => getEarliestCdfEnabledVersion(table)
-        }
-        val latestAvailableVersion = getLatestAvailableVersion(table)
+        val startVersion = getStartVersion(consumerId, table)
+        val endVersion = getLatestAvailableVersion(table)
 
         val changeData =
-            if (earliestUnprocessedVersion <= latestAvailableVersion) {
+            if (startVersion <= endVersion) {
                 val df = spark.read.format("delta")
                     .option("readChangeFeed", "true")
-                    .option("startingVersion", earliestUnprocessedVersion)
-                    .option("endingVersion", latestAvailableVersion)
+                    .option("startingVersion", startVersion)
+                    .option("endingVersion", endVersion)
                     .table(table)
 
                 Some(df)
@@ -101,10 +107,25 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
 
         val tableMetadata = ChangeDataQueryResult.TableMetadata(
             table = table,
-            startVersion = earliestUnprocessedVersion,
-            endVersion = latestAvailableVersion)
+            startVersion = startVersion,
+            endVersion = endVersion)
 
         ChangeDataQueryResult(consumerId, List(tableMetadata), changeData)
+    }
+
+    /** Returns the start version for CDF query for the provided consumer/table.
+      * Throws an exception if not all versions starting from the start version exist.
+      */
+    private[change_data_feed] def getStartVersion(consumerId: String, table: String)(implicit spark: SparkSession): Long = {
+        getLatestProcessedVersion(consumerId, table)
+            .map(version => version + 1L)
+            .orElse(getEarliestCdfEnabledVersion(table))
+            .filter(nextVersion => getEarliestAvailableVersion(table) <= nextVersion)
+            .getOrElse {
+                val errorMessage = s"ChangeDataFeed is enabled for [$table] but some table versions not yet " +
+                    s"processed by $consumerId are no longer available. Consider full reprocess to avoid losing data."
+                throw new Exception(errorMessage)
+            }
     }
 
     /** Updates latest processed versions in the CDF Tracker table. */

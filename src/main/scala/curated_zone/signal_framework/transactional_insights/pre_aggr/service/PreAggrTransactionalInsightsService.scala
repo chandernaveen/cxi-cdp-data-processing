@@ -85,11 +85,7 @@ private[pre_aggr] object PreAggrTransactionalInsightsService {
                 signalName <- signalDomain.signalNames
                 metricColumn = MetricsServiceHelper.metricColumnName(signalDomain.signalDomainName, signalName)
                 metricValue = row.getAs[Long](metricColumn)
-                /*
-                    TODO: a more efficient approach is not to write 0-valued metrics, but this requires some
-                    consideration for the downstream pipelines' logic and ElasticSearch usage patterns:
-                    nonZeroMetricValue <- if (metricValue == 0) None else Some(metricValue)
-                 */
+                nonZeroMetricValue <- if (metricValue == 0) None else Some(metricValue)
             } yield PreAggrTransactionalInsightsRecord(
                 ord_date = row.getAs[java.sql.Date]("ord_date"),
                 customer_360_id = row.getAs[String]("customer_360_id"),
@@ -97,7 +93,7 @@ private[pre_aggr] object PreAggrTransactionalInsightsService {
                 location_id = row.getAs[String]("location_id"),
                 signal_domain = signalDomain.signalDomainName,
                 signal_name = signalName,
-                signal_value = metricValue
+                signal_value = nonZeroMetricValue
             )
         })
     }
