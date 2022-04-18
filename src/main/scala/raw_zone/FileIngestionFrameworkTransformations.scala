@@ -13,7 +13,8 @@ object FileIngestionFrameworkTransformations {
         "transformQuBeyond" -> transformQuBeyond,
         "transformSquare" -> transformSquare,
         "transformSegmint" -> transformSegmint,
-        "transformVeraset" -> transformVeraset
+        "transformVeraset" -> transformVeraset,
+        "transformThrotle" -> transformThrotle
     )
 
     final val CxiCommonColumns: List[String] = List("feed_date", "file_name", "cxi_id")
@@ -125,6 +126,16 @@ object FileIngestionFrameworkTransformations {
             .withColumn("ipv_6", when(isIpv6Address, col("ip_address")).otherwise(lit(null)))
             .withColumn("id_type", upper(col("id_type")))
             .drop("ad_id", "ip_address")
+    }
+
+    def transformThrotle(df: DataFrame): DataFrame = {
+
+        // TODO: ticket https://dev.azure.com/Customerxi/Cloud%20Data%20Platform/_workitems/edit/2078 :
+        //extract upper() that manipulates advertiser_id column to common normalization functions
+        df
+            .withColumn("upper_native_maid", upper(col("native_maid")))
+            .drop("native_maid")
+            .withColumnRenamed("upper_native_maid", "native_maid")
     }
 
     private def transformCompositeColumns(df: DataFrame, columns: Seq[String]): DataFrame = {
