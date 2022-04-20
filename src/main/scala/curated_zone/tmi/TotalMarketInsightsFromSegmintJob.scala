@@ -79,22 +79,17 @@ object TotalMarketInsightsFromSegmintJob {
         )
     }
 
-    case class CliArgs(contractPath: String, dataPath: String, overwrite: Boolean = false)
+    case class CliArgs(contractPath: String, overwrite: Boolean = false)
 
     object CliArgs {
 
-        private val initOptions = CliArgs(contractPath = null, dataPath = null)
+        private val initOptions = CliArgs(contractPath = null)
 
         private def optionsParser = new scopt.OptionParser[CliArgs]("Total Market Insight From Segmint Job") {
 
             opt[String]("contract-path")
                 .action((contractPath, c) => c.copy(contractPath = contractPath))
                 .text("path to a contract for this job")
-                .required
-
-            opt[String]("data-path")
-                .action((dataPath, c) => c.copy(dataPath = dataPath))
-                .text("path to Segmint data")
                 .required
 
             opt[Boolean]("overwrite")
