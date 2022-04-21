@@ -7,22 +7,30 @@ import com.cxi.cdp.data_processing.refined_zone.hub.identity.model._
 import com.cxi.cdp.data_processing.refined_zone.hub.ChangeDataFeedViews
 import com.cxi.cdp.data_processing.refined_zone.hub.model.CxiIdentity
 import com.cxi.cdp.data_processing.support.SparkSessionFactory
-import com.cxi.cdp.data_processing.support.change_data_feed.ChangeDataFeedService.ChangeType
 import com.cxi.cdp.data_processing.support.utils.ContractUtils
 import org.apache.log4j.Logger
-import org.apache.spark.sql.functions.{coalesce, col, lit, size}
-import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
+import com.cxi.cdp.data_processing.support.change_data_feed.CdfDiffFormat
+import org.apache.spark.sql.functions.{array, coalesce, col, explode, flatten, lit, not, struct, when}
 
 /** This Spark job extracts identity relationships from order summary and writes them into identity_relationship table.
   *
   * The job can run in two modes:
-  * 1. (default) Query newly added orders (using Change Data Feed), extract identity relationships,
-  * and merge them into identity_relationship table.
-  * In this mode we are looking at "inserted" records only. In theory it is possible to handle updates
-  * as well, but the logic becomes more complicated (will be addressed in another ticket).
-  * If there are updates, it's better to do a full reprocess for now.
-  * 2. Full reprocess. Remove existing identity relationships, get all available orders,
-  * and then import identity relationships from them.
+  *
+  * 1. (default) Incremental processing:
+  * - query changed orders (using Change Data Feed)
+  * - extract identity relationships
+  * - merge them into the identity_relationship table
+  *
+  * This mode can handle order updates / deletes by creating identity relationships from the previous state
+  * of the record with the negative frequency, thus un-applying changes made by the previous state of this record.
+  * See `extractRelatedEntities` method for more info.
+  *
+  * 2. Full reprocess:
+  * - remove existing identity relationships
+  * - fetch all orders
+  * - extract identity relationships
+  * - write them into the identity_relationship table
   */
 object ExtractIdentityRelationshipsJob {
 
@@ -34,6 +42,11 @@ object ExtractIdentityRelationshipsJob {
 
     private val dateOrdering: Ordering[java.sql.Date] = Ordering.by(_.getTime)
 
+    private[identity] case class RelatedIdentities(
+                                                      frequency: Int,
+                                                      identities: Seq[IdentityId],
+                                                      date: java.sql.Date)
+
     def main(args: Array[String]): Unit = {
         logger.info(s"""Received following args: ${args.mkString(",")}""")
 
@@ -42,6 +55,8 @@ object ExtractIdentityRelationshipsJob {
 
         run(cliArgs)(SparkSessionFactory.getSparkSession())
     }
+
+    private val OrderSummaryKeys = Seq("cxi_partner_id", "ord_id")
 
     def run(cliArgs: CliArgs)(implicit spark: SparkSession): Unit = {
         val contract: ContractUtils = new ContractUtils(Paths.get(cliArgs.contractPath))
@@ -57,24 +72,26 @@ object ExtractIdentityRelationshipsJob {
 
         val orderSummaryCdf = ChangeDataFeedViews.orderSummary(cdfTrackerTable, orderSummaryTables)
 
-        val orderSummaryChangeDataResult =
+        val (changeDataResult, maybeDiffData) =
             if (cliArgs.fullReprocess) {
-                orderSummaryCdf.queryAllData(CdfConsumerId)
+                val changeDataResult = orderSummaryCdf.queryAllData(CdfConsumerId)
+                (changeDataResult, changeDataResult.data.map(CdfDiffFormat.transformRegularDataFrame))
             } else {
-                orderSummaryCdf.queryChangeData(CdfConsumerId, changeTypes = Seq(ChangeType.Insert))
+                val changeDataResult = orderSummaryCdf.queryChangeData(CdfConsumerId)
+                (changeDataResult, changeDataResult.data.map(CdfDiffFormat.transformChangeDataFeed(_, OrderSummaryKeys)))
             }
 
-        orderSummaryChangeDataResult.data match {
+        maybeDiffData match {
             case None => logger.info("No updates found since the last run")
 
-            case Some(changeData) =>
-                val relatedIdentities = extractRelatedEntities(changeData)
+            case Some(diffData) =>
+                val relatedIdentities = extractRelatedEntities(diffData)
 
                 val identityRelationships = createIdentityRelationships(relatedIdentities)
                 writeIdentityRelationships(identityRelationships, identityRelationshipTable)
 
-                logger.info(s"Update CDF tracker: ${orderSummaryChangeDataResult.tableMetadataSeq}")
-                orderSummaryCdf.markProcessed(orderSummaryChangeDataResult)
+                logger.info(s"Update CDF tracker: ${changeDataResult.tableMetadataSeq}")
+                orderSummaryCdf.markProcessed(changeDataResult)
         }
     }
 
@@ -98,19 +115,84 @@ object ExtractIdentityRelationshipsJob {
         spark.sql(s"DELETE FROM $identityRelationshipTable")
     }
 
-    private[identity] def extractRelatedEntities(orderSummaryDF: DataFrame)(implicit spark: SparkSession): Dataset[RelatedIdentities] = {
+    /** Extracts related identities from the order_summary Change Data Feed dataset transformed into the diff format.
+      *
+      * The diff format provides the previous (before the changes being processed) and the current state of each order.
+      *
+      * The interesting cases that require more attention are when the previous_record is not null.
+      * It can happen either if an order was updated (then both the previous and the current record will not be null),
+      * or if an order was deleted (then the previous record will not be null, but the current record will be null).
+      *
+      * If the previous record is not null, it means that the identity relationship table was already updated
+      * with the identities from this order. So before adding new identity relationships from the current state
+      * of this order, we have to remove identity relationships that were added from the previous state of this order.
+      * To do this, we generate identity relationships from the previous state of the order, but with the negative
+      * frequency (-1).
+      *
+      * Example:
+      * Let's say an order with ord_id == 1 has a list of identities ["phone:111", "phone:222"].
+      * POS identity relationship table generated based on this order has a relationship between
+      * `phone:111` and `phone:222` with the frequency of 1.
+      *
+      * Then let's say this order gets updated (perhaps because there was a mistake that got corrected),
+      * and now the list of identities looks like ["phone:111", "phone:333"]. Here is the diff for this order:
+      * +--------------------------------------+--------------------------------------+
+      * | previous_record                      | current_record                       |
+      * +--------+-----------------------------+--------+-----------------------------+
+      * | ord_id | identities                  | ord_id | identities                  |
+      * +--------+-----------------------------+--------+-----------------------------+
+      * | 1      | ["phone:111", "phone:222"]  | 1      | ["phone:111", "phone:333"]  |
+      * +--------+-----------------------------+--------+-----------------------------+
+      *
+      * To process these changes, two identity relationship updates are generated:
+      * - a relationship between `phone:111` and `phone:222` with the frequency of -1, to remove the previously created
+      *   relationship
+      * - a relationship between `phone:111` and `phone:333` with the frequency of 1, to add the new relationship
+      */
+    private[identity] def extractRelatedEntities(orderSummaryDiffDF: DataFrame)(implicit spark: SparkSession): Dataset[RelatedIdentities] = {
         import spark.implicits._
 
         val ordDateFallback = new java.sql.Date(java.time.Instant.now().toEpochMilli)
 
-        orderSummaryDF
-            .filter(size(col(CxiIdentity.CxiIdentityIds)) > 1)
+        /* due to Spark DataFrame API limitations, extracts optional record as an array to be flattened later */
+        def extractOptionalRelatedIdentities(parentColumn: String, frequency: Int): Column = {
+            when(col(parentColumn).isNull, array())
+                .otherwise(
+                    array(
+                        struct(
+                            lit(frequency).as("frequency"),
+                            col(s"$parentColumn.${CxiIdentity.CxiIdentityIds}").as("identities"),
+                            coalesce(col(s"$parentColumn.ord_date"), lit(ordDateFallback)).as("date"))))
+        }
+
+        filterOrdersWithModifiedIdentities(orderSummaryDiffDF)
             .select(
-                col(CxiIdentity.CxiIdentityIds).as("identities"),
-                coalesce(col("ord_date"), lit(ordDateFallback)).as("date")
+                explode(
+                    flatten(
+                        array(
+                            extractOptionalRelatedIdentities(
+                                CdfDiffFormat.PreviousRecordColumnName,
+                                frequency = RemoveRelationshipFrequency),
+                            extractOptionalRelatedIdentities(
+                                CdfDiffFormat.CurrentRecordColumnName,
+                                frequency = AddRelationshipFrequency))))
+                    .as("related_identities")
             )
+            .select(col("related_identities.*"))
             .as[RelatedIdentities]
+            .filter(record => record.identities != null && record.identities.size > 1)
     }
+
+    /** If identities have not been modified, identity relationships stay the same. */
+    private[identity] def filterOrdersWithModifiedIdentities(orderSummaryDiffDF: DataFrame): DataFrame = {
+        val prevIdentitiesCol = col(s"${CdfDiffFormat.PreviousRecordColumnName}.${CxiIdentity.CxiIdentityIds}")
+        val currIdentitiesCol = col(s"${CdfDiffFormat.CurrentRecordColumnName}.${CxiIdentity.CxiIdentityIds}")
+
+        orderSummaryDiffDF.filter(not(prevIdentitiesCol <=> currIdentitiesCol))
+    }
+
+    private final val AddRelationshipFrequency = 1
+    private final val RemoveRelationshipFrequency = -1
 
     /** Creates a dataset of identity relationships from a dataset of related identities.
       *
@@ -118,8 +200,8 @@ object ExtractIdentityRelationshipsJob {
       * all duplicate records will be merged.
       */
     private[identity] def createIdentityRelationships(
-                                          relatedIdentitiesDS: Dataset[RelatedIdentities]
-                                      )(implicit spark: SparkSession): Dataset[IdentityRelationship] = {
+                                                         relatedIdentitiesDS: Dataset[RelatedIdentities]
+                                                     )(implicit spark: SparkSession): Dataset[IdentityRelationship] = {
         import spark.implicits._
 
         relatedIdentitiesDS
@@ -153,7 +235,7 @@ object ExtractIdentityRelationshipsJob {
                     target = targetIdentity.cxi_identity_id,
                     target_type = targetIdentity.identity_type,
                     relationship = RelationshipType,
-                    frequency = 1,
+                    frequency = relatedIdentities.frequency,
                     created_date = relatedIdentities.date,
                     last_seen_date = relatedIdentities.date,
                     active_flag = true
@@ -175,12 +257,14 @@ object ExtractIdentityRelationshipsJob {
                |  AND $destTable.source_type <=> $srcTable.source_type
                |  AND $destTable.target <=> $srcTable.target
                |  AND $destTable.target_type <=> $srcTable.target_type
-               |WHEN MATCHED
+               |WHEN MATCHED AND ($destTable.frequency + $srcTable.frequency) > 0
                |  THEN UPDATE SET
                |    frequency = $destTable.frequency + $srcTable.frequency,
                |    created_date = ARRAY_MIN(ARRAY($destTable.created_date, $srcTable.created_date)),
                |    last_seen_date = ARRAY_MAX(ARRAY($destTable.last_seen_date, $srcTable.last_seen_date)),
                |    active_flag = $destTable.active_flag AND $srcTable.active_flag
+               |WHEN MATCHED AND ($destTable.frequency + $srcTable.frequency) <= 0
+               |  THEN DELETE
                |WHEN NOT MATCHED
                |  THEN INSERT *
                |""".stripMargin)

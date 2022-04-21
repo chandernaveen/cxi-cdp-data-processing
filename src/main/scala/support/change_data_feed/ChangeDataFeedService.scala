@@ -2,7 +2,7 @@ package com.cxi.cdp.data_processing
 package support.change_data_feed
 
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{Row, SparkSession}
 
 /** Provides service methods to work with Databricks ChangeDataFeed (CDF) feature.
   *
@@ -159,7 +159,16 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
 object ChangeDataFeedService {
 
     final val ChangeTypeColumnName = "_change_type"
-    final val ChangeTypeColumn = col(ChangeTypeColumnName)
+
+    final val CommitVersionColumnName = "_commit_version"
+
+    final val CommitTimestampColumnName = "_commit_timestamp"
+
+    val CdfColumnNames = Seq(
+            ChangeTypeColumnName,
+            CommitVersionColumnName,
+            CommitTimestampColumnName
+        )
 
     /** Change Data Feed result will have additional fields, one of them is `_change_type`.
       * It shows how exactly this particular record was changed:
@@ -175,4 +184,13 @@ object ChangeDataFeedService {
         final val UpdatePostImage = "update_postimage"
         final val Delete = "delete"
     }
+
+    def getCommitVersion(row: Row): Long = {
+        row.getAs[Long](CommitVersionColumnName)
+    }
+
+    def getChangeType(row: Row): String = {
+        row.getAs[String](ChangeTypeColumnName)
+    }
+
 }
