@@ -32,7 +32,7 @@ class LookupTable(spark: SparkSession, val dbName: String, val tableName: String
                |MERGE INTO $dbName.$tableName
                |USING $srcTable
                |ON $dbName.$tableName.country <=> $srcTable.country
-               | AND $dbName.$tableName.cxi_source <=> $cxiSource
+               | AND $dbName.$tableName.cxi_source <=> '$cxiSource'
                | AND $dbName.$tableName.hashed_value <=> $srcTable.hashed_value
                | AND $dbName.$tableName.identity_type <=> $srcTable.identity_type
                |WHEN MATCHED
