@@ -6,8 +6,8 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import java.util.UUID.randomUUID
 
-class LookupTable(spark: SparkSession, val dbName: String, val tableName: String) extends Serializable {
-    private val requiredFields = Seq("process_name", "country", "cxi_source", "original_value", "hashed_value", "identity_type")
+class LookupTable(spark: SparkSession, val dbName: String, val tableName: String, val cxiSource: String) extends Serializable {
+    private val requiredFields = Seq("process_name", "country", "original_value", "hashed_value", "identity_type")
 
     private val generateUUID = udf(() => randomUUID().toString)
 
@@ -20,7 +20,8 @@ class LookupTable(spark: SparkSession, val dbName: String, val tableName: String
             .select(requiredFields.map(col):_*)
             .withColumn("feed_date", current_timestamp()) // TODO: discuss the use case, not idempotent
             .withColumn("id", generateUUID()) // TODO: discuss the use case, not idempotent
-            .dropDuplicates("country", "cxi_source", "hashed_value", "identity_type")
+            .dropDuplicates("country", "hashed_value", "identity_type")
+            .withColumn("cxi_source", lit(cxiSource))
 
         val srcTable = "newPrivateInfo"
 
@@ -31,7 +32,7 @@ class LookupTable(spark: SparkSession, val dbName: String, val tableName: String
                |MERGE INTO $dbName.$tableName
                |USING $srcTable
                |ON $dbName.$tableName.country <=> $srcTable.country
-               | AND $dbName.$tableName.cxi_source <=> $srcTable.cxi_source
+               | AND $dbName.$tableName.cxi_source <=> $cxiSource
                | AND $dbName.$tableName.hashed_value <=> $srcTable.hashed_value
                | AND $dbName.$tableName.identity_type <=> $srcTable.identity_type
                |WHEN MATCHED

@@ -27,13 +27,12 @@ class CryptoShredding(val spark: SparkSession, config: CryptoShreddingConfig) {
         val lookupDf = extractedPersonalInformationDf
             .withColumn("process_name", lit(function.getType))
             .withColumn("country", lit(config.country))
-            .withColumn("cxi_source", lit(config.cxiSource))
 
         val privacyFunctions = new PrivacyFunctions(spark, workspaceConfig)
 
         try {
             privacyFunctions.authorize()
-            new LookupTable(spark, config.lookupDestDbName, config.lookupDestTableName).upsert(lookupDf)
+            new LookupTable(spark, config.lookupDestDbName, config.lookupDestTableName, config.cxiSource).upsert(lookupDf)
             hashedOriginalDf
         } finally {
             privacyFunctions.unauthorize()
