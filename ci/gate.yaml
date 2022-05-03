@@ -1,0 +1,178 @@
+trigger: none
+
+variables:
+- group: cxi-cdp-data-processing
+- name: version.MajorMinor
+  value: '1.1' # Manually adjust the version number as needed for semantic versioning. Revision is auto-incremented.
+- name: version.Revision
+  value: $[counter(variables['version.MajorMinor'], 0)]
+- name: version.Patсh
+  value: $[counter(variables['build.reason'], 0)]
+- name: versionNumber
+  value: ${{ variables['version.MajorMinor'] }}
+
+  #value: $[format('{0}.{1}', variables['version.MajorMinor'], variables['version.Revision'])]
+
+- name: BranchName
+  value: $[ replace(variables['System.PullRequest.SourceBranch'], 'refs/heads/', '') ]
+
+
+
+name: $(versionNumber)
+
+stages:
+- stage: PR_checks
+  pool:
+     vmimage: ubuntu-18.04
+  jobs:
+    - job: run_tests_and_build
+      steps:
+       - task: UsePythonVersion@0
+         inputs:
+           versionSpec: '3.8.*'
+           addToPath: true
+           architecture: 'x64'
+
+       - task: Bash@3
+         enabled: true
+         displayName: Install Databricks-Connect
+         inputs:
+           targetType: 'inline'
+           script: |
+             python -m venv .venv &&
+             sbt setupDatabricksConnect
+
+       - task: configuredatabricks@0
+         enabled: true
+         inputs:
+           url: 'https://adb-8464693284532204.4.azuredatabricks.net'
+           token: $(BEARERTOKEN)
+
+       - script: |
+          source .venv/bin/activate
+          echo "y
+              $(WORKSPACE-REGION-URL)
+              $(BEARERTOKEN)
+              $(EXISTING-CLUSTER-ID)
+              $(WORKSPACE-ORG-ID)
+              15001" | databricks-connect configure
+          databricks-connect test
+         displayName: 'Configure databricks-connect'
+         enabled: true
+
+       - task: Bash@3
+         displayName: Execute tests
+         inputs:
+           targetType: 'inline'
+           script: 'sbt jacoco'
+
+       - task: PublishTestResults@2
+         condition: always()
+         displayName: publish tests result
+         inputs:
+           testResultsFormat: 'JUnit'
+           testResultsFiles: '**/target/test-reports/*.xml'
+           searchFolder: '$(Build.SourcesDirectory)'
+           mergeTestResults: true
+           testRunTitle: 'JUnit'
+
+       - task: PublishCodeCoverageResults@1
+         condition: always()
+         displayName: publish JaCoCo code coverage results
+         inputs:
+           codeCoverageTool: 'JaCoCo'
+           summaryFileLocation: '**/target/scala-2.12/jacoco/report/*.xml'
+           reportDirectory: '**/target/scala-2.12/jacoco/report/html/'
+           failIfCoverageEmpty: true
+
+       - task: AzureCLI@2
+         displayName: opening firewall
+         inputs:
+           azureSubscription: 'cxi-devops'
+           scriptType: 'bash'
+           scriptLocation: 'inlineScript'
+           inlineScript: |
+                       IPADDR=$(dig +short "myip.opendns.com" "@resolver1.opendns.com")
+                       echo "Opening firewall: $IPADDR"
+                       az storage account network-rule add -g rg-dev-eastus2-dataplatform --account-name dls2deveastus2cxi --ip-address $IPADDR
+                       sleep 50
+           failOnStandardError: true
+
+       - task: Bash@3
+         displayName: publish pr artifacts
+         inputs:
+           targetType: 'inline'
+           script: |
+             mkdir -p $(Build.SourcesDirectory)/pr/$(BranchName)
+             cp $(Build.SourcesDirectory)/target/scala-2.12/cxi_cdp_data_processing_assembly_2_12.jar $(Build.SourcesDirectory)/pr/$(BranchName)
+             azcopy copy '$(Build.SourcesDirectory)/pr/' 'https://dls2deveastus2cxi.blob.core.windows.net/azdevops?$(dls2deveastus2cxi)' --recursive
+           workingDirectory: '$(Build.SourcesDirectory)'
+           failOnStderr: true
+
+       - task: AzureCLI@2
+         displayName: closing firewall
+         condition: always()
+         inputs:
+           azureSubscription: 'cxi-devops'
+           scriptType: 'bash'
+           scriptLocation: 'inlineScript'
+           inlineScript: |
+                       IPADDR=$(dig +short "myip.opendns.com" "@resolver1.opendns.com")
+                       echo "Closing firewall: $IPADDR"
+                       az storage account network-rule remove --account-name dls2deveastus2cxi --ip-address $IPADDR --resource-group rg-dev-eastus2-dataplatform
+
+           failOnStandardError: true
+
+
+
+- stage: deploy
+  pool:
+   vmimage: windows-latest
+  jobs:
+    - job: deploy
+      steps:
+       - checkout: none
+       - task: AzureCLI@2
+         displayName: opening firewall
+         inputs:
+           azureSubscription: 'cxi-devops'
+           scriptType: 'ps'
+           scriptLocation: 'inlineScript'
+           inlineScript: |
+             $IPADDR=(Invoke-WebRequest ifconfig.me/ip).Content.Trim()
+             echo "Opening firewall: $IPADDR"
+             az storage account network-rule add -g rg-dev-eastus2-dataplatform --account-name dls2deveastus2cxi --ip-address $IPADDR
+             sleep 50
+           failOnStandardError: true
+
+       - task: Bash@3
+         displayName: download pr artifact
+         inputs:
+           targetType: 'inline'
+           script: |
+             mkdir -p $(System.ArtifactsDirectory)/PR/$(BranchName)/cxi_cdp_data_processing_assembly/
+             azcopy copy  'https://dls2deveastus2cxi.blob.core.windows.net/azdevops/pr/$(BranchName)/*?$(dls2deveastus2cxi)' '$(System.ArtifactsDirectory)/PR/$(BranchName)/cxi_cdp_data_processing_assembly/'
+             
+       - task: AzureCLI@2
+         displayName: closing firewall
+         condition: always()
+         inputs:
+           azureSubscription: 'cxi-devops'
+           scriptType: 'ps'
+           scriptLocation: 'inlineScript'
+           inlineScript: |
+             $IPADDR=(Invoke-WebRequest ifconfig.me/ip).Content.Trim()
+             echo "Removing: $IPADDR"
+             az storage account network-rule remove --account-name dls2deveastus2cxi --ip-address $IPADDR --resource-group rg-dev-eastus2-dataplatform
+           failOnStandardError: true
+
+       - task: databricksDeployDBFSFilesTask@0
+         inputs:
+            authMethod: 'bearer'
+            bearerToken: $(BEARERTOKEN)
+            region: 'eastus2'
+            LocalRootFolder: '$(System.ArtifactsDirectory)/PR/$(BranchName)/cxi_cdp_data_processing_assembly/'
+            FilePattern: '*.jar'
+            TargetLocation: '/FileStore/jars/cxi/cxi_cdp_data_processing_assembly/$(BranchName)/'
+
+

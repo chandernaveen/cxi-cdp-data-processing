@@ -12,23 +12,13 @@ variables:
 - name: version.Patсh
   value: $[counter(variables['build.reason'], 0)]
 - name: versionNumber
-  ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
-    value: ${{ variables['version.MajorMinor'] }}
-  ${{ if ne(variables['Build.Reason'], 'PullRequest') }}:
-    value: $[format('{0}.{1}', variables['version.MajorMinor'], variables['version.Patсh'])]
-  #value: $[format('{0}.{1}', variables['version.MajorMinor'], variables['version.Revision'])]
+  value: $[format('{0}.{1}', variables['version.MajorMinor'], variables['version.Patсh'])]
 
-- name: BranchName
-  value: $[ replace(variables['System.PullRequest.SourceBranch'], 'refs/heads/', '') ]
-
-#${{ if ne(variables['Build.Reason'], 'PullRequest') }}:
-#name: variables['version.MajorMinor']
-#${{ else }}:
 
 name: $(versionNumber)
 
 stages:
-- stage: PR_checks
+- stage: Build
   pool: 
      vmimage: ubuntu-18.04
   jobs:
@@ -73,7 +63,7 @@ stages:
           source .venv/bin/activate
           echo "y
               $(WORKSPACE-REGION-URL)
-              $(CSE-DEVELOP-PAT)
+              $(BEARERTOKEN)
               $(EXISTING-CLUSTER-ID)
               $(WORKSPACE-ORG-ID)
               15001" | databricks-connect configure
@@ -86,6 +76,7 @@ stages:
          inputs:
            targetType: 'inline'
            script: 'sbt jacoco'
+
        - task: PublishTestResults@2
          displayName: publish tests result
          inputs:
@@ -103,106 +94,13 @@ stages:
            reportDirectory: '**/target/scala-2.12/jacoco/report/html/'
            failIfCoverageEmpty: true    
        - task: PublishBuildArtifacts@1
-         condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
          displayName: publish artifacts
          enabled: true
          inputs:
            PathtoPublish: 'target/scala-2.12/cxi_cdp_data_processing_assembly_2_12.jar'
            ArtifactName: 'cxi_cdp_data_processing_assembly'
            publishLocation: 'Container'
-       - task: AzureCLI@2
-         displayName: opening firewall
-         condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
-         inputs:
-           azureSubscription: 'cxi-devops'
-           scriptType: 'bash'
-           scriptLocation: 'inlineScript'
-           inlineScript: |
-                       IPADDR=$(dig +short "myip.opendns.com" "@resolver1.opendns.com")
-                       echo "Opening firewall: $IPADDR"
-                       az storage account network-rule add -g rg-dev-eastus2-dataplatform --account-name dls2deveastus2cxi --ip-address $IPADDR
-                       sleep 50
-           failOnStandardError: true
-       - task: Bash@3
-         condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
-         displayName: publish pr artifacts
-         inputs:
-           targetType: 'inline'
-           script: |
-             mkdir -p $(Build.SourcesDirectory)/pr/$(BranchName)
-             cp $(Build.SourcesDirectory)/target/scala-2.12/cxi_cdp_data_processing_assembly_2_12.jar $(Build.SourcesDirectory)/pr/$(BranchName) 
-             azcopy copy '$(Build.SourcesDirectory)/pr/' 'https://dls2deveastus2cxi.blob.core.windows.net/azdevops?$(dls2deveastus2cxi)' --recursive
-           workingDirectory: '$(Build.SourcesDirectory)'
-           failOnStderr: true
 
-       - task: AzureCLI@2
-         displayName: closing firewall
-         condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
-         inputs:
-           azureSubscription: 'cxi-devops'
-           scriptType: 'bash'
-           scriptLocation: 'inlineScript'
-           inlineScript: |
-                       IPADDR=$(dig +short "myip.opendns.com" "@resolver1.opendns.com")
-                       echo "Closing firewall: $IPADDR"
-                       az storage account network-rule remove --account-name dls2deveastus2cxi --ip-address $IPADDR --resource-group rg-dev-eastus2-dataplatform
-                     
-           failOnStandardError: true   
-
-    
-
-
-- stage: deploy
-  pool:
-   vmimage: windows-latest
-  jobs:
-    - job: deploy
-      steps:
-       - checkout: none
-       - task: AzureCLI@2
-         displayName: opening firewall
-         condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
-         inputs:
-           azureSubscription: 'cxi-devops'
-           scriptType: 'ps'
-           scriptLocation: 'inlineScript'
-           inlineScript: |
-             $IPADDR=(Invoke-WebRequest ifconfig.me/ip).Content.Trim()
-             echo "Opening firewall: $IPADDR"
-             az storage account network-rule add -g rg-dev-eastus2-dataplatform --account-name dls2deveastus2cxi --ip-address $IPADDR
-             sleep 50
-           failOnStandardError: true
-       - task: Bash@3
-         condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
-         displayName: download pr artifact  
-         inputs:
-           targetType: 'inline'
-           script: |
-             mkdir -p $(System.ArtifactsDirectory)/pr/$(BranchName)/cxi_cdp_data_processing_assembly/
-             azcopy copy  'https://dls2deveastus2cxi.blob.core.windows.net/azdevops/pr/$(BranchName)/*?$(dls2deveastus2cxi)' '$(System.ArtifactsDirectory)/pr/$(BranchName)/cxi_cdp_data_processing_assembly/'
-       - task: AzureCLI@2
-         displayName: closing firewall
-         condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
-         inputs:
-           azureSubscription: 'cxi-devops'
-           scriptType: 'ps'
-           scriptLocation: 'inlineScript'
-           inlineScript: |
-             $IPADDR=(Invoke-WebRequest ifconfig.me/ip).Content.Trim()
-             echo "Removing: $IPADDR"
-             az storage account network-rule remove --account-name dls2deveastus2cxi --ip-address $IPADDR --resource-group rg-dev-eastus2-dataplatform
-           failOnStandardError: true
-
-       - task: databricksDeployDBFSFilesTask@0
-         condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
-         inputs:
-            authMethod: 'bearer'
-            bearerToken: $(BEARERTOKEN)
-            region: 'eastus2'
-            LocalRootFolder: '$(System.ArtifactsDirectory)/pr/$(BranchName)/cxi_cdp_data_processing_assembly/'
-            FilePattern: '*.jar'
-            TargetLocation: '/FileStore/jars/cxi/PR/$(BranchName)/'
-          
             
 
 - stage: Sonar_Qube
