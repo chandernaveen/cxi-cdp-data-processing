@@ -16,8 +16,6 @@ variables:
 - name: BranchName
   value: $[ replace(variables['System.PullRequest.SourceBranch'], 'refs/heads/', '') ]
 
-
-
 name: $(versionNumber)
 
 stages:
@@ -152,7 +150,7 @@ stages:
            script: |
              mkdir -p $(System.ArtifactsDirectory)/PR/$(BranchName)/cxi_cdp_data_processing_assembly/
              azcopy copy  'https://dls2deveastus2cxi.blob.core.windows.net/azdevops/pr/$(BranchName)/*?$(dls2deveastus2cxi)' '$(System.ArtifactsDirectory)/PR/$(BranchName)/cxi_cdp_data_processing_assembly/'
-             
+
        - task: AzureCLI@2
          displayName: closing firewall
          condition: always()
@@ -173,6 +171,6 @@ stages:
             region: 'eastus2'
             LocalRootFolder: '$(System.ArtifactsDirectory)/PR/$(BranchName)/cxi_cdp_data_processing_assembly/'
             FilePattern: '*.jar'
-            TargetLocation: '/FileStore/jars/cxi/cxi_cdp_data_processing_assembly/$(BranchName)/'
+            TargetLocation: '/FileStore/jars/cxi/cxi_cdp_data_processing/$(BranchName)/'
 
 

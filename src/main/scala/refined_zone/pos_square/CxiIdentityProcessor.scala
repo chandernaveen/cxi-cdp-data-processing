@@ -26,10 +26,10 @@ object CxiIdentityProcessor {
 
         val customers = broadcast(readAllCustomersDim(spark, refinedDbTable, customersDimTable))
 
-        val orderCustomersData = readOrderCustomersData(spark, config.date, config.srcDbName, config.srcTable)
+        val orderCustomersData = readOrderCustomersData(spark, config.dateRaw, config.srcDbName, config.srcTable)
         val transformedOrderCustomersData = transformOrderCustomersData(orderCustomersData, config.cxiPartnerId)
 
-        val orderCustomersPickupData = readOrderCustomersPickupData(spark, config.date, config.srcDbName, config.srcTable)
+        val orderCustomersPickupData = readOrderCustomersPickupData(spark, config.dateRaw, config.srcDbName, config.srcTable)
         val transformedOrderCustomersPickupData = transformOrderCustomersPickupData(orderCustomersPickupData, config.cxiPartnerId)
             .cache()
 
@@ -37,18 +37,21 @@ object CxiIdentityProcessor {
             .cache()
 
         val strongIds = computeWeight3CxiCustomerId(fullCustomerData, transformedOrderCustomersPickupData)
-        val hashedCombinations = computeWeight2CxiCustomerId(spark,
-            config.cxiPartnerId,
-            config.contract.prop[String]("partner.country"),
-            config.contract.prop[String]("schema.crypto.db_name"),
-            config.contract.prop[String]("schema.crypto.lookup_table"),
-            config.contract.prop[String]("databricks_workspace_config"),
-            fullCustomerData)
+        val cryptoShreddingConfig = CryptoShreddingConfig(
+            country = config.contract.prop[String]("partner.country"),
+            cxiSource = config.cxiPartnerId,
+            lookupDestDbName = config.contract.prop[String]("schema.crypto.db_name"),
+            lookupDestTableName = config.contract.prop[String]("schema.crypto.lookup_table"),
+            workspaceConfigPath = config.contract.prop[String]("databricks_workspace_config"),
+            date = config.date,
+            runId = config.runId
+        )
+        val hashedCombinations = computeWeight2CxiCustomerId(cryptoShreddingConfig, fullCustomerData)(spark)
 
         val allIdentitiesIds = strongIds.unionAll(hashedCombinations)
             .cache()
 
-        writeCxiIdentities(spark, allIdentitiesIds, s"$destDbName.$identityTable", config.contract)
+        writeCxiIdentities(spark, allIdentitiesIds, s"$destDbName.$identityTable", config.contract, cryptoShreddingConfig)
 
         val cxiIdentitiesIdsByOrder = allIdentitiesIds
             .groupBy("ord_id")
@@ -186,13 +189,8 @@ object CxiIdentityProcessor {
         allEmails.unionByName(allPhones) // Not hashing cause it is supposed to be hash already (weight 3 was in crypto for Landing/Raw)
     }
 
-    def computeWeight2CxiCustomerId(spark: SparkSession,
-                                    cxiPartnerId: String,
-                                    country: String,
-                                    lookupDestDbName: String,
-                                    lookupDestTableName: String,
-                                    workspaceConfigPath: String,
-                                    fullCustomerData: DataFrame): DataFrame = {
+    def computeWeight2CxiCustomerId(cryptoShreddingConfig: CryptoShreddingConfig,
+                                    fullCustomerData: DataFrame)(implicit spark: SparkSession): DataFrame = {
 
         val nameExpTypePanCombination = getNameExpTypePanCombination(fullCustomerData)
 
@@ -200,12 +198,6 @@ object CxiIdentityProcessor {
 
         // for weight 2 source has already created combination, simply hash it and treat it as weight 3
         // consider combinations ids as PII
-        val cryptoShreddingConfig = CryptoShreddingConfig(
-            country = country,
-            cxiSource = cxiPartnerId,
-            lookupDestDbName = lookupDestDbName,
-            lookupDestTableName = lookupDestTableName,
-            workspaceConfigPath = workspaceConfigPath)
         val cryptoShredding = new CryptoShredding(spark, cryptoShreddingConfig)
 
         val hashedNameExpTypePanCombination = cryptoShredding
@@ -270,7 +262,8 @@ object CxiIdentityProcessor {
             col("card_brand").isNotNull and
             col("pan").isNotNull
 
-    def writeCxiIdentities(spark: SparkSession, allCustomerIds: DataFrame, destTable: String, contract: ContractUtils): Unit = {
+    def writeCxiIdentities(spark: SparkSession, allCustomerIds: DataFrame, destTable: String,
+                           contract: ContractUtils, cryptoShreddingConfig: CryptoShreddingConfig): Unit = {
 
         val workspaceConfigPath: String = contract.prop[String]("databricks_workspace_config")
         val workspaceConfig = WorkspaceConfigReader.readWorkspaceConfig(spark, workspaceConfigPath)
@@ -278,7 +271,7 @@ object CxiIdentityProcessor {
 
         try {
             privacyFunctions.authorize()
-            val privacyTable = readPrivacyLookupTable(spark, contract)
+            val privacyTable = readPrivacyLookupTable(spark, contract, cryptoShreddingConfig)
             val cxiIdentities = allCustomerIds
                 .select(CxiIdentityId, Type, Weight)
                 .dropDuplicates(CxiIdentityId, Type)
@@ -307,13 +300,16 @@ object CxiIdentityProcessor {
         }
     }
 
-    def readPrivacyLookupTable(spark: SparkSession, contract: ContractUtils): DataFrame = {
+    def readPrivacyLookupTable(spark: SparkSession, contract: ContractUtils, cryptoShreddingConfig: CryptoShreddingConfig): DataFrame = {
         val lookupDbName = contract.prop[String]("schema.crypto.db_name")
         val lookupTableName = contract.prop[String]("schema.crypto.lookup_table")
         spark.sql(
             s"""
                |SELECT original_value, hashed_value, identity_type
                |FROM $lookupDbName.$lookupTableName
+               |WHERE cxi_source='${cryptoShreddingConfig.cxiSource}'
+               | AND feed_date='${cryptoShreddingConfig.dateRaw}'
+               | AND run_id='${cryptoShreddingConfig.runId}'
                |""".stripMargin
         )
     }

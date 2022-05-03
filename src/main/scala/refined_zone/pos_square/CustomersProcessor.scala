@@ -12,7 +12,7 @@ object CustomersProcessor {
 
         val customersTable = config.contract.prop[String](getSchemaRefinedPath("customer_table"))
 
-        val customers = readCustomers(spark, config.date, s"${config.srcDbName}.${config.srcTable}")
+        val customers = readCustomers(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
 
         val transformedCustomers = transformCustomers(customers, config.cxiPartnerId)
 

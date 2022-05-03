@@ -14,7 +14,7 @@ object OrderTaxesProcessor {
 
         val orderTaxTable = config.contract.prop[String](getSchemaRefinedPath("order_tax_table"))
 
-        val orderTaxes = readOrderTaxes(spark, config.date, config.srcDbName, config.srcTable)
+        val orderTaxes = readOrderTaxes(spark, config.dateRaw, config.srcDbName, config.srcTable)
 
         val processedOrderTaxes = transformOrderTaxes(orderTaxes, config.cxiPartnerId)
 

@@ -19,7 +19,7 @@ name: $(versionNumber)
 
 stages:
 - stage: Build
-  pool: 
+  pool:
      vmimage: ubuntu-18.04
   jobs:
     - job: run_tests_and_build
@@ -92,7 +92,7 @@ stages:
            codeCoverageTool: 'JaCoCo'
            summaryFileLocation: '**/target/scala-2.12/jacoco/report/*.xml'
            reportDirectory: '**/target/scala-2.12/jacoco/report/html/'
-           failIfCoverageEmpty: true    
+           failIfCoverageEmpty: true
        - task: PublishBuildArtifacts@1
          displayName: publish artifacts
          enabled: true
@@ -100,8 +100,6 @@ stages:
            PathtoPublish: 'target/scala-2.12/cxi_cdp_data_processing_assembly_2_12.jar'
            ArtifactName: 'cxi_cdp_data_processing_assembly'
            publishLocation: 'Container'
-
-            
 
 - stage: Sonar_Qube
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))

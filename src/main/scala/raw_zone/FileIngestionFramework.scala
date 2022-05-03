@@ -90,7 +90,7 @@ object FileIngestionFramework {
             val transformedDf = transformationFunction(finalDF)
 
             val finalDf = if (np.propIsSet(jobConfigPropName(basePropName, "crypto"))) {
-                applyCryptoShredding(spark, transformedDf, np)
+                applyCryptoShredding(spark, transformedDf, np, cliArgs.date, cliArgs.runId)
             } else {
                 transformedDf
             }
@@ -119,13 +119,15 @@ object FileIngestionFramework {
         }
     }
 
-    def applyCryptoShredding(spark: SparkSession, transformedDf: DataFrame, np: ContractUtils): DataFrame = {
+    def applyCryptoShredding(spark: SparkSession, transformedDf: DataFrame, np: ContractUtils, date: LocalDate, runId: String): DataFrame = {
         val cryptoShreddingConf = CryptoShreddingConfig(
             country = np.prop[String](jobConfigPropName(basePropName, "crypto.cxi_source_country")),
             cxiSource = np.prop[String](jobConfigPropName(basePropName, "crypto.cxi_source")),
             lookupDestDbName = np.prop[String]("schema.crypto.db_name"),
             lookupDestTableName = np.prop[String]("schema.crypto.lookup_table"),
-            workspaceConfigPath = np.prop[String]("databricks_workspace_config")
+            workspaceConfigPath = np.prop[String]("databricks_workspace_config"),
+            date = date,
+            runId = runId
         )
         val cryptoShredding = new CryptoShredding(spark, cryptoShreddingConf)
         val hashFunctionType = np.prop[String](jobConfigPropName(basePropName, "crypto.hash_function_type"))
@@ -170,7 +172,7 @@ object FileIngestionFramework {
             logTable = config.logTable,
             processName = config.processName,
             entity = config.sourceEntity,
-            runID = config.runID,
+            runID = config.auditRunId,
             dpYear = config.dpYear,
             dpMonth = config.dpMonth,
             dpDay = config.dpDay,
@@ -193,6 +195,7 @@ object FileIngestionFramework {
 
     case class CliArgs(contractPath: String,
                        date: LocalDate,
+                       runId: String,
                        sourceDateDirFormat: String = "yyyyMMdd") {
         val sourceDateDirFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(sourceDateDirFormat)
     }
@@ -201,10 +204,10 @@ object FileIngestionFramework {
         @throws(classOf[IllegalArgumentException])
         def parse(args: Seq[String]): CliArgs = {
             args match {
-                case Seq(contractPath, rawDate, sourceDateDirFormat) =>
-                    CliArgs(contractPath, parseDate(rawDate), sourceDateDirFormat)
-                case Seq(contractPath, rawDate) => CliArgs(contractPath, parseDate(rawDate))
-                case _ => throw new IllegalArgumentException("Expected CLI arguments: <contractPath> <date (yyyy-MM-dd)> <sourceDateDirFormat?>")
+                case Seq(contractPath, rawDate, runId, sourceDateDirFormat) =>
+                    CliArgs(contractPath, parseDate(rawDate), runId, sourceDateDirFormat)
+                case Seq(contractPath, rawDate, runId) => CliArgs(contractPath, parseDate(rawDate), runId)
+                case _ => throw new IllegalArgumentException("Expected CLI arguments: <contractPath> <date (yyyy-MM-dd)> <runId> <sourceDateDirFormat?>")
             }
         }
 

@@ -15,7 +15,7 @@ object LocationsProcessor {
         val postalCodeDb = config.contract.prop[String](getSchemaRefinedHubPath("db_name"))
         val postalCodeTable = config.contract.prop[String](getSchemaRefinedHubPath("postal_code_table"))
 
-        val locations = readLocations(spark, config.date, s"${config.srcDbName}.${config.srcTable}")
+        val locations = readLocations(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
         val postalCodes = readPostalCodes(spark,s"$postalCodeDb.$postalCodeTable")
 
         val processedLocations = transformLocations(locations, broadcast(postalCodes), config.cxiPartnerId)

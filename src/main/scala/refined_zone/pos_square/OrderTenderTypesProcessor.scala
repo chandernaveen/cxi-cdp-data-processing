@@ -14,7 +14,7 @@ object OrderTenderTypesProcessor {
 
         val orderTenderTypeTable = config.contract.prop[String](getSchemaRefinedPath("order_tender_type_table"))
 
-        val orderTenderTypes = readOrderTenderTypes(spark, config.date, config.srcDbName, config.srcTable)
+        val orderTenderTypes = readOrderTenderTypes(spark, config.dateRaw, config.srcDbName, config.srcTable)
 
         val processedOrderTenderTypes = transformOrderTenderTypes(orderTenderTypes, config.cxiPartnerId)
 

@@ -12,7 +12,7 @@ object PaymentsProcessor {
 
         val paymentTable = config.contract.prop[String](getSchemaRefinedPath("payment_table"))
 
-        val payments = readPayments(spark, config.date, s"${config.srcDbName}.${config.srcTable}")
+        val payments = readPayments(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
 
         val processedPayments = transformPayments(payments, config.cxiPartnerId)
             .cache()

@@ -15,9 +15,9 @@ object OrderSummaryProcessor {
 
         val orderSummaryTable = config.contract.prop[String](getSchemaRefinedPath("order_summary_table"))
 
-        val orderSummary = readOrderSummary(spark, config.date, config.srcDbName, config.srcTable)
+        val orderSummary = readOrderSummary(spark, config.dateRaw, config.srcDbName, config.srcTable)
 
-        val processedOrderSummary = transformOrderSummary(orderSummary, config.date, config.cxiPartnerId, cxiCustomerIdsByOrder)
+        val processedOrderSummary = transformOrderSummary(orderSummary, config.dateRaw, config.cxiPartnerId, cxiCustomerIdsByOrder)
 
         writeOrderSummary(processedOrderSummary, config.cxiPartnerId, s"$destDbName.$orderSummaryTable")
     }

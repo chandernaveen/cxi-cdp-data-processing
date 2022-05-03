@@ -28,7 +28,7 @@ case class FileIngestionFrameworkConfig
         writeOptions: Map[String, String],
         writeOptionsFunctionName: Option[String],
         writeOptionsFunctionParams: Map[String, String],
-        runID: Int,
+        auditRunId: Int,
         dpYear: Int,
         dpMonth: Int,
         dpDay: Int,
@@ -66,7 +66,7 @@ object FileIngestionFrameworkConfig {
             writeOptionsFunctionName = contractUtils.propOrNone(jobConfigPropName(basePropName, "write.writeOptionsFunction")),
             writeOptionsFunctionParams =
                 contractUtils.propOrElse[Map[String, String]](jobConfigPropName(basePropName, "write.writeOptionsFunctionParams"), Map[String, String]()),
-            runID = 1,
+            auditRunId = 1,
             dpYear = feedDate.getYear,
             dpMonth = feedDate.getMonthValue,
             dpDay = feedDate.getDayOfMonth,

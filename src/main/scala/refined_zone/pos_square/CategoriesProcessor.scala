@@ -12,7 +12,7 @@ object CategoriesProcessor {
 
         val categoryTable = config.contract.prop[String](getSchemaRefinedPath("category_table"))
 
-        val categories = readCategories(spark, config.date, s"${config.srcDbName}.${config.srcTable}")
+        val categories = readCategories(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
 
         val processedCategories = transformCategories(categories, config.cxiPartnerId)
 

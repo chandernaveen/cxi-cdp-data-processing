@@ -3,6 +3,7 @@ package refined_zone.pos_square
 
 import refined_zone.pos_square.config.ProcessorConfig
 import support.SparkSessionFactory
+import support.normalization.DateNormalization
 import support.utils.ContractUtils
 
 import org.apache.log4j.Logger
@@ -18,11 +19,12 @@ object RawRefinedSquarePartnerJob {
 
         val contractPath = args(0)
         val date = args(1)
+        val runId = args(2)
         val spark = SparkSessionFactory.getSparkSession()
-        run(spark, contractPath, date)
+        run(spark, contractPath, date, runId)
     }
 
-    def run(spark: SparkSession, contractPath: String, date: String): Unit = {
+    def run(spark: SparkSession, contractPath: String, date: String, runId: String): Unit = {
         val contract: ContractUtils = new ContractUtils(Paths.get(contractPath))
 
         val cxiPartnerId = contract.prop[String]("partner.cxiPartnerId")
@@ -31,7 +33,7 @@ object RawRefinedSquarePartnerJob {
         val destDbName = contract.prop[String](getSchemaRefinedPath("db_name"))
         val refinedHubDestDbName = contract.prop[String](getSchemaRefinedHubPath("db_name"))
 
-        val processorCommonConfig = ProcessorConfig(contract, date, cxiPartnerId, srcDbName, srcTable)
+        val processorCommonConfig = ProcessorConfig(contract, DateNormalization.parseToLocalDate(date), cxiPartnerId, runId, srcDbName, srcTable)
 
         LocationsProcessor.process(spark, processorCommonConfig, destDbName)
         CategoriesProcessor.process(spark, processorCommonConfig, destDbName)
