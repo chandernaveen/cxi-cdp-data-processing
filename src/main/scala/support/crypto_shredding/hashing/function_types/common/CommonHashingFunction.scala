@@ -71,5 +71,4 @@ class CommonHashingFunction(piiConfig: PiiColumnsConfig, salt: String) extends I
 
     private def validate(pii: String): Boolean = pii != null && pii.trim.nonEmpty
 
-    override def getType: String = "common-crypto-hash"
 }

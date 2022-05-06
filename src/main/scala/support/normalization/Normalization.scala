@@ -8,7 +8,7 @@ sealed trait Normalization
 
 case object DateNormalization extends Normalization {
 
-  final val STANDARD_DATE_FORMAT: String = "yyyy-MM-dd"
+    final val STANDARD_DATE_FORMAT: String = "yyyy-MM-dd"
 
     def parseToLocalDate(date: String, pattern: String = STANDARD_DATE_FORMAT): LocalDate = {
         LocalDate.parse(date, DateTimeFormatter.ofPattern(pattern))

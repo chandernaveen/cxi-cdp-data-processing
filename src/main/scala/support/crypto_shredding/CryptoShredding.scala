@@ -24,19 +24,12 @@ class CryptoShredding(val spark: SparkSession, config: CryptoShreddingConfig) {
 
         val (hashedOriginalDf, extractedPersonalInformationDf) = function.hash(df)
 
-        val lookupDf = extractedPersonalInformationDf
-
-        val lookupDfOld = extractedPersonalInformationDf
-            .withColumn("process_name", lit(function.getType))
-            .withColumn("country", lit(config.country))
-
         val privacyFunctions = new PrivacyFunctions(spark, workspaceConfig)
 
         try {
             privacyFunctions.authorize()
-            new LookupTable(spark, config.lookupDestDbName, config.lookupDestTableName).upsert(lookupDf, config.cxiSource, config.dateRaw, config.runId)
-            //    TODO: remove below code after https://dev.azure.com/Customerxi/Cloud%20Data%20Platform/_workitems/edit/2352
-            new LookupTable(spark, config.lookupDestDbName, config.lookupDestTableName).upsertOld(lookupDfOld, config.cxiSource)
+            val lookupTable = new LookupTable(spark, config.lookupDestDbName, config.lookupDestTableName)
+            lookupTable.upsert(extractedPersonalInformationDf, config.cxiSource, config.dateRaw, config.runId)
             hashedOriginalDf
         } finally {
             privacyFunctions.unauthorize()

@@ -4,8 +4,6 @@ package support.crypto_shredding.hashing.function_types
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 trait IHashFunction extends Serializable {
-    def getType: String
-
     /**
      * @param originalDf original data frame with PII information
      * @return tuple where first (original) dataframe's PII columns are replaced with hashed values

@@ -58,7 +58,4 @@ class JsonHashingFunction(val piiConfig: PiiColumnsConfig, val salt: String) ext
                 throw new CryptoShreddingException(s"Failed to apply json hashing to the following row: ${row.json}", e)
         }
     }
-
-    override def getType: String = "json-crypto-hash"
-
 }
