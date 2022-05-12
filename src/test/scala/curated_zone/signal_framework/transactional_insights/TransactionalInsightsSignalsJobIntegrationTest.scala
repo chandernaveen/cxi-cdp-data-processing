@@ -93,7 +93,6 @@ class TransactionalInsightsSignalsJobIntegrationTest extends BaseSparkBatchJobTe
             actual_3.collect() should contain theSameElementsAs expected_3.collect()
         }
 
-        dropTempTable(destTable)
     }
 
     override protected def beforeEach(): Unit = {
