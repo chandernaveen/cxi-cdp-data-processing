@@ -51,7 +51,7 @@ class Customer360SignalsJobGenericCustomerSignalsTest extends BaseSparkBatchJobT
         customer360SignalsDf.createOrReplaceTempView(customer360SignalsTable)
 
         // when
-        val actual = Customer360SignalsJob.readGenericCustomerSignals(spark, customer360SignalsTable, "2022-02-24")
+        val actual = Customer360SignalsJob.readGenericDailyCustomerSignals(spark, customer360SignalsTable, "2022-02-24")
 
         // then
         val actualData = actual.collect()
@@ -72,9 +72,9 @@ class Customer360SignalsJobGenericCustomerSignalsTest extends BaseSparkBatchJobT
 
         signalUniverseDf.createOrReplaceTempView(signalUniverseTable)
 
-        val customer360SignalsTable = "tempCustomer360SignalsTable"
+        val customer360SignalsTable = "tempCustomer360GenericDailySignalsTable"
         val signalGenerationDate = sqlDate(2022, 2, 24)
-        val customer360SignalsDf = Seq(
+        val customer360GenericDailySignalsDf = Seq(
             // customer #1
             ("cust_id1", "campaign", "reachability_email", "true", signalGenerationDate),
             ("cust_id1", "food_and_drink_preference", "burger_affinity", "true", signalGenerationDate),
@@ -93,7 +93,7 @@ class Customer360SignalsJobGenericCustomerSignalsTest extends BaseSparkBatchJobT
             // customer #3
             ("cust_id3", "food_and_drink_preference", "burger_affinity", "true", signalGenerationDate)
         ).toDF("customer_360_id", "signal_domain", "signal_name", "signal_value", "signal_generation_date")
-        customer360SignalsDf.createOrReplaceTempView(customer360SignalsTable)
+        customer360GenericDailySignalsDf.createOrReplaceTempView(customer360SignalsTable)
 
         // when
         val actual = Customer360SignalsJob.processGenericCustomerSignals(spark,

@@ -171,6 +171,6 @@ stages:
             region: 'eastus2'
             LocalRootFolder: '$(System.ArtifactsDirectory)/PR/$(BranchName)/cxi_cdp_data_processing_assembly/'
             FilePattern: '*.jar'
-            TargetLocation: '/FileStore/jars/cxi/cxi_cdp_data_processing/$(BranchName)/'
+            TargetLocation: '/FileStore/cxi/artifacts/cxi_cdp_data_processing/$(BranchName)/'
 
 

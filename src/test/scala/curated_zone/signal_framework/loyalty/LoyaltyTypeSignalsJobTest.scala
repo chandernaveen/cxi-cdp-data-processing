@@ -81,7 +81,7 @@ class LoyaltyTypeSignalsJobTest extends BaseSparkBatchJobTest {
                 StructField("ord_date", DateType),
                 StructField("ord_id", StringType),
                 StructField("qualified_identity_id", StringType)
-))
+            ))
             import collection.JavaConverters._
             val expectedDf = spark.createDataFrame(expected.asJava, expectedSchema)
             orders.schema.fields.map(_.name) shouldEqual expectedDf.schema.fields.map(_.name)

@@ -34,7 +34,7 @@ object Customer360SignalsJob {
         val curatedDb = contract.prop[String]("datalake.curated.db_name")
         val signalUniverseTableName = contract.prop[String]("datalake.curated.signal_universe_table")
         val customer360TableName = contract.prop[String]("datalake.curated.customer_360_table")
-        val customer360SignalsTableName = contract.prop[String]("datalake.curated.customer_360_signals_table")
+        val customer360GenericDailySignalsTableName = contract.prop[String]("datalake.curated.customer_360_generic_daily_signals_table")
         val partnerLocationWeeklySignalsTableName = contract.prop[String]("datalake.curated.partner_location_weekly_signals_table")
         val partnerLocationDailySignalsTableName = contract.prop[String]("datalake.curated.partner_location_daily_signals_table")
         val refinedHubDbName = contract.prop[String]("datalake.refined_hub.db_name")
@@ -43,7 +43,7 @@ object Customer360SignalsJob {
         val datalakeTablesConfig = DatalakeTablesConfig(
             signalUniverseTable = s"$curatedDb.$signalUniverseTableName",
             customer360Table = s"$curatedDb.$customer360TableName",
-            customer360SignalsTable = s"$curatedDb.$customer360SignalsTableName",
+            customer360GenericDailySignalsTable = s"$curatedDb.$customer360GenericDailySignalsTableName",
             partnerLocationWeeklySignalsTable = s"$curatedDb.$partnerLocationWeeklySignalsTableName",
             partnerLocationDailySignalsTable = s"$curatedDb.$partnerLocationDailySignalsTableName",
             locationTable = s"$refinedHubDbName.$locationTableName"
@@ -64,7 +64,7 @@ object Customer360SignalsJob {
         val signalUniverseDs = readSignalUniverse(spark, dlConfig.signalUniverseTable)
 
         val genericSignalsTransformed = processGenericCustomerSignals(spark,
-            dlConfig.customer360SignalsTable, signalUniverseDs, feedDate)
+            dlConfig.customer360GenericDailySignalsTable, signalUniverseDs, feedDate)
         val partnerLocationSignalsTransformed = processPartnerLocationSignals(spark,
             dlConfig.locationTable, dlConfig.partnerLocationWeeklySignalsTable, dlConfig.partnerLocationDailySignalsTable,
             signalUniverseDs, feedDate)
@@ -88,15 +88,15 @@ object Customer360SignalsJob {
             .as[SignalUniverse])
     }
 
-    def processGenericCustomerSignals(spark: SparkSession, genericCustomerSignalsTableName: String,
+    def processGenericCustomerSignals(spark: SparkSession, genericDailyCustomerSignalsTableName: String,
                                       signalUniverseDs: Dataset[SignalUniverse], feedDate: String): DataFrame = {
-        val customer360SignalsDf: DataFrame = readGenericCustomerSignals(spark, genericCustomerSignalsTableName, feedDate)
+        val customer360SignalsDf: DataFrame = readGenericDailyCustomerSignals(spark, genericDailyCustomerSignalsTableName, feedDate)
         val genericCustomerSignalsConfig = signalUniverseDs.filter(_.signal_type == SignalType.GeneralCustomerSignal.code)
         val genericSignalsTransformed = transformGenericSignals(customer360SignalsDf, genericCustomerSignalsConfig)
         genericSignalsTransformed
     }
 
-    def readGenericCustomerSignals(spark: SparkSession, tableName: String, feedDate: String): DataFrame = {
+    def readGenericDailyCustomerSignals(spark: SparkSession, tableName: String, feedDate: String): DataFrame = {
         spark.table(tableName)
             .where(col("signal_generation_date") === feedDate)
     }
@@ -296,7 +296,7 @@ object Customer360SignalsJob {
 
     case class DatalakeTablesConfig(signalUniverseTable: String,
                                     customer360Table: String,
-                                    customer360SignalsTable: String,
+                                    customer360GenericDailySignalsTable: String,
                                     partnerLocationWeeklySignalsTable: String,
                                     partnerLocationDailySignalsTable: String,
                                     locationTable: String)
