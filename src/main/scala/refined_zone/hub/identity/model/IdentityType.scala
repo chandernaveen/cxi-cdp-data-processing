@@ -22,6 +22,8 @@ object IdentityType extends StringEnum[IdentityType] {
     case object MaidAAID extends IdentityType("MAID-AAID")
     case object MaidUnknown extends IdentityType("MAID-UNKNOWN")
 
+    case object ThrotleId extends IdentityType("throtle-id")
+
     val values = findValues
 
 }

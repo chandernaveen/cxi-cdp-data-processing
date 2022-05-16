@@ -13,12 +13,12 @@ class MetadataServiceTest extends FunSuite {
         val testCases = Seq(
             TestCase("phone", "12345678912", Map("phone_area_code" -> "1234")),
             TestCase("email", "fname@mailbox.com", Map("email_domain" -> "mailbox.com")),
-            TestCase("unknown", "1234something@something", null),
-            TestCase("phone", "123", null),
-            TestCase("email", "123", null),
-            TestCase("email", "123@", null),
-            TestCase("email", null, null),
-            TestCase("phone", null, null)
+            TestCase("unknown", "1234something@something", Map.empty[String, String]),
+            TestCase("phone", "123", Map.empty[String, String]),
+            TestCase("email", "123", Map.empty[String, String]),
+            TestCase("email", "123@", Map.empty[String, String]),
+            TestCase("email", null, Map.empty[String, String]),
+            TestCase("phone", null, Map.empty[String, String])
         )
 
         // when

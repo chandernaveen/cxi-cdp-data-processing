@@ -6,30 +6,34 @@ object MetadataService {
     // scalastyle:off magic.number
     def extractMetadata(identityType: String, originalValue: String): Map[String, String] = {
         if (originalValue == null) {
-            null
+            Map.empty[String, String]
         } else {
             identityType match {
                 case "phone" => extractPhoneAreaCode(originalValue)
                 case "email" => extractEmailDomain(originalValue)
-                case _ => null
+                case _ => Map.empty[String, String]
             }
         }
     }
 
     private def extractPhoneAreaCode(phone: String): Map[String, String] = {
-        if (phone.length < 4) {
-            null
+        if (phone == null || phone.length < 4) {
+            Map.empty[String, String]
         } else {
             Map("phone_area_code" -> phone.substring(0, 4))
         }
     }
 
     private def extractEmailDomain(email: String): Map[String, String] = {
-        val index = email.indexOf("@")
-        if (index == -1 || email.endsWith("@")) {
-            null
+        if (email == null) {
+            Map.empty[String, String]
         } else {
-            Map("email_domain" -> email.substring(email.indexOf("@") + 1))
+            val index = email.indexOf("@")
+            if (index == -1 || email.endsWith("@")) {
+                Map.empty[String, String]
+            } else {
+                Map("email_domain" -> email.substring(index + 1))
+            }
         }
     }
 
