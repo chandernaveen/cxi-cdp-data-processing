@@ -140,7 +140,7 @@ stages:
              $IPADDR=(Invoke-WebRequest ifconfig.me/ip).Content.Trim()
              echo "Opening firewall: $IPADDR"
              az storage account network-rule add -g rg-dev-eastus2-dataplatform --account-name dls2deveastus2cxi --ip-address $IPADDR
-             sleep 50
+             sleep 60
            failOnStandardError: true
 
        - task: Bash@3

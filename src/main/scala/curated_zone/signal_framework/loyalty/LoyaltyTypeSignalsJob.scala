@@ -38,7 +38,7 @@ object LoyaltyTypeSignalsJob {
         val contract: ContractUtils = new ContractUtils(Paths.get(contractPath))
 
         val curatedDb = contract.prop[String]("datalake.curated.db_name")
-        val customer360TableName = contract.prop[String]("datalake.curated.pos_customer_360_table")
+        val customer360TableName = contract.prop[String]("datalake.curated.customer_360_table")
         val refinedHubDb = contract.prop[String]("datalake.refined_hub.db_name")
         val orderSummaryTableName = contract.prop[String]("datalake.refined_hub.order_summary_table")
         val customer360partnerLocationWeeklySignalsTable = contract.prop[String]("datalake.curated.customer_360_partner_location_weekly_signals")

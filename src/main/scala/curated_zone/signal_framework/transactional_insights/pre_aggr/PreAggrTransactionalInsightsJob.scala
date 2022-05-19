@@ -53,12 +53,12 @@ object PreAggrTransactionalInsightsJob {
     }
 
     private case class ProcessingContext(
-                                    orderSummary: DataFrame,
-                                    orderTenderType: DataFrame,
-                                    posCustomer360: DataFrame,
-                                    destTable: String,
-                                    maybeOrderDates: Option[Set[String]],
-                                    finalizeOnSuccessFn: FinalizeOnSuccessFn
+                                            orderSummary: DataFrame,
+                                            orderTenderType: DataFrame,
+                                            customer360: DataFrame,
+                                            destTable: String,
+                                            maybeOrderDates: Option[Set[String]],
+                                            finalizeOnSuccessFn: FinalizeOnSuccessFn
                                 )
 
     /** Returns processing context based on the job mode.
@@ -72,7 +72,7 @@ object PreAggrTransactionalInsightsJob {
                                     (implicit spark: SparkSession): Option[ProcessingContext] = {
         val orderSummaryCdf = getOrderSummaryCdf(contract)
         val orderTenderType = spark.table(getOrderTenderTypeTable(contract))
-        val posCustomer360 = spark.table(getPosCustomer360Table(contract))
+        val customer360 = spark.table(getCustomer360Table(contract))
         val destTable = getDestTable(contract)
 
         if (fullReprocess) {
@@ -81,7 +81,7 @@ object PreAggrTransactionalInsightsJob {
                 ProcessingContext(
                     orderSummary = getOrderSummaryWithNonNullKeyFields(orderSummary),
                     orderTenderType = orderTenderType,
-                    posCustomer360 = posCustomer360,
+                    customer360 = customer360,
                     destTable = destTable,
                     maybeOrderDates = None,
                     finalizeOnSuccessFn = () => orderSummaryCdf.markProcessed(cdfResult))
@@ -99,7 +99,7 @@ object PreAggrTransactionalInsightsJob {
                 ProcessingContext(
                     orderSummary = getOrderSummaryWithNonNullKeyFields(orderSummaryForDates),
                     orderTenderType = orderTenderType,
-                    posCustomer360 = posCustomer360,
+                    customer360 = customer360,
                     destTable = destTable,
                     maybeOrderDates = Some(orderDates),
                     finalizeOnSuccessFn = () => orderSummaryCdf.markProcessed(cdfResult)
@@ -133,7 +133,7 @@ object PreAggrTransactionalInsightsJob {
 
         val orderSummaryWithMetrics =
             getOrderSummaryWithMetrics(processingContext.orderSummary, processingContext.orderTenderType)
-        val customer360IdToQualifiedIdentity = getCustomer360IdToQualifiedIdentity(processingContext.posCustomer360)
+        val customer360IdToQualifiedIdentity = getCustomer360IdToQualifiedIdentity(processingContext.customer360)
         val customer360IdWithMetrics =
             getCustomer360IdWithMetrics(orderSummaryWithMetrics, customer360IdToQualifiedIdentity)
 
@@ -161,9 +161,9 @@ object PreAggrTransactionalInsightsJob {
         s"$db.$table"
     }
 
-    private def getPosCustomer360Table(contract: ContractUtils): String = {
+    private def getCustomer360Table(contract: ContractUtils): String = {
         val db = contract.prop[String]("datalake.curated_hub.db_name")
-        val table = contract.prop[String]("datalake.curated_hub.pos_customer_360_table")
+        val table = contract.prop[String]("datalake.curated_hub.customer_360_table")
         s"$db.$table"
     }
 
