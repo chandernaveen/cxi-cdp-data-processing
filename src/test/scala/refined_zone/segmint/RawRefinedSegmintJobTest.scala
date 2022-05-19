@@ -58,9 +58,9 @@ class RawRefinedSegmintJobTest extends BaseSparkBatchJobTest {
         val actualSegmintRawData = actual.collect()
         withClue("Segmint refined data source do not match") {
             val expected = List(
-                ("2021-01-11", "STARBUCKS", "COFFEE SHOPS", "AZ", "2762", 10, 1209.59),
-                ("2021-01-11", "MCDONALD'S", "FAST FOOD RESTAURANTS", "AZ", "2762", 10, 42307.88),
-                ("2021-01-11", "JOLLIBEE", "FAST FOOD RESTAURANTS", "AZ", "2762", 10, 4537.31)
+                ("2021-01-15", "STARBUCKS", "COFFEE SHOPS", "AZ", "2762", 10, 1209.59),
+                ("2021-01-15", "MCDONALD'S", "FAST FOOD RESTAURANTS", "AZ", "2762", 10, 42307.88),
+                ("2021-01-15", "JOLLIBEE", "FAST FOOD RESTAURANTS", "AZ", "2762", 10, 4537.31)
             ).toDF("date", "merchant", "location_type", "state", "postal_code", "transaction_quantity", "transaction_amount").collect()
             actualSegmintRawData.length should equal(expected.length)
             actualSegmintRawData should contain theSameElementsAs expected
@@ -130,4 +130,25 @@ class RawRefinedSegmintJobTest extends BaseSparkBatchJobTest {
             actualSegmintRefinedData should contain theSameElementsAs expected
         }
     }
+
+    test("convert YYYY-WW date to ISO8601 format") {
+        // given
+        val testCases = Seq(
+            DateConverterTestCase("2022-01", "2022-01-07"),
+            DateConverterTestCase("2022-02", "2022-01-14"),
+            DateConverterTestCase("2022-11", "2022-03-18"),
+            DateConverterTestCase("2022-53", "2023-01-06"),
+            DateConverterTestCase("2023-01", "2023-01-13"),
+            DateConverterTestCase("2023-52", "2024-01-05")
+        )
+
+        for (testCase <- testCases) {
+            // when
+            val actual = RawRefinedSegmintJob.convertYearWeekToIso8601Date(testCase.yearWeekDate)
+            // then
+            actual should equal(testCase.converted)
+        }
+    }
+
+    case class DateConverterTestCase(yearWeekDate: String, converted: String)
 }

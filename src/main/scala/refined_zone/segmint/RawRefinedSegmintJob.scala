@@ -1,24 +1,20 @@
 package com.cxi.cdp.data_processing
 package refined_zone.segmint
 
-import java.nio.file.Paths
+import support.SparkSessionFactory
+import support.normalization.DateNormalization
+import support.utils.ContractUtils
 
-import com.cxi.cdp.data_processing.support.{SparkSessionFactory, WorkspaceConfigReader}
-import com.cxi.cdp.data_processing.support.utils.ContractUtils
-import com.databricks.service.DBUtils
-import com.cxi.cdp.data_processing.support.cleansing.udfs.cleanseZipCode
 import org.apache.log4j.Logger
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{DataTypes, DoubleType, StringType, IntegerType, StructType}
-import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
+import org.apache.spark.sql.types.{DoubleType, IntegerType, StringType, StructType}
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
-import java.time.LocalDate
+import java.nio.file.Paths
 import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
+import java.time.{DayOfWeek, LocalDate}
 import scala.util.{Failure, Success, Try}
-import org.apache.spark.sql.functions.udf
-import org.threeten.extra.YearWeek;
-import java.time.DayOfWeek;
-import java.time.format.DateTimeFormatter;
 
 /** This job parses Raw Segmint Data into a simple Refined copy
   *
@@ -78,16 +74,8 @@ object RawRefinedSegmintJob {
           .add("transaction_quantity", IntegerType)
           .add("transaction_amount", DoubleType)
           .add("transaction_amount_avg", DoubleType)
-        val iso8601DateConverterUdf = udf((date: String) => {
-            val startingPossition = 0
-            val lengthOfYear = "YYYY".length()
-            val totalLengthDateFormat = "YYYY-WW".length()
 
-            val year = date.substring(startingPossition, lengthOfYear)
-            val week = date.substring(lengthOfYear + 1, totalLengthDateFormat)
-            YearWeek.of(Integer.parseInt(year), Integer.parseInt(week)).atDay(DayOfWeek.MONDAY).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-        })
-        spark.udf.register("iso8601DateConverter", iso8601DateConverterUdf)
+        val iso8601DateConverterUdf = udf(convertYearWeekToIso8601Date _)
 
         spark.table(table)
             .filter($"record_type" === "zip_merch" && $"feed_date" === date)
@@ -101,6 +89,28 @@ object RawRefinedSegmintJob {
               $"postal_merch.transaction_quantity",
               $"postal_merch.transaction_amount")
             .filter($"state" =!= "" && $"postal_code"  =!= "" && $"location_type".isNotNull)
+    }
+
+    /**
+      * Converts date (string) in 'YYYY-WW' format to the date (string) in 'yyyy-MM-dd' format.
+      * Number of the week is converted to the exact date based on the fact, that Segmint ingestion happens on Saturdays.
+      * (Friday is treated as the last day of the week).
+      * @param yearWeekDate date in 'YYYY-WW' format
+      * @return date in 'yyyy-MM-dd' format
+      */
+    def convertYearWeekToIso8601Date(yearWeekDate: String): String = {
+        val startingPosition = 0
+        val lengthOfYear = "YYYY".length()
+        val totalLengthDateFormat = "YYYY-WW".length()
+
+        val year = Integer.parseInt(yearWeekDate.substring(startingPosition, lengthOfYear))
+        val week = Integer.parseInt(yearWeekDate.substring(lengthOfYear + 1, totalLengthDateFormat))
+
+        val firstDayOfYear = LocalDate.of(year, 1, 1)
+        val firstSaturdayOfYear = firstDayOfYear.`with`(TemporalAdjusters.firstInMonth(DayOfWeek.SATURDAY))
+        val nextWeekFirstDay = firstSaturdayOfYear.plusWeeks(week)
+        val lastDayOfCurrentWeek = nextWeekFirstDay.minusDays(1)
+        DateNormalization.formatFromLocalDate(lastDayOfCurrentWeek).get
     }
 
     def readPostalCodes(spark: SparkSession, table: String): DataFrame = {
