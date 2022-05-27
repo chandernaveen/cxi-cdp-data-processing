@@ -2,21 +2,8 @@ trigger: none
 
 variables:
 - group: cxi-cdp-data-processing
-- name: version.MajorMinor
-  value: '1.1' # Manually adjust the version number as needed for semantic versioning. Revision is auto-incremented.
-- name: version.Revision
-  value: $[counter(variables['version.MajorMinor'], 0)]
-- name: version.Patсh
-  value: $[counter(variables['build.reason'], 0)]
-- name: versionNumber
-  value: ${{ variables['version.MajorMinor'] }}
-
-  #value: $[format('{0}.{1}', variables['version.MajorMinor'], variables['version.Revision'])]
-
 - name: BranchName
   value: $[ replace(variables['System.PullRequest.SourceBranch'], 'refs/heads/', '') ]
-
-name: $(versionNumber)
 
 stages:
 - stage: PR_checks
@@ -83,6 +70,33 @@ stages:
            reportDirectory: '**/target/scala-2.12/jacoco/report/html/'
            failIfCoverageEmpty: true
 
+       - bash: |
+            short_hash=`git rev-parse --short=7 HEAD`
+            echo ""
+            echo "Full git hash:  $(Build.SourceVersion)"
+            echo "Short git hash: $short_hash"
+            echo ""
+            ## Fail step if full hash does not start with short hash
+            if [[ $(Build.SourceVersion) != $short_hash* ]]; then
+              echo "--> Hashes do not match! Aborting."
+              exit 1
+            fi
+            echo "--> Hashes match. Storing short hash for subsequent steps."
+            ## Store variable for subsequent steps
+            echo "##vso[task.setvariable variable=short_hash]$short_hash"
+            echo "##vso[task.setvariable variable=short_hash_out;isOutput=true]$short_hash"
+         workingDirectory: $(Build.SourcesDirectory)
+         name: hash
+         displayName: get short git hash
+
+       - script: echo "##vso[build.updatebuildnumber]PR-$(System.PullRequest.PullRequestId)-$(short_hash)"
+         displayName: update build number
+         condition: and(succeeded(), eq(variables['Build.Reason'],'PullRequest'))
+
+       - script: echo ##vso[build.addbuildtag]PR-$(System.PullRequest.PullRequestId)-$(short_hash)
+         displayName: add tag 
+         condition: and(succeeded(), eq(variables['Build.Reason'],'PullRequest'))
+
        - task: AzureCLI@2
          displayName: opening firewall
          inputs:
@@ -101,8 +115,8 @@ stages:
          inputs:
            targetType: 'inline'
            script: |
-             mkdir -p $(Build.SourcesDirectory)/pr/$(BranchName)
-             cp $(Build.SourcesDirectory)/target/scala-2.12/cxi_cdp_data_processing_assembly_2_12.jar $(Build.SourcesDirectory)/pr/$(BranchName)
+             mkdir -p $(Build.SourcesDirectory)/pr/$(System.PullRequest.PullRequestId)-$(short_hash)
+             cp $(Build.SourcesDirectory)/target/scala-2.12/cxi_cdp_data_processing_assembly_2_12.jar $(Build.SourcesDirectory)/pr/$(System.PullRequest.PullRequestId)-$(short_hash)
              azcopy copy '$(Build.SourcesDirectory)/pr/' 'https://dls2deveastus2cxi.blob.core.windows.net/azdevops?$(dls2deveastus2cxi)' --recursive
            workingDirectory: '$(Build.SourcesDirectory)'
            failOnStderr: true
@@ -126,8 +140,11 @@ stages:
 - stage: deploy
   pool:
    vmimage: windows-latest
+  dependsOn: PR_checks
   jobs:
     - job: deploy
+      variables:
+       short_hash: $[ stageDependencies.PR_checks.run_tests_and_build.outputs['hash.short_hash_out'] ]
       steps:
        - checkout: none
        - task: AzureCLI@2
@@ -148,8 +165,8 @@ stages:
          inputs:
            targetType: 'inline'
            script: |
-             mkdir -p $(System.ArtifactsDirectory)/PR/$(BranchName)/cxi_cdp_data_processing_assembly/
-             azcopy copy  'https://dls2deveastus2cxi.blob.core.windows.net/azdevops/pr/$(BranchName)/*?$(dls2deveastus2cxi)' '$(System.ArtifactsDirectory)/PR/$(BranchName)/cxi_cdp_data_processing_assembly/'
+             mkdir -p $(System.ArtifactsDirectory)/PR/$(System.PullRequest.PullRequestId)-$(short_hash)/cxi_cdp_data_processing_assembly/
+             azcopy copy  'https://dls2deveastus2cxi.blob.core.windows.net/azdevops/pr/$(System.PullRequest.PullRequestId)-$(short_hash)/*?$(dls2deveastus2cxi)' '$(System.ArtifactsDirectory)/PR/$(System.PullRequest.PullRequestId)-$(short_hash)/cxi_cdp_data_processing_assembly/'
 
        - task: AzureCLI@2
          displayName: closing firewall
@@ -169,7 +186,7 @@ stages:
             authMethod: 'bearer'
             bearerToken: $(BEARERTOKEN)
             region: 'eastus2'
-            LocalRootFolder: '$(System.ArtifactsDirectory)/PR/$(BranchName)/cxi_cdp_data_processing_assembly/'
+            LocalRootFolder: '$(System.ArtifactsDirectory)/PR/$(System.PullRequest.PullRequestId)-$(short_hash)/cxi_cdp_data_processing_assembly/'
             FilePattern: '*.jar'
             TargetLocation: '/FileStore/cxi/artifacts/cxi_cdp_data_processing/$(BranchName)/'
 
