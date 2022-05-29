@@ -1,13 +1,13 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_simphony
 
-import support.SparkSessionFactory
 import support.utils.ContractUtils
+import support.SparkSessionFactory
 
 import org.apache.log4j.Logger
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{col, lit, max, when}
-import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import java.nio.file.Paths
 
@@ -44,13 +44,15 @@ object RawRefinedOracleSimphonyPartnerJob {
 }
 
 object LocationsProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String): Unit = {
+    def process(
+        spark: SparkSession,
+        contract: ContractUtils,
+        date: String,
+        cxiPartnerId: String,
+        srcDbName: String,
+        srcTable: String,
+        destDbName: String
+    ): Unit = {
 
         val locationConfig: Map[String, Any] = contract.prop[Map[String, Any]]("refined.location")
         val locationTable = locationConfig("table").asInstanceOf[String]
@@ -63,8 +65,7 @@ object LocationsProcessor {
     }
 
     def readLocations(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
                |SELECT
                |get_json_object(record_value, "$$.locRef") as location_id,
                |get_json_object(record_value, "$$.active") as active_flg,
@@ -102,8 +103,7 @@ object LocationsProcessor {
         val srcTable = "newLocations"
 
         df.createOrReplaceTempView(srcTable)
-        df.sqlContext.sql(
-            s"""
+        df.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.location_id = $srcTable.location_id
@@ -116,13 +116,15 @@ object LocationsProcessor {
 }
 
 object MenuItemsProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String): Unit = {
+    def process(
+        spark: SparkSession,
+        contract: ContractUtils,
+        date: String,
+        cxiPartnerId: String,
+        srcDbName: String,
+        srcTable: String,
+        destDbName: String
+    ): Unit = {
 
         val menuItemConfig: Map[String, Any] = contract.prop[Map[String, Any]]("refined.item")
         val menuItemTable = menuItemConfig("table").asInstanceOf[String]
@@ -135,8 +137,7 @@ object MenuItemsProcessor {
     }
 
     def readMenuItems(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
                |SELECT
                |get_json_object(record_value, "$$.num") as item_id,
                |get_json_object(record_value, "$$.name") as item_nm,
@@ -160,8 +161,7 @@ object MenuItemsProcessor {
         val srcTable = "newMenuItems"
 
         df.createOrReplaceTempView(srcTable)
-        df.sqlContext.sql(
-            s"""
+        df.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.item_id = $srcTable.item_id
@@ -174,13 +174,15 @@ object MenuItemsProcessor {
 }
 
 object ItemPricesProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String): Unit = {
+    def process(
+        spark: SparkSession,
+        contract: ContractUtils,
+        date: String,
+        cxiPartnerId: String,
+        srcDbName: String,
+        srcTable: String,
+        destDbName: String
+    ): Unit = {
 
         val itemPriceConfig: Map[String, Any] = contract.prop[Map[String, Any]]("refined.item_price")
         val itemPriceTable = itemPriceConfig("table").asInstanceOf[String]
@@ -193,8 +195,7 @@ object ItemPricesProcessor {
     }
 
     def readItemsPrices(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
                |SELECT
                |get_json_object(record_value, "$$.num") as item_id,
                |loc_ref as location_id,
@@ -224,8 +225,7 @@ object ItemPricesProcessor {
         val srcTable = "newItemsPrices"
 
         df.createOrReplaceTempView(srcTable)
-        df.sqlContext.sql(
-            s"""
+        df.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.item_id = $srcTable.item_id
@@ -238,13 +238,15 @@ object ItemPricesProcessor {
 }
 
 object CategoriesProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String): Unit = {
+    def process(
+        spark: SparkSession,
+        contract: ContractUtils,
+        date: String,
+        cxiPartnerId: String,
+        srcDbName: String,
+        srcTable: String,
+        destDbName: String
+    ): Unit = {
 
         val categoryConfig: Map[String, Any] = contract.prop[Map[String, Any]]("refined.category")
         val categoryTable = categoryConfig("table").asInstanceOf[String]
@@ -257,8 +259,7 @@ object CategoriesProcessor {
     }
 
     def readCategories(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
                |SELECT
                |get_json_object(record_value, "$$.majGrpNum") as cat_id,
                |loc_ref as location_id,
@@ -279,8 +280,7 @@ object CategoriesProcessor {
         val srcTable = "newCategories"
 
         df.createOrReplaceTempView(srcTable)
-        df.sqlContext.sql(
-            s"""
+        df.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.location_id = $srcTable.location_id AND $destTable.cat_id = $srcTable.cat_id
@@ -294,13 +294,15 @@ object CategoriesProcessor {
 }
 
 object OrderTaxesProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String): Unit = {
+    def process(
+        spark: SparkSession,
+        contract: ContractUtils,
+        date: String,
+        cxiPartnerId: String,
+        srcDbName: String,
+        srcTable: String,
+        destDbName: String
+    ): Unit = {
 
         val orderTaxConfig: Map[String, Any] = contract.prop[Map[String, Any]]("refined.order_tax")
         val orderTaxTable = orderTaxConfig("table").asInstanceOf[String]
@@ -313,8 +315,7 @@ object OrderTaxesProcessor {
     }
 
     def readOrderTaxes(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
                |SELECT
                |get_json_object(record_value, "$$.num") as tax_id,
                |loc_ref as location_id,
@@ -336,8 +337,7 @@ object OrderTaxesProcessor {
         val srcTable = "newOrderTaxes"
 
         df.createOrReplaceTempView(srcTable)
-        df.sqlContext.sql(
-            s"""
+        df.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.location_id = $srcTable.location_id AND $destTable.tax_id = $srcTable.tax_id
@@ -351,13 +351,15 @@ object OrderTaxesProcessor {
 }
 
 object OrderDiscountsProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String): Unit = {
+    def process(
+        spark: SparkSession,
+        contract: ContractUtils,
+        date: String,
+        cxiPartnerId: String,
+        srcDbName: String,
+        srcTable: String,
+        destDbName: String
+    ): Unit = {
 
         val orderDiscountConfig: Map[String, Any] = contract.prop[Map[String, Any]]("refined.order_discount")
         val orderDiscountTable = orderDiscountConfig("table").asInstanceOf[String]
@@ -370,8 +372,7 @@ object OrderDiscountsProcessor {
     }
 
     def readOrderDiscounts(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
                |SELECT
                |get_json_object(record_value, "$$.num") as discount_id,
                |loc_ref as location_id,
@@ -392,8 +393,7 @@ object OrderDiscountsProcessor {
         val srcTable = "newOrderDiscounts"
 
         df.createOrReplaceTempView(srcTable)
-        df.sqlContext.sql(
-            s"""
+        df.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.location_id = $srcTable.location_id
@@ -408,13 +408,15 @@ object OrderDiscountsProcessor {
 }
 
 object OrderTenderTypesProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String): Unit = {
+    def process(
+        spark: SparkSession,
+        contract: ContractUtils,
+        date: String,
+        cxiPartnerId: String,
+        srcDbName: String,
+        srcTable: String,
+        destDbName: String
+    ): Unit = {
 
         val orderTenderTypeConfig: Map[String, Any] = contract.prop[Map[String, Any]]("refined.order_tender_type")
         val orderTenderTypeTable = orderTenderTypeConfig("table").asInstanceOf[String]
@@ -427,8 +429,7 @@ object OrderTenderTypesProcessor {
     }
 
     def readOrderTenderTypes(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
                |SELECT
                |explode(from_json(get_json_object(record_value, "$$.detailLines"), 'array<struct<aggQty:INT, aggTtl:DECIMAL, discount:STRING, dspQty:INT,
                |dspTtl:DECIMAL, lineNum:STRING, menuItem:STRING, tenderMedia:STRING, rsnCodeNum:STRING, svcRndNum:STRING >>')) as details,
@@ -452,8 +453,7 @@ object OrderTenderTypesProcessor {
         val srcTable = "newOrderTenderTypes"
 
         df.createOrReplaceTempView(srcTable)
-        df.sqlContext.sql(
-            s"""
+        df.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.location_id = $srcTable.location_id AND $destTable.tender_id = $srcTable.tender_id
@@ -466,13 +466,15 @@ object OrderTenderTypesProcessor {
 }
 
 object OrderServiceChargesProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String): Unit = {
+    def process(
+        spark: SparkSession,
+        contract: ContractUtils,
+        date: String,
+        cxiPartnerId: String,
+        srcDbName: String,
+        srcTable: String,
+        destDbName: String
+    ): Unit = {
 
         val orderServiceChargeConfig: Map[String, Any] = contract.prop[Map[String, Any]]("refined.order_service_charge")
         val orderServiceChargeTable = orderServiceChargeConfig("table").asInstanceOf[String]
@@ -485,8 +487,7 @@ object OrderServiceChargesProcessor {
     }
 
     def readOrderServiceCharges(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
                |SELECT
                |get_json_object(record_value, "$$.num") as srvc_charge_id,
                |loc_ref as location_id,
@@ -507,8 +508,7 @@ object OrderServiceChargesProcessor {
         val srcTable = "newOrderServiceCharges"
 
         df.createOrReplaceTempView(srcTable)
-        df.sqlContext.sql(
-            s"""
+        df.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.location_id = $srcTable.location_id
@@ -526,13 +526,15 @@ object OrderServiceChargesProcessor {
 //      cxi_customer_id_array(string) -> cxi_identity_ids ARRAY<STRUCT<identity_type:STRING,cxi_identity_id:String>>
 //  2. Include `refined_simphony.order_summary` into `refined_hub.order_summary` view
 object OrderSummaryProcessor {
-    def process(spark: SparkSession,
-                contract: ContractUtils,
-                date: String,
-                cxiPartnerId: String,
-                srcDbName: String,
-                srcTable: String,
-                destDbName: String): Unit = {
+    def process(
+        spark: SparkSession,
+        contract: ContractUtils,
+        date: String,
+        cxiPartnerId: String,
+        srcDbName: String,
+        srcTable: String,
+        destDbName: String
+    ): Unit = {
 
         val orderSummaryConfig: Map[String, Any] = contract.prop[Map[String, Any]]("refined.order_summary")
         val orderSummaryTable = orderSummaryConfig("table").asInstanceOf[String]
@@ -545,8 +547,7 @@ object OrderSummaryProcessor {
     }
 
     def readOrderSummary(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
                |SELECT
                |get_json_object(record_value, "$$.chkNum") as ord_id,
                |get_json_object(record_value, "$$.chkName") as ord_desc,
@@ -589,14 +590,42 @@ object OrderSummaryProcessor {
             .withColumn("taxes_amount", lit(null))
             .withColumn("ord_originate_channel_id", lit(null))
             .withColumn("service_charge", lit(null))
-            .withColumn("tender_id", max("tender_id") over Window.partitionBy("ord_id", "ord_date", "ord_timestamp", "cxi_partner_id", "location_id"))
+            .withColumn(
+                "tender_id",
+                max("tender_id") over Window
+                    .partitionBy("ord_id", "ord_date", "ord_timestamp", "cxi_partner_id", "location_id")
+            )
             .select(
-                "ord_id", "ord_desc", "ord_total", "ord_date", "ord_timestamp",
-                "cxi_partner_id", "location_id", "ord_state", "ord_type", "ord_originate_channel_id",
-                "ord_target_channel_id", "item_quantity", "item_total", "emp_id", "discount_id", "dsp_qty",
-                "dsp_ttl", "guest_check_line_item_id", "line_id", "taxes_id", "taxes_amount", "item_id",
-                "item_price_id", "reason_code_id", "service_charge_id", "tender_id", "cxi_customer_id",
-                "ord_pay_total", "ord_sub_total")
+                "ord_id",
+                "ord_desc",
+                "ord_total",
+                "ord_date",
+                "ord_timestamp",
+                "cxi_partner_id",
+                "location_id",
+                "ord_state",
+                "ord_type",
+                "ord_originate_channel_id",
+                "ord_target_channel_id",
+                "item_quantity",
+                "item_total",
+                "emp_id",
+                "discount_id",
+                "dsp_qty",
+                "dsp_ttl",
+                "guest_check_line_item_id",
+                "line_id",
+                "taxes_id",
+                "taxes_amount",
+                "item_id",
+                "item_price_id",
+                "reason_code_id",
+                "service_charge_id",
+                "tender_id",
+                "cxi_customer_id",
+                "ord_pay_total",
+                "ord_sub_total"
+            )
             .dropDuplicates("cxi_partner_id", "location_id", "ord_id", "ord_date")
     }
 
@@ -604,8 +633,7 @@ object OrderSummaryProcessor {
         val srcTable = "newOrderSummary"
 
         df.createOrReplaceTempView(srcTable)
-        df.sqlContext.sql(
-            s"""
+        df.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.location_id = $srcTable.location_id AND $destTable.ord_id = $srcTable.ord_id
@@ -617,4 +645,3 @@ object OrderSummaryProcessor {
                |""".stripMargin)
     }
 }
-

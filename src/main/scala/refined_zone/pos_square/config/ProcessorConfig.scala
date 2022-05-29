@@ -1,20 +1,19 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square.config
 
-import support.utils.ContractUtils
-
 import com.cxi.cdp.data_processing.support.normalization.DateNormalization
+import support.utils.ContractUtils
 
 import java.time.LocalDate
 
 case class ProcessorConfig(
-        contract: ContractUtils,
-        date: LocalDate,
-        cxiPartnerId: String,
-        runId: String,
-        srcDbName: String,
-        srcTable: String
-    ) {
+    contract: ContractUtils,
+    date: LocalDate,
+    cxiPartnerId: String,
+    runId: String,
+    srcDbName: String,
+    srcTable: String
+) {
     require(contract != null, "contract should not be null")
     require(date != null, "date should not be null")
     require(cxiPartnerId != null && cxiPartnerId.trim.nonEmpty, "cxiPartnerId should not be empty")

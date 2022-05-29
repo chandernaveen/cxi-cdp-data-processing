@@ -1,16 +1,16 @@
 package com.cxi.cdp.data_processing
 package support.crypto_shredding.hashing.function_types.json
 
+import com.cxi.cdp.data_processing.refined_zone.hub.identity.model.IdentityType
+import com.cxi.cdp.data_processing.support.crypto_shredding.hashing.function_types.common.PiiColumnsConfig.Column
 import support.crypto_shredding.hashing.function_types.json.PiiColumnsConfig._
 import support.crypto_shredding.hashing.transform.TransformFunctions.parseTransformFunction
 import support.exceptions.CryptoShreddingException
 
-import com.cxi.cdp.data_processing.refined_zone.hub.identity.model.IdentityType
-import com.cxi.cdp.data_processing.support.crypto_shredding.hashing.function_types.common.PiiColumnsConfig.Column
-
 import scala.util.Try
 
-case class PiiColumnsConfig(columns: Seq[(OuterColumn, InnerColumn, NormalizationFunc, Option[IdentityType])]) extends Serializable
+case class PiiColumnsConfig(columns: Seq[(OuterColumn, InnerColumn, NormalizationFunc, Option[IdentityType])])
+    extends Serializable
 
 object PiiColumnsConfig {
 

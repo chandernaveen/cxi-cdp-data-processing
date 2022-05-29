@@ -9,12 +9,14 @@ class FileIngestionFrameworkThrotleTransformationsTest extends BaseSparkBatchJob
 
     test("test throtle transformation ad_id ") {
         // given
-        val landingThrotleData = spark.createDataFrame(
-            List(
-                ("123", "null", "aed88141-73ae-410d-a033-faa4ef471b70"),
-                ("234", "233223", "c772c5d3-7699-4c71-932e-178f7345501d"),
-                ("543", "123", "208c3c24-cdcd-481c-8eba-d145aae2b000")
-            ))
+        val landingThrotleData = spark
+            .createDataFrame(
+                List(
+                    ("123", "null", "aed88141-73ae-410d-a033-faa4ef471b70"),
+                    ("234", "233223", "c772c5d3-7699-4c71-932e-178f7345501d"),
+                    ("543", "123", "208c3c24-cdcd-481c-8eba-d145aae2b000")
+                )
+            )
             .toDF("throtle_id", "throtle_hhid", "native_maid")
 
         // when

@@ -1,8 +1,8 @@
 package com.cxi.cdp.data_processing
 package support.normalization
 
-import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.time.LocalDate
 
 sealed trait Normalization
 

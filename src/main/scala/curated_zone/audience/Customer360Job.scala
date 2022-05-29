@@ -1,17 +1,18 @@
 package com.cxi.cdp.data_processing
 package curated_zone.audience
 
-import java.nio.file.Paths
-
 import com.cxi.cdp.data_processing.curated_zone.audience.model.Customer360
 import com.cxi.cdp.data_processing.curated_zone.audience.service.AudienceService
 import com.cxi.cdp.data_processing.refined_zone.hub.identity.model.IdentityId
 import com.cxi.cdp.data_processing.refined_zone.hub.model.CxiIdentity.{CxiIdentityId, Type}
-import com.cxi.cdp.data_processing.support.SparkSessionFactory
 import com.cxi.cdp.data_processing.support.utils.ContractUtils
+import com.cxi.cdp.data_processing.support.SparkSessionFactory
+
 import org.apache.log4j.Logger
-import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.functions.{col, udf}
+
+import java.nio.file.Paths
 
 object Customer360Job {
 
@@ -41,21 +42,30 @@ object Customer360Job {
         val customer360Table = contract.prop[String]("schema.curated.customer_360_table")
 
         val connectedComponents = buildConnectedComponents(
-            spark, s"$refinedHubDb.$identityTable", s"$refinedHubDb.$identityRelationshipTable")
+            spark,
+            s"$refinedHubDb.$identityTable",
+            s"$refinedHubDb.$identityRelationshipTable"
+        )
 
         val prevCustomer360 = readCustomer360(spark, s"$curatedDb.$customer360Table")
         val newCustomer360 = AudienceService.updateCustomer360(spark, connectedComponents, prevCustomer360)
         writeCustomer360(newCustomer360, s"$curatedDb.$customer360Table")
     }
 
-    def buildConnectedComponents(spark: SparkSession, identityTable: String, identityRelationshipTable: String): DataFrame = {
+    def buildConnectedComponents(
+        spark: SparkSession,
+        identityTable: String,
+        identityRelationshipTable: String
+    ): DataFrame = {
         val qualifiedIdentityId = udf(IdentityId.qualifiedIdentityId _)
 
-        val vertexDf = spark.table(identityTable)
+        val vertexDf = spark
+            .table(identityTable)
             .withColumn(AudienceService.GraphFrames.VertexIdCol, qualifiedIdentityId(col(Type), col(CxiIdentityId)))
             .select(AudienceService.GraphFrames.VertexIdCol)
 
-        val edgeDf = spark.table(identityRelationshipTable)
+        val edgeDf = spark
+            .table(identityRelationshipTable)
             .filter(col("active_flag") === true)
             .withColumn(AudienceService.GraphFrames.EdgeSrcCol, qualifiedIdentityId(col("source_type"), col("source")))
             .withColumn(AudienceService.GraphFrames.EdgeDstCol, qualifiedIdentityId(col("target_type"), col("target")))
@@ -75,8 +85,7 @@ object Customer360Job {
         val srcTable = "newCustomer360"
         df.createOrReplaceTempView(srcTable)
 
-        df.sqlContext.sql(
-            s"""
+        df.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.customer_360_id <=> $srcTable.customer_360_id

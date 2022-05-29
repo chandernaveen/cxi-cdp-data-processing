@@ -1,8 +1,8 @@
 package com.cxi.cdp.data_processing
 package support.crypto_shredding.hashing
 
-import java.security.MessageDigest
 import java.math.BigInteger
+import java.security.MessageDigest
 
 object Hash {
     def sha256Hash(id: String, salt: String = ""): String = {

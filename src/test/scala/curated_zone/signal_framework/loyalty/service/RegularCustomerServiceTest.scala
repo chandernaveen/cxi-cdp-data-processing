@@ -29,14 +29,12 @@ class RegularCustomerServiceTest extends BaseSparkBatchJobTest {
             ("cust4", "partner4", "loc1", "ord7", parse("2022-02-14")),
             // should be ignored, 'ord_date' is out of the timeframe
             ("cust5", "partner5", "loc1", "ord8", parse("2022-02-25"))
-
         ).toDF("customer_360_id", "cxi_partner_id", "location_id", "ord_id", "ord_date")
 
         val newLoyalAtRiskPerLocation = Seq(
             ("cust1", "partner1", "loc1", CustomerLoyaltyType.New.value),
             ("cust1", "partner1", "loc2", CustomerLoyaltyType.AtRisk.value),
-            ("cust2", "partner1", "loc2", CustomerLoyaltyType.Loyal.value),
-
+            ("cust2", "partner1", "loc2", CustomerLoyaltyType.Loyal.value)
         ).toDF("customer_360_id", "cxi_partner_id", "location_id", "loyalty_type")
 
         // when
@@ -50,7 +48,6 @@ class RegularCustomerServiceTest extends BaseSparkBatchJobTest {
                 ("cust1", "loc4", "partner2", CustomerLoyaltyType.Regular.value),
                 ("cust2", "loc1", "partner1", CustomerLoyaltyType.Regular.value),
                 ("cust3", "loc1", "partner3", CustomerLoyaltyType.Regular.value)
-
             ).toDF("customer_360_id", "location_id", "cxi_partner_id", "loyalty_type")
             actual.schema.fields.map(_.name) shouldEqual expected.schema.fields.map(_.name)
             actual.collect() should contain theSameElementsAs expected.collect()
@@ -74,14 +71,12 @@ class RegularCustomerServiceTest extends BaseSparkBatchJobTest {
             ("cust4", "partner4", "loc1", "ord7", parse("2022-02-14")),
             // should be ignored, 'ord_date' is out of the timeframe
             ("cust5", "partner5", "loc1", "ord8", parse("2022-02-25"))
-
         ).toDF("customer_360_id", "cxi_partner_id", "location_id", "ord_id", "ord_date")
 
         val newLoyalAtRiskAllLocations = Seq(
             ("cust1", "partner1", AllLocationsAlias, CustomerLoyaltyType.New.value),
             ("cust2", "partner1", AllLocationsAlias, CustomerLoyaltyType.AtRisk.value),
             ("cust2", "partner2", AllLocationsAlias, CustomerLoyaltyType.Loyal.value)
-
         ).toDF("customer_360_id", "cxi_partner_id", "location_id", "loyalty_type")
 
         // when
@@ -93,7 +88,6 @@ class RegularCustomerServiceTest extends BaseSparkBatchJobTest {
             val expected = Seq(
                 ("cust1", "partner2", AllLocationsAlias, CustomerLoyaltyType.Regular.value),
                 ("cust3", "partner3", AllLocationsAlias, CustomerLoyaltyType.Regular.value)
-
             ).toDF("customer_360_id", "cxi_partner_id", "location_id", "loyalty_type")
             actual.schema.fields.map(_.name) shouldEqual expected.schema.fields.map(_.name)
             actual.collect() should contain theSameElementsAs expected.collect()

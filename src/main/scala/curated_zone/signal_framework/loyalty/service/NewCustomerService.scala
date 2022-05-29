@@ -2,14 +2,22 @@ package com.cxi.cdp.data_processing
 package curated_zone.signal_framework.loyalty.service
 
 import curated_zone.model.CustomerLoyaltyType
-import curated_zone.signal_framework.loyalty.service.LoyaltyFunctions.{AllLocationsAlias, ByCustomerAndPartner, ByCustomerAndPartnerAndLocation}
+import curated_zone.signal_framework.loyalty.service.LoyaltyFunctions.{
+    AllLocationsAlias,
+    ByCustomerAndPartner,
+    ByCustomerAndPartnerAndLocation
+}
 
-import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, date_sub, lit, min}
+import org.apache.spark.sql.DataFrame
 
 class NewCustomerService extends Serializable {
 
-    def getNewCustomersPerPartnerAndLocation(customer360orders: DataFrame, endDate: String, newCustomerTimeframeDays: Int): DataFrame = {
+    def getNewCustomersPerPartnerAndLocation(
+        customer360orders: DataFrame,
+        endDate: String,
+        newCustomerTimeframeDays: Int
+    ): DataFrame = {
         customer360orders
             .withColumn("oldest_order", min("ord_date").over(ByCustomerAndPartnerAndLocation))
             // need 1 day adjustment as 'between' takes both upper and lower bound inclusively
@@ -19,7 +27,11 @@ class NewCustomerService extends Serializable {
             .dropDuplicates()
     }
 
-    def getNewCustomersPerPartnerForAllLocations(customer360orders: DataFrame, endDate: String, newCustomerTimeframeDays: Int): DataFrame = {
+    def getNewCustomersPerPartnerForAllLocations(
+        customer360orders: DataFrame,
+        endDate: String,
+        newCustomerTimeframeDays: Int
+    ): DataFrame = {
         customer360orders
             .withColumn("oldest_order", min("ord_date").over(ByCustomerAndPartner))
             // need 1 day adjustment as 'between' takes both upper and lower bound inclusively

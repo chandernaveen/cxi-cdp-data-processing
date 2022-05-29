@@ -1,8 +1,8 @@
 package com.cxi.cdp.data_processing
 package support.change_data_feed
 
-import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Row, SparkSession}
+import org.apache.spark.sql.functions._
 
 /** Provides service methods to work with Databricks ChangeDataFeed (CDF) feature.
   *
@@ -26,7 +26,8 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
     def isCdfEnabled(table: String)(implicit spark: SparkSession): Boolean = {
         import spark.implicits._
 
-        val rows = spark.sql(s"SHOW TBLPROPERTIES $table")
+        val rows = spark
+            .sql(s"SHOW TBLPROPERTIES $table")
             .filter($"key" === "delta.enableChangeDataFeed" && $"value" === "true")
 
         !rows.isEmpty
@@ -50,7 +51,8 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
         import spark.implicits._
 
         // even a newly created table has one version, so we should get at least one row
-        spark.sql(s"DESCRIBE HISTORY $table")
+        spark
+            .sql(s"DESCRIBE HISTORY $table")
             .agg(max($"version"))
             .as[Long]
             .head
@@ -61,7 +63,8 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
         import spark.implicits._
 
         // even a newly created table has one version, so we should get at least one row
-        spark.sql(s"DESCRIBE HISTORY $table")
+        spark
+            .sql(s"DESCRIBE HISTORY $table")
             .agg(min($"version"))
             .as[Long]
             .head
@@ -78,7 +81,8 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
 
         ensureCdfEnabled(table)
 
-        spark.sql(s"DESCRIBE HISTORY $table")
+        spark
+            .sql(s"DESCRIBE HISTORY $table")
             .filter(get_json_object($"operationParameters.properties", "$['delta.enableChangeDataFeed']") === "true")
             .agg(max($"version"))
             .as[Option[Long]]
@@ -94,7 +98,8 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
 
         val changeData =
             if (startVersion <= endVersion) {
-                val df = spark.read.format("delta")
+                val df = spark.read
+                    .format("delta")
                     .option("readChangeFeed", "true")
                     .option("startingVersion", startVersion)
                     .option("endingVersion", endVersion)
@@ -105,10 +110,8 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
                 None
             }
 
-        val tableMetadata = ChangeDataQueryResult.TableMetadata(
-            table = table,
-            startVersion = startVersion,
-            endVersion = endVersion)
+        val tableMetadata =
+            ChangeDataQueryResult.TableMetadata(table = table, startVersion = startVersion, endVersion = endVersion)
 
         ChangeDataQueryResult(consumerId, List(tableMetadata), changeData)
     }
@@ -116,7 +119,9 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
     /** Returns the start version for CDF query for the provided consumer/table.
       * Throws an exception if not all versions starting from the start version exist.
       */
-    private[change_data_feed] def getStartVersion(consumerId: String, table: String)(implicit spark: SparkSession): Long = {
+    private[change_data_feed] def getStartVersion(consumerId: String, table: String)(implicit
+        spark: SparkSession
+    ): Long = {
         getLatestProcessedVersion(consumerId, table)
             .map(version => version + 1L)
             .orElse(getEarliestCdfEnabledVersion(table))
@@ -135,8 +140,7 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
         val srcTable = "cdf_tracker_updates"
         updates.toDS.createOrReplaceTempView(srcTable)
 
-        spark.sql(
-            s"""
+        spark.sql(s"""
                 MERGE INTO $cdfTrackerTable
                 USING $srcTable
                 ON $cdfTrackerTable.consumer_id <=> $srcTable.consumer_id
@@ -165,10 +169,10 @@ object ChangeDataFeedService {
     final val CommitTimestampColumnName = "_commit_timestamp"
 
     val CdfColumnNames = Seq(
-            ChangeTypeColumnName,
-            CommitVersionColumnName,
-            CommitTimestampColumnName
-        )
+        ChangeTypeColumnName,
+        CommitVersionColumnName,
+        CommitTimestampColumnName
+    )
 
     /** Change Data Feed result will have additional fields, one of them is `_change_type`.
       * It shows how exactly this particular record was changed:

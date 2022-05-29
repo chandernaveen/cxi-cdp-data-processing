@@ -1,8 +1,9 @@
 package com.cxi.cdp.data_processing
 package curated_zone.signal_framework.transactional_insights.pre_aggr.service
 
-import com.cxi.cdp.data_processing.curated_zone.model.signal.SignalDomain
 import com.cxi.cdp.data_processing.curated_zone.model.signal.transactional_insights._
+import com.cxi.cdp.data_processing.curated_zone.model.signal.SignalDomain
+
 import org.apache.spark.sql.functions.udf
 
 private[pre_aggr] object MetricsServiceHelper {

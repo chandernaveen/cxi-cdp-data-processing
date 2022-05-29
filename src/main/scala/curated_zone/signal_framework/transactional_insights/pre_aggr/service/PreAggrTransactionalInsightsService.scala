@@ -4,8 +4,9 @@ package curated_zone.signal_framework.transactional_insights.pre_aggr.service
 import com.cxi.cdp.data_processing.curated_zone.model.signal.SignalDomain
 import com.cxi.cdp.data_processing.curated_zone.signal_framework.transactional_insights.pre_aggr.model._
 import com.cxi.cdp.data_processing.refined_zone.hub.model.CxiIdentity.{CxiIdentityId, CxiIdentityIds}
-import org.apache.spark.sql.functions.{col, concat, explode, lit}
+
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
+import org.apache.spark.sql.functions.{col, concat, explode, lit}
 
 private[pre_aggr] object PreAggrTransactionalInsightsService {
 
@@ -17,25 +18,24 @@ private[pre_aggr] object PreAggrTransactionalInsightsService {
       * `GROUP BY GROUPING SETS` is used to calculate total metrics per location ID and for all locations
       * in one operation. Unfortunately this API is only supported via Spark SQL.
       */
-    def getCustomer360IdWithMetrics(orderSummaryWithMetrics: DataFrame,
-                                    customer360IdToQualifiedIdentity: DataFrame,
-                                    signalDomains: Seq[SignalDomain[_]] = AllSignalDomains): DataFrame = {
+    def getCustomer360IdWithMetrics(
+        orderSummaryWithMetrics: DataFrame,
+        customer360IdToQualifiedIdentity: DataFrame,
+        signalDomains: Seq[SignalDomain[_]] = AllSignalDomains
+    ): DataFrame = {
         val aggregationsSQL = MetricsServiceHelper
             .getMetricColumns(signalDomains: _*)
             .map(column => s"SUM($column) AS $column")
             .mkString(", ")
 
         val orderSummaryWithMetricsAndCustomer360Id = orderSummaryWithMetrics
-            .select(
-                col("*"),
-                explode(col(CxiIdentityIds)).as("id"))
+            .select(col("*"), explode(col(CxiIdentityIds)).as("id"))
             .withColumn("qualified_identity", concat(col("id.identity_type"), lit(":"), col(s"id.$CxiIdentityId")))
             .join(customer360IdToQualifiedIdentity, Seq("qualified_identity"), "inner")
             .dropDuplicates("ord_id", "cxi_partner_id", "location_id")
 
         val tempViewName = "orderSummaryWithMetricsAndCustomer360Id"
         orderSummaryWithMetricsAndCustomer360Id.createOrReplaceTempView(tempViewName)
-
 
         orderSummaryWithMetricsAndCustomer360Id.sqlContext.sql(s"""
             SELECT
@@ -65,18 +65,15 @@ private[pre_aggr] object PreAggrTransactionalInsightsService {
 
     def getCustomer360IdToQualifiedIdentity(posCustomer360: DataFrame): DataFrame = {
         posCustomer360
-            .select(
-                col("customer_360_id"),
-                explode(col("identities")).as("type" :: "ids" :: Nil))
+            .select(col("customer_360_id"), explode(col("identities")).as("type" :: "ids" :: Nil))
             .withColumn("id", explode(col("ids")))
-            .select(
-                col("customer_360_id"),
-                concat(col("type"), lit(":"), col("id")).as("qualified_identity"))
+            .select(col("customer_360_id"), concat(col("type"), lit(":"), col("id")).as("qualified_identity"))
     }
 
-    def transformToFinalRecord(customer360IdWithMetrics: DataFrame,
-                               signalDomains: Seq[SignalDomain[_]] = AllSignalDomains
-                              )(implicit spark: SparkSession): Dataset[PreAggrTransactionalInsightsRecord] = {
+    def transformToFinalRecord(
+        customer360IdWithMetrics: DataFrame,
+        signalDomains: Seq[SignalDomain[_]] = AllSignalDomains
+    )(implicit spark: SparkSession): Dataset[PreAggrTransactionalInsightsRecord] = {
         import spark.implicits._
 
         customer360IdWithMetrics.flatMap(row => {

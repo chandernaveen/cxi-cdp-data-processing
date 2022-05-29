@@ -1,4 +1,3 @@
-
 ThisBuild / organization := "com.cxi"
 ThisBuild / scalaVersion := "2.12.10"
 ThisBuild / version      := "1.0.0" // actual artifact version is controlled by azure devops (please check ci/cd for more details)

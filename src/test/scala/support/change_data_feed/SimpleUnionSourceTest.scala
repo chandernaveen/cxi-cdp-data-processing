@@ -1,16 +1,17 @@
 package com.cxi.cdp.data_processing
 package support.change_data_feed
 
-import com.cxi.cdp.data_processing.support.BaseSparkBatchJobTest
 import com.cxi.cdp.data_processing.support.change_data_feed.ChangeDataQueryResult.TableMetadata
+import com.cxi.cdp.data_processing.support.BaseSparkBatchJobTest
+
 import org.apache.spark.sql.DataFrameReader
 import org.mockito.Mockito._
 import org.scalatest.{Matchers, OptionValues}
 
 class SimpleUnionSourceTest extends BaseSparkBatchJobTest with Matchers with OptionValues {
 
-    import SimpleUnionSourceTest._
     import spark.implicits._
+    import SimpleUnionSourceTest._
 
     val consumerId = "testConsumer"
     val firstTable = "firstTable"
@@ -32,14 +33,17 @@ class SimpleUnionSourceTest extends BaseSparkBatchJobTest with Matchers with Opt
         doReturn(secondTableDF, Seq.empty: _*).when(sparkSpy).table("secondTable")
 
         doReturn(firstTableChangeData, Seq.empty: _*).when(cdfService).queryChangeData(consumerId, firstTable)(sparkSpy)
-        doReturn(secondTableChangeData, Seq.empty: _*).when(cdfService).queryChangeData(consumerId, secondTable)(sparkSpy)
+        doReturn(secondTableChangeData, Seq.empty: _*)
+            .when(cdfService)
+            .queryChangeData(consumerId, secondTable)(sparkSpy)
 
         val cdfSource = new ChangeDataFeedSource.SimpleUnion(cdfService, Seq(firstTable, secondTable))
 
         val expectedResult = ChangeDataQueryResult(
             consumerId,
             Seq(firstTableMetadata, secondTableMetadata),
-            Some(firstTableDF.union(secondTableDF)))
+            Some(firstTableDF.union(secondTableDF))
+        )
 
         val actualResult = cdfSource.queryChangeData(consumerId)(sparkSpy)
 
@@ -64,7 +68,9 @@ class SimpleUnionSourceTest extends BaseSparkBatchJobTest with Matchers with Opt
         doReturn(secondTableDF, Seq.empty: _*).when(sparkSpy).table("secondTable")
 
         doReturn(firstTableChangeData, Seq.empty: _*).when(cdfService).queryChangeData(consumerId, firstTable)(sparkSpy)
-        doReturn(secondTableChangeData, Seq.empty: _*).when(cdfService).queryChangeData(consumerId, secondTable)(sparkSpy)
+        doReturn(secondTableChangeData, Seq.empty: _*)
+            .when(cdfService)
+            .queryChangeData(consumerId, secondTable)(sparkSpy)
 
         val cdfSource = new ChangeDataFeedSource.SimpleUnion(cdfService, Seq(firstTable, secondTable))
 
@@ -94,9 +100,11 @@ class SimpleUnionSourceTest extends BaseSparkBatchJobTest with Matchers with Opt
 
         val cdfService = mock(classOf[ChangeDataFeedService])
         doReturn(firstTableLatestVersion, Seq.empty: _*)
-            .when(cdfService).getLatestAvailableVersion(firstTableName)(sparkSpy)
+            .when(cdfService)
+            .getLatestAvailableVersion(firstTableName)(sparkSpy)
         doReturn(secondTableLatestVersion, Seq.empty: _*)
-            .when(cdfService).getLatestAvailableVersion(secondTableName)(sparkSpy)
+            .when(cdfService)
+            .getLatestAvailableVersion(secondTableName)(sparkSpy)
 
         val cdfSource = new ChangeDataFeedSource.SimpleUnion(cdfService, Seq(firstTable, secondTable))
 
@@ -104,8 +112,10 @@ class SimpleUnionSourceTest extends BaseSparkBatchJobTest with Matchers with Opt
             consumerId,
             Seq(
                 TableMetadata(firstTableName, 0L, firstTableLatestVersion),
-                TableMetadata(secondTableName, 0L, secondTableLatestVersion)),
-            Some(firstTableDF.union(secondTableDF)))
+                TableMetadata(secondTableName, 0L, secondTableLatestVersion)
+            ),
+            Some(firstTableDF.union(secondTableDF))
+        )
 
         val actualResult = cdfSource.queryAllData(consumerId)(sparkSpy)
 

@@ -15,7 +15,7 @@ class RawRefinedOracleSimphonyPartnerJobTest extends BaseSparkBatchJobTest {
             ("1", "P300002", "Food"),
             ("1", "P300002", "Food"), // duplicate
             ("2", "P300002", "Liquor"),
-            ("3", "P300002", "Beer"),
+            ("3", "P300002", "Beer")
         ).toDF("cat_id", "location_id", "cat_nm")
 
         // when
@@ -31,7 +31,7 @@ class RawRefinedOracleSimphonyPartnerJobTest extends BaseSparkBatchJobTest {
             val expected = List(
                 ("1", "P300002", "Food", cxiPartnerId, null),
                 ("2", "P300002", "Liquor", cxiPartnerId, null),
-                ("3", "P300002", "Beer", cxiPartnerId, null),
+                ("3", "P300002", "Beer", cxiPartnerId, null)
             ).toDF("cat_id", "location_id", "cat_nm", "cxi_partner_id", "cat_desc").collect()
             actualOracleSimRefinedCategoriesData.length should equal(expected.length)
             actualOracleSimRefinedCategoriesData should contain theSameElementsAs expected

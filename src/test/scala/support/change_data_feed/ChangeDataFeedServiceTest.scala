@@ -2,14 +2,15 @@ package com.cxi.cdp.data_processing
 package support.change_data_feed
 
 import com.cxi.cdp.data_processing.support.BaseSparkBatchJobTest
+
 import org.mockito.Mockito._
 import org.scalatest.Matchers
 
 /* Uses Mockito spies to test specific Databricks commands (DESCRIBE HISTORY, SHOW TBLPROPERTIES). */
 class ChangeDataFeedServiceTest extends BaseSparkBatchJobTest with Matchers {
 
-    import ChangeDataFeedServiceTest._
     import spark.implicits._
+    import ChangeDataFeedServiceTest._
 
     val cdfTable = "cross_cutting.cdf_tracker"
     val cdfService = new ChangeDataFeedService(cdfTable)
@@ -19,7 +20,8 @@ class ChangeDataFeedServiceTest extends BaseSparkBatchJobTest with Matchers {
     test("isCdfEnabled if delta.enableChangeDataFeed property is not set") {
         val sparkSpy = spy(spark)
         doReturn(Seq.empty[ShowTablePropertiesRow].toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"SHOW TBLPROPERTIES $testTable")
+            .when(sparkSpy)
+            .sql(s"SHOW TBLPROPERTIES $testTable")
 
         cdfService.isCdfEnabled(testTable)(sparkSpy) shouldBe false
     }
@@ -31,7 +33,8 @@ class ChangeDataFeedServiceTest extends BaseSparkBatchJobTest with Matchers {
             ShowTablePropertiesRow("delta.enableChangeDataFeed", "false")
         )
         doReturn(properties.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"SHOW TBLPROPERTIES $testTable")
+            .when(sparkSpy)
+            .sql(s"SHOW TBLPROPERTIES $testTable")
 
         cdfService.isCdfEnabled(testTable)(sparkSpy) shouldBe false
     }
@@ -43,7 +46,8 @@ class ChangeDataFeedServiceTest extends BaseSparkBatchJobTest with Matchers {
             ShowTablePropertiesRow("delta.enableChangeDataFeed", "true")
         )
         doReturn(properties.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"SHOW TBLPROPERTIES $testTable")
+            .when(sparkSpy)
+            .sql(s"SHOW TBLPROPERTIES $testTable")
 
         cdfService.isCdfEnabled(testTable)(sparkSpy) shouldBe true
     }
@@ -52,13 +56,19 @@ class ChangeDataFeedServiceTest extends BaseSparkBatchJobTest with Matchers {
         val sparkSpy = spy(spark)
         val properties = Seq(ShowTablePropertiesRow("delta.enableChangeDataFeed", "true"))
         val historyRows = Seq(
-            DescibeHistoryRow(0L, "CREATE TABLE", Map("isManaged" -> "true", "properties" -> """{"delta.enableChangeDataFeed":"true"}""")),
+            DescibeHistoryRow(
+                0L,
+                "CREATE TABLE",
+                Map("isManaged" -> "true", "properties" -> """{"delta.enableChangeDataFeed":"true"}""")
+            ),
             DescibeHistoryRow(1L, "UPDATE", Map.empty)
         )
         doReturn(properties.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"SHOW TBLPROPERTIES $testTable")
+            .when(sparkSpy)
+            .sql(s"SHOW TBLPROPERTIES $testTable")
         doReturn(historyRows.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"DESCRIBE HISTORY $testTable")
+            .when(sparkSpy)
+            .sql(s"DESCRIBE HISTORY $testTable")
 
         cdfService.getEarliestCdfEnabledVersion(testTable)(sparkSpy) shouldBe Some(0L)
     }
@@ -71,9 +81,11 @@ class ChangeDataFeedServiceTest extends BaseSparkBatchJobTest with Matchers {
             DescibeHistoryRow(1L, "UPDATE", Map.empty)
         )
         doReturn(properties.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"SHOW TBLPROPERTIES $testTable")
+            .when(sparkSpy)
+            .sql(s"SHOW TBLPROPERTIES $testTable")
         doReturn(historyRows.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"DESCRIBE HISTORY $testTable")
+            .when(sparkSpy)
+            .sql(s"DESCRIBE HISTORY $testTable")
 
         cdfService.getEarliestCdfEnabledVersion(testTable)(sparkSpy) shouldBe None
     }
@@ -89,9 +101,11 @@ class ChangeDataFeedServiceTest extends BaseSparkBatchJobTest with Matchers {
             DescibeHistoryRow(4L, "CREATE TABLE", Map("properties" -> """{"delta.enableChangeDataFeed":"true"}"""))
         )
         doReturn(properties.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"SHOW TBLPROPERTIES $testTable")
+            .when(sparkSpy)
+            .sql(s"SHOW TBLPROPERTIES $testTable")
         doReturn(historyRows.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"DESCRIBE HISTORY $testTable")
+            .when(sparkSpy)
+            .sql(s"DESCRIBE HISTORY $testTable")
 
         cdfService.getEarliestCdfEnabledVersion(testTable)(sparkSpy) shouldBe Some(4L)
     }
@@ -106,11 +120,14 @@ class ChangeDataFeedServiceTest extends BaseSparkBatchJobTest with Matchers {
             DescibeHistoryRow(4L, "UPDATE", Map.empty)
         )
         doReturn(cdfTrackerRows.toDF, Seq.empty: _*)
-            .when(sparkSpy).table(cdfTable)
+            .when(sparkSpy)
+            .table(cdfTable)
         doReturn(properties.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"SHOW TBLPROPERTIES $testTable")
+            .when(sparkSpy)
+            .sql(s"SHOW TBLPROPERTIES $testTable")
         doReturn(historyRows.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"DESCRIBE HISTORY $testTable")
+            .when(sparkSpy)
+            .sql(s"DESCRIBE HISTORY $testTable")
 
         assertThrows[Exception] {
             cdfService.getStartVersion(testConsumerId, testTable)(sparkSpy)
@@ -128,11 +145,14 @@ class ChangeDataFeedServiceTest extends BaseSparkBatchJobTest with Matchers {
             DescibeHistoryRow(3L, "UPDATE", Map.empty)
         )
         doReturn(cdfTrackerRows.toDF, Seq.empty: _*)
-            .when(sparkSpy).table(cdfTable)
+            .when(sparkSpy)
+            .table(cdfTable)
         doReturn(properties.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"SHOW TBLPROPERTIES $testTable")
+            .when(sparkSpy)
+            .sql(s"SHOW TBLPROPERTIES $testTable")
         doReturn(historyRows.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"DESCRIBE HISTORY $testTable")
+            .when(sparkSpy)
+            .sql(s"DESCRIBE HISTORY $testTable")
 
         cdfService.getStartVersion(testConsumerId, testTable)(sparkSpy) shouldBe 2L
     }
@@ -147,11 +167,14 @@ class ChangeDataFeedServiceTest extends BaseSparkBatchJobTest with Matchers {
             DescibeHistoryRow(4L, "UPDATE", Map.empty)
         )
         doReturn(cdfTrackerRows.toDF, Seq.empty: _*)
-            .when(sparkSpy).table(cdfTable)
+            .when(sparkSpy)
+            .table(cdfTable)
         doReturn(properties.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"SHOW TBLPROPERTIES $testTable")
+            .when(sparkSpy)
+            .sql(s"SHOW TBLPROPERTIES $testTable")
         doReturn(historyRows.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"DESCRIBE HISTORY $testTable")
+            .when(sparkSpy)
+            .sql(s"DESCRIBE HISTORY $testTable")
 
         assertThrows[Exception] {
             cdfService.getStartVersion(testConsumerId, testTable)(sparkSpy)
@@ -169,11 +192,14 @@ class ChangeDataFeedServiceTest extends BaseSparkBatchJobTest with Matchers {
             DescibeHistoryRow(3L, "UPDATE", Map.empty)
         )
         doReturn(cdfTrackerRows.toDF, Seq.empty: _*)
-            .when(sparkSpy).table(cdfTable)
+            .when(sparkSpy)
+            .table(cdfTable)
         doReturn(properties.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"SHOW TBLPROPERTIES $testTable")
+            .when(sparkSpy)
+            .sql(s"SHOW TBLPROPERTIES $testTable")
         doReturn(historyRows.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"DESCRIBE HISTORY $testTable")
+            .when(sparkSpy)
+            .sql(s"DESCRIBE HISTORY $testTable")
 
         cdfService.getStartVersion(testConsumerId, testTable)(sparkSpy) shouldBe 2L
     }
@@ -187,7 +213,8 @@ class ChangeDataFeedServiceTest extends BaseSparkBatchJobTest with Matchers {
             DescibeHistoryRow(3L, "UPDATE", Map.empty)
         )
         doReturn(historyRows.toDF, Seq.empty: _*)
-            .when(sparkSpy).sql(s"DESCRIBE HISTORY $testTable")
+            .when(sparkSpy)
+            .sql(s"DESCRIBE HISTORY $testTable")
 
         cdfService.getEarliestAvailableVersion(testTable)(sparkSpy) shouldBe 1L
         cdfService.getLatestAvailableVersion(testTable)(sparkSpy) shouldBe 3L

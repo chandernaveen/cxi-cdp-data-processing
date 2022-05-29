@@ -1,13 +1,12 @@
 package com.cxi.cdp.data_processing
 package raw_zone
 
-import support.BaseSparkBatchJobTest
-import support.tags.RequiresDatabricksRemoteCluster
-
 import com.cxi.cdp.data_processing.raw_zone.PrivacyLookupDeduplicationJob.FeedDateToRunIdChangedData
 import com.cxi.cdp.data_processing.refined_zone.hub.identity.model.IdentityType
-import org.scalatest.BeforeAndAfterEach
+import support.tags.RequiresDatabricksRemoteCluster
+import support.BaseSparkBatchJobTest
 
+import org.scalatest.BeforeAndAfterEach
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper}
 
 @RequiresDatabricksRemoteCluster(reason = "uses Delta table so you cannot execute it locally")
@@ -46,25 +45,60 @@ class PrivacyLookupDeduplicationJobIntegrationTest extends BaseSparkBatchJobTest
         val privacyIntermediateTableName = "tempPrivacyLookupIntermediateTable"
         val cxiSource = "cxi-usa-goldbowl"
         val cxiSource2 = "cxi-usa-burgerking"
-        val df = spark.createDataFrame(
-            List(
-                (cxiSource, sqlDate(dateRaw), runId1, "ov_1", "hv_1", IdentityType.Email.code),
-                (cxiSource2, sqlDate(dateRaw), runId1, "ov_1", "hv_1", IdentityType.Email.code), // duplicate: diff cxi source, included
-                (cxiSource, sqlDate(dateRaw), runId2, "ov_1", "hv_1", IdentityType.Email.code), // duplicate: diff run id, excluded
-                (cxiSource, sqlDate(dateRaw), runId2, "ov_2", "hv_2", IdentityType.Phone.code),
-                (cxiSource2, sqlDate(dateRaw), runId4, "ov_3", "hv_3", IdentityType.Email.code), // excluded by run id
-                (cxiSource2, sqlDate(dateRaw3), runId5, "ov_1", "hv_1", IdentityType.Email.code) // excluded by run id and date
-            ))
+        val df = spark
+            .createDataFrame(
+                List(
+                    (cxiSource, sqlDate(dateRaw), runId1, "ov_1", "hv_1", IdentityType.Email.code),
+                    (
+                        cxiSource2,
+                        sqlDate(dateRaw),
+                        runId1,
+                        "ov_1",
+                        "hv_1",
+                        IdentityType.Email.code
+                    ), // duplicate: diff cxi source, included
+                    (
+                        cxiSource,
+                        sqlDate(dateRaw),
+                        runId2,
+                        "ov_1",
+                        "hv_1",
+                        IdentityType.Email.code
+                    ), // duplicate: diff run id, excluded
+                    (cxiSource, sqlDate(dateRaw), runId2, "ov_2", "hv_2", IdentityType.Phone.code),
+                    (
+                        cxiSource2,
+                        sqlDate(dateRaw),
+                        runId4,
+                        "ov_3",
+                        "hv_3",
+                        IdentityType.Email.code
+                    ), // excluded by run id
+                    (
+                        cxiSource2,
+                        sqlDate(dateRaw3),
+                        runId5,
+                        "ov_1",
+                        "hv_1",
+                        IdentityType.Email.code
+                    ) // excluded by run id and date
+                )
+            )
             .toDF("cxi_source", "feed_date", "run_id", "original_value", "hashed_value", "identity_type")
 
         df.createOrReplaceTempView(privacyIntermediateTableName)
 
         // when
-        PrivacyLookupDeduplicationJob.process(privacyIntermediateTableName, s"$destDb.$destTable", feedDateToRunIdPairsToProcess)(spark)
+        PrivacyLookupDeduplicationJob.process(
+            privacyIntermediateTableName,
+            s"$destDb.$destTable",
+            feedDateToRunIdPairsToProcess
+        )(spark)
 
         // then
         withClue("Saved pii data does not match") {
-            val actual = spark.table(s"$destDb.$destTable")
+            val actual = spark
+                .table(s"$destDb.$destTable")
                 .select("cxi_source", "feed_date", "original_value", "hashed_value", "identity_type")
             val expected = Seq(
                 (cxiSource, sqlDate(dateRaw), "ov_1", "hv_1", IdentityType.Email.code),
@@ -94,7 +128,8 @@ class PrivacyLookupDeduplicationJobIntegrationTest extends BaseSparkBatchJobTest
 
         // then
         withClue("Saved pii data do not match") {
-            val actual_1 = spark.table(s"$destDb.$destTable")
+            val actual_1 = spark
+                .table(s"$destDb.$destTable")
                 .select("cxi_source", "feed_date", "original_value", "hashed_value", "identity_type")
             val expected_1 = Seq(
                 (cxiSource, sqlDate(dateRaw), "ov_1", "hv_1", IdentityType.Email.code),
@@ -108,11 +143,15 @@ class PrivacyLookupDeduplicationJobIntegrationTest extends BaseSparkBatchJobTest
         }
 
         // when
-        PrivacyLookupDeduplicationJob.writePrivacyLookup(df, s"$destDb.$destTable") // same duplicate insert, dest table should stay w/o changes
+        PrivacyLookupDeduplicationJob.writePrivacyLookup(
+            df,
+            s"$destDb.$destTable"
+        ) // same duplicate insert, dest table should stay w/o changes
 
         // then
         withClue("Saved pii data do not match") {
-            val actual_2 = spark.table(s"$destDb.$destTable")
+            val actual_2 = spark
+                .table(s"$destDb.$destTable")
                 .select("cxi_source", "feed_date", "original_value", "hashed_value", "identity_type")
             val expected_2 = Seq(
                 (cxiSource, sqlDate(dateRaw), "ov_1", "hv_1", IdentityType.Email.code),
@@ -131,8 +170,7 @@ class PrivacyLookupDeduplicationJobIntegrationTest extends BaseSparkBatchJobTest
     }
 
     def createTempTable(tableName: String): Unit = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
                |CREATE TABLE IF NOT EXISTS $tableName (
                |  `cxi_source` STRING,
                |  `identity_type` STRING,

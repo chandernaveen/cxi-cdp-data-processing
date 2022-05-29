@@ -3,6 +3,7 @@ package curated_zone.signal_framework.transactional_insights.pre_aggr.service
 
 import com.cxi.cdp.data_processing.curated_zone.model.signal.transactional_insights.TenderTypeMetric
 import com.cxi.cdp.data_processing.support.BaseSparkBatchJobTest
+
 import org.apache.spark.sql.functions.col
 import org.scalatest.Matchers
 

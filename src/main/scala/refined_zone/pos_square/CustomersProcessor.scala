@@ -1,11 +1,11 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
-import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
 import refined_zone.pos_square.config.ProcessorConfig
+import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
 
-import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.functions._
 
 object CustomersProcessor {
     def process(spark: SparkSession, config: ProcessorConfig, destDbName: String): Unit = {
@@ -20,8 +20,7 @@ object CustomersProcessor {
     }
 
     def readCustomers(spark: SparkSession, date: String, table: String): DataFrame = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
                |SELECT
                |get_json_object(record_value, "$$.id") as customer_id,
                |get_json_object(record_value, "$$.email_address") as email_address,
@@ -35,11 +34,10 @@ object CustomersProcessor {
                |""".stripMargin)
     }
 
-    def transformCustomers(customers: DataFrame,
-                           cxiPartnerId: String): DataFrame = {
+    def transformCustomers(customers: DataFrame, cxiPartnerId: String): DataFrame = {
         val transformedCustomers = customers
             .withColumn("cxi_partner_id", lit(cxiPartnerId))
-            .dropDuplicates("cxi_partner_id","customer_id")
+            .dropDuplicates("cxi_partner_id", "customer_id")
         transformedCustomers
     }
 
@@ -48,8 +46,7 @@ object CustomersProcessor {
 
         df.createOrReplaceTempView(srcTable)
         // TODO: consider using SCD type 2 based on version column as well
-        df.sqlContext.sql(
-            s"""
+        df.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.cxi_partner_id = "$cxiPartnerId" AND $destTable.customer_id = $srcTable.customer_id

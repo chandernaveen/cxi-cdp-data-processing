@@ -2,6 +2,7 @@ package com.cxi.cdp.data_processing
 package curated_zone.model.signal.transactional_insights
 
 import com.cxi.cdp.data_processing.curated_zone.model.signal.{Signal, SignalDomain}
+
 import enumeratum.values._
 
 sealed abstract class TenderTypeMetric(val value: String) extends StringEnumEntry with Signal with Serializable {

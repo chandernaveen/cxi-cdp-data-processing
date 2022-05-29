@@ -46,6 +46,12 @@ stages:
          enabled: true
 
        - task: Bash@3
+         displayName: Check formatting
+         inputs:
+           targetType: 'inline'
+           script: 'sbt scalafmtCheckAll || >&2 echo "Code is not properly formatted. Run \"sbt scalafmtAll\" to reformat."'
+
+       - task: Bash@3
          displayName: Execute tests
          inputs:
            targetType: 'inline'

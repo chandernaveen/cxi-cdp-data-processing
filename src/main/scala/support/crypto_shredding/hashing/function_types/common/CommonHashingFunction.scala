@@ -1,12 +1,12 @@
 package com.cxi.cdp.data_processing
 package support.crypto_shredding.hashing.function_types.common
 
-import support.crypto_shredding.hashing.Hash
 import support.crypto_shredding.hashing.function_types.{CryptoHashingResult, IHashFunction}
+import support.crypto_shredding.hashing.Hash
 
+import org.apache.spark.sql.{DataFrame, Dataset, Encoders}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.{DataFrame, Dataset, Encoders}
 
 class CommonHashingFunction(piiConfig: PiiColumnsConfig, salt: String) extends IHashFunction {
 
@@ -18,34 +18,41 @@ class CommonHashingFunction(piiConfig: PiiColumnsConfig, salt: String) extends I
 
     override def hash(originalDf: DataFrame): (DataFrame, Dataset[CryptoHashingResult]) = {
         val session = originalDf.sparkSession
-        val extractedPersonalInformationLookupDf = session.emptyDataset[CryptoHashingResult](Encoders.product[CryptoHashingResult])
+        val extractedPersonalInformationLookupDf =
+            session.emptyDataset[CryptoHashingResult](Encoders.product[CryptoHashingResult])
 
         val hashUdf = createHashUdf()
 
-        val (hashedOriginalRes, extractedPersonalInformationLookupDfRes) = piiConfig.columns.foldLeft((originalDf, extractedPersonalInformationLookupDf)) {
-            case ((accHashed, accExtracted), piiField) =>
-                val (dataColName, transformFunction, identityTypeOpt) = piiField
-                val normalizeFunction = udf(transformFunction)
-                val dfWithHashedColumn = accHashed
-                    .withColumn(s"$normalizedValueCol-$dataColName", normalizeFunction(col(dataColName)))
-                    .withColumn(s"${CryptoHashingResult.HashedValueColName}-$dataColName", hashUdf(col(s"$normalizedValueCol-$dataColName")))
+        val (hashedOriginalRes, extractedPersonalInformationLookupDfRes) =
+            piiConfig.columns.foldLeft((originalDf, extractedPersonalInformationLookupDf)) {
+                case ((accHashed, accExtracted), piiField) =>
+                    val (dataColName, transformFunction, identityTypeOpt) = piiField
+                    val normalizeFunction = udf(transformFunction)
+                    val dfWithHashedColumn = accHashed
+                        .withColumn(s"$normalizedValueCol-$dataColName", normalizeFunction(col(dataColName)))
+                        .withColumn(
+                            s"${CryptoHashingResult.HashedValueColName}-$dataColName",
+                            hashUdf(col(s"$normalizedValueCol-$dataColName"))
+                        )
 
-                val colHashedRes = dfWithHashedColumn
-                    .withColumn(dataColName, col(s"${CryptoHashingResult.HashedValueColName}-$dataColName"))
-                    .select(originalDf.schema.fieldNames.map(col): _*)
+                    val colHashedRes = dfWithHashedColumn
+                        .withColumn(dataColName, col(s"${CryptoHashingResult.HashedValueColName}-$dataColName"))
+                        .select(originalDf.schema.fieldNames.map(col): _*)
 
-                val colExtractedRes = accExtracted.unionByName(
-                    dfWithHashedColumn
-                        .select(
-                            col(s"$normalizedValueCol-$dataColName").as(CryptoHashingResult.OriginalValueColName),
-                            col(s"${CryptoHashingResult.HashedValueColName}-$dataColName").as(CryptoHashingResult.HashedValueColName),
-                            lit(identityTypeOpt.map(_.code).orNull).as(CryptoHashingResult.IdentityTypeValueColName))
-                        .as(Encoders.product[CryptoHashingResult])
-                        .filter(chr => chr.original_value != null && chr.hashed_value != null)
-                )
+                    val colExtractedRes = accExtracted.unionByName(
+                        dfWithHashedColumn
+                            .select(
+                                col(s"$normalizedValueCol-$dataColName").as(CryptoHashingResult.OriginalValueColName),
+                                col(s"${CryptoHashingResult.HashedValueColName}-$dataColName")
+                                    .as(CryptoHashingResult.HashedValueColName),
+                                lit(identityTypeOpt.map(_.code).orNull).as(CryptoHashingResult.IdentityTypeValueColName)
+                            )
+                            .as(Encoders.product[CryptoHashingResult])
+                            .filter(chr => chr.original_value != null && chr.hashed_value != null)
+                    )
 
-                (colHashedRes, colExtractedRes)
-        }
+                    (colHashedRes, colExtractedRes)
+            }
 
         (hashedOriginalRes, extractedPersonalInformationLookupDfRes)
     }
@@ -65,7 +72,11 @@ class CommonHashingFunction(piiConfig: PiiColumnsConfig, salt: String) extends I
             }
         } catch {
             case e: Throwable =>
-                CommonOutputValue(isSucceeded = false, originalPii, hash = s"Exception ${e.getClass.getName} happened. ${e.toString}")
+                CommonOutputValue(
+                    isSucceeded = false,
+                    originalPii,
+                    hash = s"Exception ${e.getClass.getName} happened. ${e.toString}"
+                )
         }
     }
 

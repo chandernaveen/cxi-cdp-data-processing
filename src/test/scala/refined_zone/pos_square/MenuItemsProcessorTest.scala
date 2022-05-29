@@ -12,7 +12,12 @@ class MenuItemsProcessorTest extends BaseSparkBatchJobTest {
     test("test add variations to menu items") {
         // given
         val menuItems = Seq(
-            ("item_1", "Combo Bop", "Two choices of meat", "ITEM", "cat1",
+            (
+                "item_1",
+                "Combo Bop",
+                "Two choices of meat",
+                "ITEM",
+                "cat1",
                 """[
                   |  {
                   |    "id": "var_1",
@@ -36,11 +41,13 @@ class MenuItemsProcessorTest extends BaseSparkBatchJobTest {
                   |    "updated_at": "2021-10-07T02:33:54.758Z",
                   |    "version": 1633574034758
                   |  }
-                  |]""".stripMargin)
+                  |]""".stripMargin
+            )
         ).toDF("item_id", "item_nm", "item_desc", "item_type", "category_array", "variations")
 
         val itemsVariations = Seq(
-            ("item_1",
+            (
+                "item_1",
                 """[
                   |  {
                   |    "id": "var_1",
@@ -64,7 +71,8 @@ class MenuItemsProcessorTest extends BaseSparkBatchJobTest {
                   |    "updated_at": "2021-10-07T02:33:54.758Z",
                   |    "version": 1633574034758
                   |  }
-                  |]""".stripMargin)
+                  |]""".stripMargin
+            )
         )
             .toDF("item_id", "variations")
 
@@ -73,10 +81,31 @@ class MenuItemsProcessorTest extends BaseSparkBatchJobTest {
 
         // then
         val expected = Seq(
-            ("item_1", "Combo Bop", "Two choices of meat", "food", "cat1", Array("var_1"), "test-partner", null, null, null),
+            (
+                "item_1",
+                "Combo Bop",
+                "Two choices of meat",
+                "food",
+                "cat1",
+                Array("var_1"),
+                "test-partner",
+                null,
+                null,
+                null
+            ),
             ("var_1", "Regular", null, "variation", null, null, "test-partner", null, null, null)
-        ).toDF("item_id", "item_nm", "item_desc", "item_type", "category_array", "variation_array", "cxi_partner_id",
-            "main_category_name", "item_plu", "item_barcode").collect()
+        ).toDF(
+            "item_id",
+            "item_nm",
+            "item_desc",
+            "item_type",
+            "category_array",
+            "variation_array",
+            "cxi_partner_id",
+            "main_category_name",
+            "item_plu",
+            "item_barcode"
+        ).collect()
         result should contain theSameElementsAs expected
     }
 
@@ -141,8 +170,16 @@ class MenuItemsProcessorTest extends BaseSparkBatchJobTest {
                             |  "version": 1633574034758
                             |}""".stripMargin
 
-        val rawData = Seq(("objects", recordValue, "CAASMwoTNTY4NjgyMjE5OjY2ODQ4OTI5NxIcEAEQBBAGEAgQChAhECIQIxAlECYQJxApEC04ZA", feedDate,
-            "catalog_list_637716625269333561_4dbb5934-6580-4da4-b149-227603043c16", "c8118a58-7aef-45f5-bba6-a03faa63eb8e"))
+        val rawData = Seq(
+            (
+                "objects",
+                recordValue,
+                "CAASMwoTNTY4NjgyMjE5OjY2ODQ4OTI5NxIcEAEQBBAGEAgQChAhECIQIxAlECYQJxApEC04ZA",
+                feedDate,
+                "catalog_list_637716625269333561_4dbb5934-6580-4da4-b149-227603043c16",
+                "c8118a58-7aef-45f5-bba6-a03faa63eb8e"
+            )
+        )
             .toDF("record_type", "record_value", "cursor", "feed_date", "file_name", "cxi_id")
         rawData.createOrReplaceTempView(scrTable)
 
@@ -151,11 +188,31 @@ class MenuItemsProcessorTest extends BaseSparkBatchJobTest {
 
         // then
         val expected = Seq(
-            ("34LZBM2A3JNZ5MHWW3QLKMXU", "Combo Bop", "Two choices of meat. Served with rice, cabbage mix and noodle.  ", "food","UOZ26MXLICMNYJ5VKH6SHJSV",
-                Array("YY7ZT6JP2YTZK2DXZNLUSW5S"), "testPartner", null, null, null),
+            (
+                "34LZBM2A3JNZ5MHWW3QLKMXU",
+                "Combo Bop",
+                "Two choices of meat. Served with rice, cabbage mix and noodle.  ",
+                "food",
+                "UOZ26MXLICMNYJ5VKH6SHJSV",
+                Array("YY7ZT6JP2YTZK2DXZNLUSW5S"),
+                "testPartner",
+                null,
+                null,
+                null
+            ),
             ("YY7ZT6JP2YTZK2DXZNLUSW5S", "Regular", null, "variation", null, null, "testPartner", null, null, null)
-        ).toDF("item_id", "item_nm", "item_desc", "item_type", "category_array", "variation_array", "cxi_partner_id",
-            "main_category_name", "item_plu", "item_barcode").collect()
+        ).toDF(
+            "item_id",
+            "item_nm",
+            "item_desc",
+            "item_type",
+            "category_array",
+            "variation_array",
+            "cxi_partner_id",
+            "main_category_name",
+            "item_plu",
+            "item_barcode"
+        ).collect()
 
         result should contain theSameElementsAs expected
     }

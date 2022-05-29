@@ -1,8 +1,8 @@
 package com.cxi.cdp.data_processing
 package support.utils.mongodb
 
-import support.WorkspaceConfigReader
 import support.utils.ContractUtils
+import support.WorkspaceConfigReader
 
 import com.databricks.service.DBUtils
 import org.apache.spark.sql.SparkSession
@@ -11,20 +11,27 @@ object MongoDbConfigUtils {
 
     val MongoSparkConnectorClass = "com.mongodb.spark.sql.DefaultSource"
 
-    def getMongoDbConfig(spark: SparkSession, contract: ContractUtils, mongoDbProps: MongoDbProps = MongoDbProps()): MongoDbConfig = {
+    def getMongoDbConfig(
+        spark: SparkSession,
+        contract: ContractUtils,
+        mongoDbProps: MongoDbProps = MongoDbProps()
+    ): MongoDbConfig = {
         val workspaceConfigPath: String = contract.prop[String](mongoDbProps.workspaceConfigPath)
         val workspaceConfig = WorkspaceConfigReader.readWorkspaceConfig(spark, workspaceConfigPath)
 
         val username = DBUtils.secrets.get(
             workspaceConfig.azureKeyVaultScopeName,
-            contract.prop[String](mongoDbProps.usernameSecretKey))
+            contract.prop[String](mongoDbProps.usernameSecretKey)
+        )
         val password = DBUtils.secrets.get(
             workspaceConfig.azureKeyVaultScopeName,
-            contract.prop[String](mongoDbProps.passwordSecretKey))
+            contract.prop[String](mongoDbProps.passwordSecretKey)
+        )
         val scheme = contract.prop[String](mongoDbProps.schema)
         val host = DBUtils.secrets.get(
             workspaceConfig.azureKeyVaultScopeName,
-            contract.prop[String](mongoDbProps.hostSecretKey))
+            contract.prop[String](mongoDbProps.hostSecretKey)
+        )
 
         MongoDbConfig(username = username, password = password, scheme = scheme, host = host)
     }

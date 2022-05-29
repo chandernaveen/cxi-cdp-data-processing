@@ -2,9 +2,12 @@ package com.cxi.cdp.data_processing
 package refined_zone.throtle
 
 import refined_zone.throtle.model.{ThrotleDictionary, TransformedField}
-import refined_zone.throtle.service.ThrotleValidator.{validateCodeIsPresentInDictionary, validateColumnConfigurationIsPresent}
-import support.SparkSessionFactory
+import refined_zone.throtle.service.ThrotleValidator.{
+    validateCodeIsPresentInDictionary,
+    validateColumnConfigurationIsPresent
+}
 import support.utils.ContractUtils
+import support.SparkSessionFactory
 
 import org.apache.log4j.Logger
 import org.apache.spark.sql._
@@ -48,15 +51,29 @@ object RawRefinedThrotleTidAttJob {
         val integerColumnNames = contract.prop[Seq[String]]("schema.integer_columns").toSet
 
         val refinedDf =
-            process(s"$rawDb.$rawDataTable", s"$refinedThrotleDb.$throtleDictionaryTableName", booleanColumnNames, doNotTransformColumnNames,
-                integerColumnNames, feedDate, spark)
+            process(
+                s"$rawDb.$rawDataTable",
+                s"$refinedThrotleDb.$throtleDictionaryTableName",
+                booleanColumnNames,
+                doNotTransformColumnNames,
+                integerColumnNames,
+                feedDate,
+                spark
+            )
 
         write(s"$refinedThrotleDb.$tidAttTableName", refinedDf)
 
     }
 
-    def process(rawTable: String, dictTable: String, booleanColumnNames: Set[String], doNotTransformColumnNames: Set[String], integerColumnNames: Set[String],
-                feedDate: String, spark: SparkSession): DataFrame = {
+    def process(
+        rawTable: String,
+        dictTable: String,
+        booleanColumnNames: Set[String],
+        doNotTransformColumnNames: Set[String],
+        integerColumnNames: Set[String],
+        feedDate: String,
+        spark: SparkSession
+    ): DataFrame = {
 
         val rawDf = readRawData(rawTable, feedDate, spark)
 
@@ -67,17 +84,39 @@ object RawRefinedThrotleTidAttJob {
         val allColumnNames = rawDf.schema.fieldNames.to[ListSet]
 
         validateColumnConfigurationIsPresent(
-            allColumnNames, booleanColumnNames, doNotTransformColumnNames, integerColumnNames, dictionaryBroadcast.value.keySet)
+            allColumnNames,
+            booleanColumnNames,
+            doNotTransformColumnNames,
+            integerColumnNames,
+            dictionaryBroadcast.value.keySet
+        )
         val refinedDf = transform(
-            rawDf, doNotTransformColumnNames, booleanColumnNames, integerColumnNames, dictionaryBroadcast.value, allColumnNames, spark)
+            rawDf,
+            doNotTransformColumnNames,
+            booleanColumnNames,
+            integerColumnNames,
+            dictionaryBroadcast.value,
+            allColumnNames,
+            spark
+        )
 
         refinedDf
     }
 
-    private[throtle] def transform(rawDf: DataFrame, doNotTransformColumnNames: Set[String], booleanColumnNames: Set[String], integerColumnNames: Set[String],
-                                   dictionary: Map[String, Map[String, String]], allColumnNames: Set[String], spark: SparkSession): DataFrame = {
+    // TODO: refactor after the final scalafmt config is approved to remove scalastyle warning
+    // scalastyle:off method.length
+    private[throtle] def transform(
+        rawDf: DataFrame,
+        doNotTransformColumnNames: Set[String],
+        booleanColumnNames: Set[String],
+        integerColumnNames: Set[String],
+        dictionary: Map[String, Map[String, String]],
+        allColumnNames: Set[String],
+        spark: SparkSession
+    ): DataFrame = {
 
-        val getThrotleCodeValueUdf = udf((code_category: String, code: String) => getThrotleTransformedField(code_category, code, dictionary))
+        val getThrotleCodeValueUdf =
+            udf((code_category: String, code: String) => getThrotleTransformedField(code_category, code, dictionary))
         val parseBooleanFieldUdf = udf(parseBooleanField _)
         val castToIntUdf = udf((columnName: String, value: String) => castToInt(columnName, value))
 
@@ -105,13 +144,15 @@ object RawRefinedThrotleTidAttJob {
 
         validateCodeIsPresentInDictionary(transformedDf, transformedWithDictColumnsNames, spark)
 
-        val finalColumns = allColumnNames.map(colName => {
-            if (transformedWithDictColumnsNames.contains(colName)) {
-                col(s"$colName.transformedValue").as(colName)
-            } else {
-                col(colName)
-            }
-        }).toSeq
+        val finalColumns = allColumnNames
+            .map(colName => {
+                if (transformedWithDictColumnsNames.contains(colName)) {
+                    col(s"$colName.transformedValue").as(colName)
+                } else {
+                    col(colName)
+                }
+            })
+            .toSeq
 
         transformedDf.select(finalColumns: _*)
 
@@ -120,11 +161,14 @@ object RawRefinedThrotleTidAttJob {
     private[throtle] def castToInt(columnName: String, value: String): Integer = {
         value match {
             case null => null
-            case _ => Try(new Integer(value)) match {
-                case Success(intValue) => intValue
-                case Failure(_) =>
-                    throw new IllegalArgumentException(s"Column '$columnName' contains value that cannot be cast to Integer: '$value'")
-            }
+            case _ =>
+                Try(new Integer(value)) match {
+                    case Success(intValue) => intValue
+                    case Failure(_) =>
+                        throw new IllegalArgumentException(
+                            s"Column '$columnName' contains value that cannot be cast to Integer: '$value'"
+                        )
+                }
         }
     }
 
@@ -144,22 +188,44 @@ object RawRefinedThrotleTidAttJob {
         }
     }
 
-    private[throtle] def getThrotleTransformedField(code_category: String, code: String, throtleDict: Map[String, Map[String, String]]): TransformedField = {
+    private[throtle] def getThrotleTransformedField(
+        code_category: String,
+        code: String,
+        throtleDict: Map[String, Map[String, String]]
+    ): TransformedField = {
         if (code == null) {
             TransformedField(code_category, null, null, isValid = true)
         } else {
             throtleDict.get(code_category) match {
-                case Some(codeToValue) => codeToValue.get(code) match {
-                    case Some(value) => TransformedField(code_category, code, value, isValid = true) // found a code in the dictionary - true
-                    case _ => TransformedField(code_category, code, null, isValid = false) // not found a code in the dictionary - false
-                }
+                case Some(codeToValue) =>
+                    codeToValue.get(code) match {
+                        case Some(value) =>
+                            TransformedField(
+                                code_category,
+                                code,
+                                value,
+                                isValid = true
+                            ) // found a code in the dictionary - true
+                        case _ =>
+                            TransformedField(
+                                code_category,
+                                code,
+                                null,
+                                isValid = false
+                            ) // not found a code in the dictionary - false
+                    }
                 // this should never happen as we validate code category before actual processing
-                case _ => throw new IllegalArgumentException(s"Code category '$code_category' not found in throtle dictionary: $throtleDict")
+                case _ =>
+                    throw new IllegalArgumentException(
+                        s"Code category '$code_category' not found in throtle dictionary: $throtleDict"
+                    )
             }
         }
     }
 
-    private def transformThrottleDictionaryToMap(dataset: Dataset[ThrotleDictionary]): Map[String, Map[String, String]] = {
+    private def transformThrottleDictionaryToMap(
+        dataset: Dataset[ThrotleDictionary]
+    ): Map[String, Map[String, String]] = {
         dataset
             .collect()
             .toSeq
@@ -172,12 +238,14 @@ object RawRefinedThrotleTidAttJob {
 
     private def readThrottleDictionary(dictTable: String, spark: SparkSession): Dataset[ThrotleDictionary] = {
         import spark.implicits._
-        spark.table(dictTable)
+        spark
+            .table(dictTable)
             .as[ThrotleDictionary]
     }
 
     private def readRawData(srcTable: String, feedDate: String, spark: SparkSession) = {
-        spark.table(srcTable)
+        spark
+            .table(srcTable)
             .where(col("feed_date") === feedDate)
             .drop("feed_date", "file_name", "cxi_id")
             .dropDuplicates("throtle_id")
@@ -187,8 +255,7 @@ object RawRefinedThrotleTidAttJob {
         val srcTable = "newTidAtt"
 
         refinedDf.createOrReplaceTempView(srcTable)
-        refinedDf.sqlContext.sql(
-            s"""
+        refinedDf.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.throtle_id <=> $srcTable.throtle_id

@@ -11,9 +11,14 @@ import scala.collection.mutable.ArrayBuffer
 
 class ThrotleValidatorTest extends BaseSparkBatchJobTest {
 
-    case class CodeCategoryValidationTestCase
-        (allColumnNames: ListSet[String], booleanColumnNames: ListSet[String], doNotTransformColumnNames: ListSet[String], integerColumnNames: ListSet[String],
-         dictionaryColumnNames: ListSet[String], error: String)
+    case class CodeCategoryValidationTestCase(
+        allColumnNames: ListSet[String],
+        booleanColumnNames: ListSet[String],
+        doNotTransformColumnNames: ListSet[String],
+        integerColumnNames: ListSet[String],
+        dictionaryColumnNames: ListSet[String],
+        error: String
+    )
 
     test("Validate code category - validation passed") {
         // when
@@ -31,17 +36,50 @@ class ThrotleValidatorTest extends BaseSparkBatchJobTest {
     test("Validate code category - validation failed") {
         // given
         val testCases = Seq(
-            CodeCategoryValidationTestCase(ListSet("A", "B", "C", "D", "E"), ListSet("A"), ListSet("C"), ListSet("D"), ListSet("E"), "B"),
-            CodeCategoryValidationTestCase(ListSet("A", "B", "C", "D", "E"), ListSet("A", "B"), ListSet(), ListSet("D"), ListSet(), "C, E"),
-            CodeCategoryValidationTestCase(ListSet("A", "B", "C", "D", "E"), ListSet("A", "B"), ListSet("C"), ListSet(), ListSet("E"), "D"),
-            CodeCategoryValidationTestCase(ListSet("A", "B", "C", "D", "E"), ListSet(), ListSet(), ListSet(), ListSet(), "A, B, C, D, E")
+            CodeCategoryValidationTestCase(
+                ListSet("A", "B", "C", "D", "E"),
+                ListSet("A"),
+                ListSet("C"),
+                ListSet("D"),
+                ListSet("E"),
+                "B"
+            ),
+            CodeCategoryValidationTestCase(
+                ListSet("A", "B", "C", "D", "E"),
+                ListSet("A", "B"),
+                ListSet(),
+                ListSet("D"),
+                ListSet(),
+                "C, E"
+            ),
+            CodeCategoryValidationTestCase(
+                ListSet("A", "B", "C", "D", "E"),
+                ListSet("A", "B"),
+                ListSet("C"),
+                ListSet(),
+                ListSet("E"),
+                "D"
+            ),
+            CodeCategoryValidationTestCase(
+                ListSet("A", "B", "C", "D", "E"),
+                ListSet(),
+                ListSet(),
+                ListSet(),
+                ListSet(),
+                "A, B, C, D, E"
+            )
         )
 
         // when
         for (testCase <- testCases) {
             val exception = the[IllegalArgumentException] thrownBy
-                ThrotleValidator.validateColumnConfigurationIsPresent(testCase.allColumnNames, testCase.booleanColumnNames, testCase.doNotTransformColumnNames,
-                    testCase.integerColumnNames, testCase.dictionaryColumnNames)
+                ThrotleValidator.validateColumnConfigurationIsPresent(
+                    testCase.allColumnNames,
+                    testCase.booleanColumnNames,
+                    testCase.doNotTransformColumnNames,
+                    testCase.integerColumnNames,
+                    testCase.dictionaryColumnNames
+                )
 
             // then
             val errorMsg = s"""Configuration not found for columns in raw dataset: ${testCase.error}.
@@ -58,7 +96,10 @@ class ThrotleValidatorTest extends BaseSparkBatchJobTest {
         // given
         import spark.implicits._
         val transformedDf = Seq(
-            (TransformedField("income", "A", "Under $10K", true), TransformedField("occupation", "1", "Homemaker", true)),
+            (
+                TransformedField("income", "A", "Under $10K", true),
+                TransformedField("occupation", "1", "Homemaker", true)
+            ),
             (TransformedField("income", null, null, true), TransformedField("occupation", null, null, true))
         ).toDF("income", "occupation")
 
@@ -72,7 +113,10 @@ class ThrotleValidatorTest extends BaseSparkBatchJobTest {
         // given
         import spark.implicits._
         val transformedDf = Seq(
-            (TransformedField("income", "A", "Under $10K", true), TransformedField("occupation", "1", "Homemaker", true)),
+            (
+                TransformedField("income", "A", "Under $10K", true),
+                TransformedField("occupation", "1", "Homemaker", true)
+            ),
             (TransformedField("income", null, null, true), TransformedField("occupation", null, null, true)),
             (TransformedField("income", "XYZ", null, false), TransformedField("occupation", null, null, true)),
             (TransformedField("income", "XYZ", null, false), TransformedField("occupation", "ZXC", null, false)),
@@ -81,7 +125,11 @@ class ThrotleValidatorTest extends BaseSparkBatchJobTest {
 
         // when
         val exception = the[IllegalArgumentException] thrownBy
-            ThrotleValidator.validateCodeIsPresentInDictionary(transformedDf, ArrayBuffer("income", "occupation"), spark)
+            ThrotleValidator.validateCodeIsPresentInDictionary(
+                transformedDf,
+                ArrayBuffer("income", "occupation"),
+                spark
+            )
 
         // then
         val errorMsg = s"""Code values are missing from the throtle dictionary: (show first 100 records):

@@ -4,6 +4,7 @@ package refined_zone.pos_square
 import com.cxi.cdp.data_processing.raw_zone.pos_square.model.{Fulfillment, PickupDetails}
 import com.cxi.cdp.data_processing.refined_zone.hub.model.ChannelType
 import com.cxi.cdp.data_processing.support.BaseSparkBatchJobTest
+
 import org.apache.spark.sql.functions.col
 import org.scalatest.Matchers
 
@@ -19,42 +20,42 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
         val unknownType = "some unknown type"
 
         val inputDF = List[OrdTargetChannelIdTestCase](
-            OrdTargetChannelIdTestCase(
-                fulfillments = null,
-                expectedOrdTargetChannelId = ChannelType.Unknown.code),
-
-            OrdTargetChannelIdTestCase(
-                fulfillments = Seq(),
-                expectedOrdTargetChannelId = ChannelType.Unknown.code),
-
+            OrdTargetChannelIdTestCase(fulfillments = null, expectedOrdTargetChannelId = ChannelType.Unknown.code),
+            OrdTargetChannelIdTestCase(fulfillments = Seq(), expectedOrdTargetChannelId = ChannelType.Unknown.code),
             OrdTargetChannelIdTestCase(
                 fulfillments = Seq(protoFulfillment.copy(`type` = Type.Pickup)),
-                expectedOrdTargetChannelId = ChannelType.PhysicalPickup.code),
+                expectedOrdTargetChannelId = ChannelType.PhysicalPickup.code
+            ),
 
             // prefer COMPLETED fulfillment
             OrdTargetChannelIdTestCase(
                 fulfillments = Seq(
                     protoFulfillment.copy(`type` = unknownType, state = State.Proposed),
-                    protoFulfillment.copy(`type` = Type.Pickup, state = State.Completed)),
-                expectedOrdTargetChannelId = ChannelType.PhysicalPickup.code),
+                    protoFulfillment.copy(`type` = Type.Pickup, state = State.Completed)
+                ),
+                expectedOrdTargetChannelId = ChannelType.PhysicalPickup.code
+            ),
 
             // COMPLETED fulfillment has null type, so ignore it
             OrdTargetChannelIdTestCase(
                 fulfillments = Seq(
                     protoFulfillment.copy(`type` = null, state = State.Completed),
-                    protoFulfillment.copy(`type` = Type.Pickup, state = State.Proposed)),
-                expectedOrdTargetChannelId = ChannelType.PhysicalPickup.code),
-
+                    protoFulfillment.copy(`type` = Type.Pickup, state = State.Proposed)
+                ),
+                expectedOrdTargetChannelId = ChannelType.PhysicalPickup.code
+            ),
             OrdTargetChannelIdTestCase(
                 fulfillments = Seq(
                     protoFulfillment.copy(`type` = unknownType, state = State.Completed),
-                    protoFulfillment.copy(`type` = Type.Pickup, state = State.Proposed)),
-                expectedOrdTargetChannelId = ChannelType.Unknown.code),
-
+                    protoFulfillment.copy(`type` = Type.Pickup, state = State.Proposed)
+                ),
+                expectedOrdTargetChannelId = ChannelType.Unknown.code
+            ),
             OrdTargetChannelIdTestCase(
                 fulfillments = Seq(protoFulfillment.copy(`type` = unknownType)),
-                expectedOrdTargetChannelId = ChannelType.Unknown.code))
-            .toDS
+                expectedOrdTargetChannelId = ChannelType.Unknown.code
+            )
+        ).toDS
 
         val results = inputDF
             .withColumn("actualOrdTargetChannelId", OrderSummaryProcessor.getOrdTargetChannelId(col("fulfillments")))

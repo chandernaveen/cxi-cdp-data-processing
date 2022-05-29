@@ -1,11 +1,12 @@
 package com.cxi.cdp.data_processing
 package curated_zone.signal_framework.transactional_insights.pre_aggr.service
 
+import com.cxi.cdp.data_processing.support.BaseSparkBatchJobTest
+
+import org.scalatest.Matchers
+
 import java.sql.Timestamp
 import java.time.ZoneOffset
-
-import com.cxi.cdp.data_processing.support.BaseSparkBatchJobTest
-import org.scalatest.Matchers
 
 class MetricsServiceTest extends BaseSparkBatchJobTest with Matchers {
 
@@ -21,12 +22,13 @@ class MetricsServiceTest extends BaseSparkBatchJobTest with Matchers {
             ("1", Some(10.54), 1L, Some(1054L)),
             ("2", Some(12.0), 1L, Some(1200L)),
             ("3", None, 1L, None),
-            ("4", Some(0.0), 1L, Some(0L)),
+            ("4", Some(0.0), 1L, Some(0L))
         ).toDF(
             "ord_id",
             "ord_pay_total",
             metricColumnName(signalDomainName, TotalOrders.signalName),
-            metricColumnName(signalDomainName, TotalAmount.signalName))
+            metricColumnName(signalDomainName, TotalAmount.signalName)
+        )
 
         val orderSummary = expected.select("ord_id", "ord_pay_total")
 
@@ -64,7 +66,8 @@ class MetricsServiceTest extends BaseSparkBatchJobTest with Matchers {
             metricColumnName(signalDomainName, EarlyAfternoon.signalName),
             metricColumnName(signalDomainName, LateAfternoon.signalName),
             metricColumnName(signalDomainName, EarlyNight.signalName),
-            metricColumnName(signalDomainName, LateNight.signalName))
+            metricColumnName(signalDomainName, LateNight.signalName)
+        )
 
         val orderSummary = expected.select("ord_id", "ord_timestamp")
 
@@ -91,7 +94,7 @@ class MetricsServiceTest extends BaseSparkBatchJobTest with Matchers {
             ("6", Some(6), 0L, 0L, 0L, 0L, 0L, 0L, 1L, 0L),
             ("7", Some(99), 0L, 0L, 0L, 0L, 0L, 0L, 0L, 1L),
             ("8", Some(-42), 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L),
-            ("9", None, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L),
+            ("9", None, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L)
         ).toDF(
             "ord_id",
             "ord_target_channel_id",
@@ -102,7 +105,8 @@ class MetricsServiceTest extends BaseSparkBatchJobTest with Matchers {
             metricColumnName(signalDomainName, PhysicalDelivery.signalName),
             metricColumnName(signalDomainName, DigitalWeb.signalName),
             metricColumnName(signalDomainName, DigitalApp.signalName),
-            metricColumnName(signalDomainName, Other.signalName))
+            metricColumnName(signalDomainName, Other.signalName)
+        )
 
         val orderSummary = expected.select("ord_id", "ord_target_channel_id")
 
@@ -131,7 +135,8 @@ class MetricsServiceTest extends BaseSparkBatchJobTest with Matchers {
             metricColumnName(signalDomainName, Card.signalName),
             metricColumnName(signalDomainName, Cash.signalName),
             metricColumnName(signalDomainName, GiftCard.signalName),
-            metricColumnName(signalDomainName, Wallet.signalName))
+            metricColumnName(signalDomainName, Wallet.signalName)
+        )
 
         val orderSummary = expected.select("ord_id", "tender_ids")
 

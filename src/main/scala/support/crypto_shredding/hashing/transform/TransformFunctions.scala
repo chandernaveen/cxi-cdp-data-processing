@@ -3,8 +3,8 @@ package support.crypto_shredding.hashing.transform
 
 import support.exceptions.CryptoShreddingException
 
-import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat
 import com.google.i18n.phonenumbers.{NumberParseException, PhoneNumberUtil}
+import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat
 import org.apache.commons.validator.routines.EmailValidator
 
 object TransformFunctions {
@@ -42,7 +42,7 @@ object TransformFunctions {
 
     def normalizeEmail(value: String): String = {
         Some(value)
-            .filter(_!= null)
+            .filter(_ != null)
             .map(_.trim)
             .filter(_.nonEmpty)
             .filter(email => EmailValidatorInstance.isValid(email))
@@ -53,7 +53,7 @@ object TransformFunctions {
     def normalizePhoneNumber(value: String): String = {
         try {
             Some(value)
-                .filter(_!= null)
+                .filter(_ != null)
                 .map(_.trim)
                 .filter(_.nonEmpty)
                 .map(value => PhoneNumberUtilInstance.parse(value, "US"))

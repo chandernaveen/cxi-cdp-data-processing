@@ -1,14 +1,14 @@
 package com.cxi.cdp.data_processing
 package raw_zone
 
+import support.{SparkSessionFactory, WorkspaceConfigReader}
 import support.change_data_feed.{ChangeDataFeedService, ChangeDataFeedSource}
 import support.crypto_shredding.PrivacyFunctions
 import support.utils.ContractUtils
-import support.{SparkSessionFactory, WorkspaceConfigReader}
 
 import org.apache.log4j.Logger
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.functions.col
 import scopt.OptionParser
 
 import java.nio.file.Paths
@@ -35,7 +35,8 @@ object PrivacyLookupDeduplicationJob {
         val privacyFinalTable = getPrivacyTable(contract)
 
         val workspaceConfigPath: String = contract.prop[String]("databricks_workspace_config")
-        val privacyFunctions = new PrivacyFunctions(spark, WorkspaceConfigReader.readWorkspaceConfig(spark, workspaceConfigPath))
+        val privacyFunctions =
+            new PrivacyFunctions(spark, WorkspaceConfigReader.readWorkspaceConfig(spark, workspaceConfigPath))
 
         try {
             privacyFunctions.authorize()
@@ -66,20 +67,27 @@ object PrivacyLookupDeduplicationJob {
         }
     }
 
-    def process(privacyIntermediateTableName: String,
-                privacyFinalTableName: String,
-                feedDateToRunIdPairsToProcess: Set[FeedDateToRunIdChangedData])(implicit spark: SparkSession): Unit = {
-        val privacyLookupIntermediateTable = readPrivacyLookupIntermediateTable(privacyIntermediateTableName, feedDateToRunIdPairsToProcess)
+    def process(
+        privacyIntermediateTableName: String,
+        privacyFinalTableName: String,
+        feedDateToRunIdPairsToProcess: Set[FeedDateToRunIdChangedData]
+    )(implicit spark: SparkSession): Unit = {
+        val privacyLookupIntermediateTable =
+            readPrivacyLookupIntermediateTable(privacyIntermediateTableName, feedDateToRunIdPairsToProcess)
         val transformedPrivacyLookupIntermediateDf = transform(privacyLookupIntermediateTable)
         writePrivacyLookup(transformedPrivacyLookupIntermediateDf, privacyFinalTableName)
     }
 
-    def readPrivacyLookupIntermediateTable(table: String,
-                                           feedDateToRunIdPairsToProcess: Set[FeedDateToRunIdChangedData])(implicit spark: SparkSession): DataFrame = {
+    def readPrivacyLookupIntermediateTable(
+        table: String,
+        feedDateToRunIdPairsToProcess: Set[FeedDateToRunIdChangedData]
+    )(implicit spark: SparkSession): DataFrame = {
         val filterCondition = feedDateToRunIdPairsToProcess
-            .map(data => s"(feed_date='${data.feedDate}' AND run_id='${data.runId}')").mkString(" OR ")
+            .map(data => s"(feed_date='${data.feedDate}' AND run_id='${data.runId}')")
+            .mkString(" OR ")
 
-        spark.table(table)
+        spark
+            .table(table)
             .select("cxi_source", "identity_type", "hashed_value", "original_value", "feed_date")
             .filter(filterCondition)
     }
@@ -97,8 +105,7 @@ object PrivacyLookupDeduplicationJob {
 
         // <=> comparison operator is used for null-safe semantics
         // https://docs.databricks.com/spark/latest/spark-sql/language-manual/sql-ref-null-semantics.html#null-semantics
-        transformedPrivacyLookup.sqlContext.sql(
-            s"""
+        transformedPrivacyLookup.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.cxi_source <=> $srcTable.cxi_source
@@ -127,7 +134,9 @@ object PrivacyLookupDeduplicationJob {
         s"$db.$table"
     }
 
-    def getFeedDateToRunIdPairsToProcess(privacyIntermediateTableChangeData: DataFrame): Set[FeedDateToRunIdChangedData] = {
+    def getFeedDateToRunIdPairsToProcess(
+        privacyIntermediateTableChangeData: DataFrame
+    ): Set[FeedDateToRunIdChangedData] = {
         val feedDateColumnName = "feed_date"
         val runIdColumnName = "run_id"
         val feedDateColumn = col(feedDateColumnName)
@@ -139,7 +148,10 @@ object PrivacyLookupDeduplicationJob {
             .distinct
             .collect
             .map(r =>
-                FeedDateToRunIdChangedData(r.getAs[java.sql.Date](feedDateColumnName).toString, r.getAs[String](runIdColumnName))
+                FeedDateToRunIdChangedData(
+                    r.getAs[java.sql.Date](feedDateColumnName).toString,
+                    r.getAs[String](runIdColumnName)
+                )
             )
             .toSet
     }
@@ -152,20 +164,22 @@ object PrivacyLookupDeduplicationJob {
 
         private val initOptions = CliArgs(contractPath = null)
 
-        private def optionsParser: OptionParser[CliArgs] = new scopt.OptionParser[CliArgs]("Privacy Deduplication Job") {
+        private def optionsParser: OptionParser[CliArgs] =
+            new scopt.OptionParser[CliArgs]("Privacy Deduplication Job") {
 
-            opt[String]("contract-path")
-                .action((contractPath, c) => c.copy(contractPath = contractPath))
-                .text("path to a contract for this job")
-                .required
+                opt[String]("contract-path")
+                    .action((contractPath, c) => c.copy(contractPath = contractPath))
+                    .text("path to a contract for this job")
+                    .required
 
-            opt[Boolean]("full-reprocess")
-                .action((fullReprocess, c) => c.copy(fullReprocess = fullReprocess))
-                .text("if true, read all data from intermediate table")
-        }
+                opt[Boolean]("full-reprocess")
+                    .action((fullReprocess, c) => c.copy(fullReprocess = fullReprocess))
+                    .text("if true, read all data from intermediate table")
+            }
 
         def parse(args: Seq[String]): CliArgs = {
-            optionsParser.parse(args, initOptions)
+            optionsParser
+                .parse(args, initOptions)
                 .getOrElse(throw new IllegalArgumentException("Could not parse arguments"))
         }
 

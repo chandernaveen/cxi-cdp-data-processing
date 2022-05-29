@@ -1,11 +1,10 @@
 package com.cxi.cdp.data_processing
 package support.crypto_shredding.hashing.function_types.common
 
+import com.cxi.cdp.data_processing.refined_zone.hub.identity.model.IdentityType
 import support.crypto_shredding.hashing.function_types.common.PiiColumnsConfig.{Column, NormalizationFunc}
 import support.crypto_shredding.hashing.transform.TransformFunctions.parseTransformFunction
 import support.exceptions.CryptoShreddingException
-
-import com.cxi.cdp.data_processing.refined_zone.hub.identity.model.IdentityType
 
 case class PiiColumnsConfig(columns: Seq[(Column, NormalizationFunc, Option[IdentityType])]) extends Serializable
 

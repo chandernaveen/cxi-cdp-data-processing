@@ -2,9 +2,9 @@ package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
 import refined_zone.pos_square.config.ProcessorConfig
-import support.SparkSessionFactory
 import support.normalization.DateNormalization
 import support.utils.ContractUtils
+import support.SparkSessionFactory
 
 import org.apache.log4j.Logger
 import org.apache.spark.sql.SparkSession
@@ -33,7 +33,14 @@ object RawRefinedSquarePartnerJob {
         val destDbName = contract.prop[String](getSchemaRefinedPath("db_name"))
         val refinedHubDestDbName = contract.prop[String](getSchemaRefinedHubPath("db_name"))
 
-        val processorCommonConfig = ProcessorConfig(contract, DateNormalization.parseToLocalDate(date), cxiPartnerId, runId, srcDbName, srcTable)
+        val processorCommonConfig = ProcessorConfig(
+            contract,
+            DateNormalization.parseToLocalDate(date),
+            cxiPartnerId,
+            runId,
+            srcDbName,
+            srcTable
+        )
 
         LocationsProcessor.process(spark, processorCommonConfig, destDbName)
         CategoriesProcessor.process(spark, processorCommonConfig, destDbName)
@@ -41,7 +48,8 @@ object RawRefinedSquarePartnerJob {
         MenuItemsProcessor.process(spark, cxiPartnerId, date, s"$srcDbName.$srcTable", s"$destDbName.$menuItemTable")
         CustomersProcessor.process(spark, processorCommonConfig, destDbName)
         val payments = PaymentsProcessor.process(spark, processorCommonConfig, destDbName)
-        val cxiIdentityIdsByOrder = CxiIdentityProcessor.process(spark, processorCommonConfig, refinedHubDestDbName, payments)
+        val cxiIdentityIdsByOrder =
+            CxiIdentityProcessor.process(spark, processorCommonConfig, refinedHubDestDbName, payments)
         OrderTaxesProcessor.process(spark, processorCommonConfig, destDbName)
         OrderTenderTypesProcessor.process(spark, processorCommonConfig, destDbName)
         OrderSummaryProcessor.process(spark, processorCommonConfig, destDbName, cxiIdentityIdsByOrder)

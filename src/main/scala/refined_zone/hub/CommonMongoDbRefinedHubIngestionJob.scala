@@ -1,16 +1,16 @@
 package com.cxi.cdp.data_processing
 package refined_zone.hub
 
-import support.SparkSessionFactory
-import support.utils.TransformUtils.ColumnsMapping
-import support.utils.mongodb.MongoDbConfigUtils
 import support.utils.{ContractUtils, TransformUtils}
+import support.utils.mongodb.MongoDbConfigUtils
+import support.utils.TransformUtils.ColumnsMapping
+import support.SparkSessionFactory
 
-import com.mongodb.spark.MongoSpark
 import com.mongodb.spark.config.ReadConfig
+import com.mongodb.spark.MongoSpark
 import org.apache.log4j.Logger
-import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.functions.lit
 
 import java.nio.file.Paths
 
@@ -36,11 +36,14 @@ object CommonMongoDbRefinedHubIngestionJob {
         val mongoDbCollection = contract.prop[String](getJobConfigProp("src_collection"))
         val destDb = contract.prop[String](getJobConfigProp("dest_db"))
         val destTable = contract.prop[String](getJobConfigProp("dest_table"))
-        val columnsMapping = ColumnsMapping(contract.prop[List[Map[String, String]]](getJobConfigProp("column_mapping")))
+        val columnsMapping = ColumnsMapping(
+            contract.prop[List[Map[String, String]]](getJobConfigProp("column_mapping"))
+        )
         val destTableKeys = contract.prop[List[String]](getJobConfigProp("dest_table_keys"))
 
         val sourceCollectionDf = read(spark, mongoDbConfig.uri, mongoDbDatabase, mongoDbCollection)
-        val transformedCollectionDf = transform(sourceCollectionDf, columnsMapping, destTableKeys, cliArgs.feedDate, cliArgs.dropDuplicates)
+        val transformedCollectionDf =
+            transform(sourceCollectionDf, columnsMapping, destTableKeys, cliArgs.feedDate, cliArgs.dropDuplicates)
         write(transformedCollectionDf, s"$destDb.$destTable", destTableKeys)
     }
 
@@ -51,15 +54,18 @@ object CommonMongoDbRefinedHubIngestionJob {
                 "database" -> mongoDbDatabase,
                 "collection" -> mongoDbCollection,
                 "readPreference.name" -> "secondaryPreferred"
-            ))
+            )
+        )
         MongoSpark.load(spark, readConfig)
     }
 
-    def transform(sourceCollectionDf: DataFrame,
-                  columnsMapping: ColumnsMapping,
-                  destTableKeys: List[String],
-                  date: String,
-                  dropDuplicates: Boolean): DataFrame = {
+    def transform(
+        sourceCollectionDf: DataFrame,
+        columnsMapping: ColumnsMapping,
+        destTableKeys: List[String],
+        date: String,
+        dropDuplicates: Boolean
+    ): DataFrame = {
 
         val res = TransformUtils.applyColumnMapping(sourceCollectionDf, columnsMapping, includeAllSourceColumns = false)
 
@@ -109,7 +115,8 @@ object CommonMongoDbRefinedHubIngestionJob {
         (commonDestKey +: destTableKeys).map(key => s"$destTable.$key <=> $srcTable.$key").mkString(" AND ")
     }
 
-    def getJobConfigProp(relativePath: String): String = s"jobs.databricks.refined_hub_mongo_ingestion_job.job_config.$relativePath"
+    def getJobConfigProp(relativePath: String): String =
+        s"jobs.databricks.refined_hub_mongo_ingestion_job.job_config.$relativePath"
 
     case class CliArgs(contractPath: String, feedDate: String, dropDuplicates: Boolean)
 
@@ -117,26 +124,28 @@ object CommonMongoDbRefinedHubIngestionJob {
 
         private val initOptions = CliArgs(contractPath = null, feedDate = null, dropDuplicates = false)
 
-        private def optionsParser = new scopt.OptionParser[CliArgs](CommonMongoDbRefinedHubIngestionJob.getClass.getName) {
+        private def optionsParser =
+            new scopt.OptionParser[CliArgs](CommonMongoDbRefinedHubIngestionJob.getClass.getName) {
 
-            opt[String]("contract-path")
-                .action((contractPath, c) => c.copy(contractPath = contractPath))
-                .text("path to a contract for this job")
-                .required
+                opt[String]("contract-path")
+                    .action((contractPath, c) => c.copy(contractPath = contractPath))
+                    .text("path to a contract for this job")
+                    .required
 
-            opt[String]("feed-date")
-                .action((feedDate, c) => c.copy(feedDate = feedDate))
-                .text("feed date to process (format: yyyy-MM-dd)")
-                .required
+                opt[String]("feed-date")
+                    .action((feedDate, c) => c.copy(feedDate = feedDate))
+                    .text("feed date to process (format: yyyy-MM-dd)")
+                    .required
 
-            opt[Boolean]("drop-duplicates")
-                .action((dropDuplicates, c) => c.copy(dropDuplicates = dropDuplicates))
-                .text("whether to drop duplicates from the source or not (true/false)")
-                .required
-        }
+                opt[Boolean]("drop-duplicates")
+                    .action((dropDuplicates, c) => c.copy(dropDuplicates = dropDuplicates))
+                    .text("whether to drop duplicates from the source or not (true/false)")
+                    .required
+            }
 
         def parse(args: Seq[String]): CliArgs = {
-            optionsParser.parse(args, initOptions)
+            optionsParser
+                .parse(args, initOptions)
                 .getOrElse(throw new IllegalArgumentException("Could not parse arguments"))
         }
 

@@ -22,13 +22,19 @@ class CustomersProcessorTest extends BaseSparkBatchJobTest {
                        "created_at":"2021-05-13T21:50:55Z",
                        "version": "2"
                     }
-                   """, "customers" , "2021-10-11"),
+                   """,
+                "customers",
+                "2021-10-11"
+            ),
             (
                 s"""
                    {
                      "id": "L0P0DJ340FXF0"
                    }
-                   """, "customers" , "2021-10-10") // duplicate with diff date that gets filtered out
+                   """,
+                "customers",
+                "2021-10-10"
+            ) // duplicate with diff date that gets filtered out
         ).toDF("record_value", "record_type", "feed_date")
 
         val tableName = "customers"
@@ -40,13 +46,30 @@ class CustomersProcessorTest extends BaseSparkBatchJobTest {
         // then
         val actualFieldsReturned = actual.schema.fields.map(f => f.name)
         withClue("Actual fields returned:\n" + actual.schema.treeString) {
-            actualFieldsReturned shouldEqual Array("customer_id", "email_address", "phone_number", "first_name", "last_name", "created_at", "version")
+            actualFieldsReturned shouldEqual Array(
+                "customer_id",
+                "email_address",
+                "phone_number",
+                "first_name",
+                "last_name",
+                "created_at",
+                "version"
+            )
         }
         val actualSquareCustomersData = actual.collect()
         withClue("POS Square refined customers data do not match") {
             val expected = List(
-                ("L0P0DJ340FXF0", "ax3e49011927563cbf58161c436POA5fb2b09b4b12496fdc4e38d3e9784c3912", "df2e49446821163cbf58168c436fec5fb2b09b4b12496fdc4e38d3e9784c2790", "John", "Doe", "2021-05-13T21:50:55Z", "2")
-            ).toDF("customer_id", "email_address", "phone_number", "first_name", "last_name", "created_at", "version").collect()
+                (
+                    "L0P0DJ340FXF0",
+                    "ax3e49011927563cbf58161c436POA5fb2b09b4b12496fdc4e38d3e9784c3912",
+                    "df2e49446821163cbf58168c436fec5fb2b09b4b12496fdc4e38d3e9784c2790",
+                    "John",
+                    "Doe",
+                    "2021-05-13T21:50:55Z",
+                    "2"
+                )
+            ).toDF("customer_id", "email_address", "phone_number", "first_name", "last_name", "created_at", "version")
+                .collect()
             actualSquareCustomersData.length should equal(expected.length)
             actualSquareCustomersData should contain theSameElementsAs expected
         }
@@ -57,8 +80,8 @@ class CustomersProcessorTest extends BaseSparkBatchJobTest {
         import spark.implicits._
         val cxiPartnerId = "some-partner-id"
         val customers = List(
-            ("L0P0DJ340FXF0", null, null,null,null,null,null),
-            ("L0P0DJ340FXF0", null, null,null,null,null,null) // duplicate
+            ("L0P0DJ340FXF0", null, null, null, null, null, null),
+            ("L0P0DJ340FXF0", null, null, null, null, null, null) // duplicate
         ).toDF("customer_id", "email_address", "phone_number", "first_name", "last_name", "created_at", "version")
 
         // when
@@ -67,13 +90,31 @@ class CustomersProcessorTest extends BaseSparkBatchJobTest {
         // then
         val actualFieldsReturned = actual.schema.fields.map(f => f.name)
         withClue("Actual fields returned:\n" + actual.schema.treeString) {
-            actualFieldsReturned shouldEqual Array("customer_id", "email_address", "phone_number", "first_name", "last_name", "created_at", "version", "cxi_partner_id")
+            actualFieldsReturned shouldEqual Array(
+                "customer_id",
+                "email_address",
+                "phone_number",
+                "first_name",
+                "last_name",
+                "created_at",
+                "version",
+                "cxi_partner_id"
+            )
         }
         val actualSquareCustomersData = actual.collect()
         withClue("POS Square refined customers data do not match") {
             val expected = List(
                 ("L0P0DJ340FXF0", null, null, null, null, null, null, cxiPartnerId)
-            ).toDF("customer_id", "email_address", "phone_number", "first_name", "last_name", "created_at", "version", "cxi_partner_id").collect()
+            ).toDF(
+                "customer_id",
+                "email_address",
+                "phone_number",
+                "first_name",
+                "last_name",
+                "created_at",
+                "version",
+                "cxi_partner_id"
+            ).collect()
             actualSquareCustomersData.length should equal(expected.length)
             actualSquareCustomersData should contain theSameElementsAs expected
         }

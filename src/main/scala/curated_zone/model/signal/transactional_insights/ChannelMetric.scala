@@ -3,12 +3,15 @@ package curated_zone.model.signal.transactional_insights
 
 import com.cxi.cdp.data_processing.curated_zone.model.signal.{Signal, SignalDomain}
 import com.cxi.cdp.data_processing.refined_zone.hub.model.ChannelType
+
 import enumeratum.values._
 
 sealed abstract class ChannelMetric(
-                                       val value: String,
-                                       val channelType: ChannelType
-                                   ) extends StringEnumEntry with Signal with Serializable {
+    val value: String,
+    val channelType: ChannelType
+) extends StringEnumEntry
+    with Signal
+    with Serializable {
     override def signalName: String = value
 }
 

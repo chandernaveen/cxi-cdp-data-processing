@@ -31,4 +31,3 @@ object SignalType extends StringEnum[SignalType] {
 
     val values = findValues
 }
-

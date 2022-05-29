@@ -1,17 +1,18 @@
 package com.cxi.cdp.data_processing
 package refined_zone.hub.identity
 
-import java.nio.file.Paths
-
 import com.cxi.cdp.data_processing.refined_zone.hub.identity.model._
-import com.cxi.cdp.data_processing.refined_zone.hub.ChangeDataFeedViews
 import com.cxi.cdp.data_processing.refined_zone.hub.model.CxiIdentity
-import com.cxi.cdp.data_processing.support.SparkSessionFactory
+import com.cxi.cdp.data_processing.refined_zone.hub.ChangeDataFeedViews
+import com.cxi.cdp.data_processing.support.change_data_feed.CdfDiffFormat
 import com.cxi.cdp.data_processing.support.utils.ContractUtils
+import com.cxi.cdp.data_processing.support.SparkSessionFactory
+
 import org.apache.log4j.Logger
 import org.apache.spark.sql.{Column, DataFrame, Dataset, SparkSession}
-import com.cxi.cdp.data_processing.support.change_data_feed.CdfDiffFormat
 import org.apache.spark.sql.functions.{array, coalesce, col, explode, flatten, lit, not, struct, when}
+
+import java.nio.file.Paths
 
 /** This Spark job extracts identity relationships from order summary and writes them into identity_relationship table.
   *
@@ -42,10 +43,7 @@ object ExtractIdentityRelationshipsJob {
 
     private val dateOrdering: Ordering[java.sql.Date] = Ordering.by(_.getTime)
 
-    private[identity] case class RelatedIdentities(
-                                                      frequency: Int,
-                                                      identities: Seq[IdentityId],
-                                                      date: java.sql.Date)
+    private[identity] case class RelatedIdentities(frequency: Int, identities: Seq[IdentityId], date: java.sql.Date)
 
     def main(args: Array[String]): Unit = {
         logger.info(s"""Received following args: ${args.mkString(",")}""")
@@ -78,7 +76,10 @@ object ExtractIdentityRelationshipsJob {
                 (changeDataResult, changeDataResult.data.map(CdfDiffFormat.transformRegularDataFrame))
             } else {
                 val changeDataResult = orderSummaryCdf.queryChangeData(CdfConsumerId)
-                (changeDataResult, changeDataResult.data.map(CdfDiffFormat.transformChangeDataFeed(_, OrderSummaryKeys)))
+                (
+                    changeDataResult,
+                    changeDataResult.data.map(CdfDiffFormat.transformChangeDataFeed(_, OrderSummaryKeys))
+                )
             }
 
         maybeDiffData match {
@@ -149,7 +150,9 @@ object ExtractIdentityRelationshipsJob {
       *   relationship
       * - a relationship between `phone:111` and `phone:333` with the frequency of 1, to add the new relationship
       */
-    private[identity] def extractRelatedEntities(orderSummaryDiffDF: DataFrame)(implicit spark: SparkSession): Dataset[RelatedIdentities] = {
+    private[identity] def extractRelatedEntities(
+        orderSummaryDiffDF: DataFrame
+    )(implicit spark: SparkSession): Dataset[RelatedIdentities] = {
         import spark.implicits._
 
         val ordDateFallback = new java.sql.Date(java.time.Instant.now().toEpochMilli)
@@ -162,7 +165,10 @@ object ExtractIdentityRelationshipsJob {
                         struct(
                             lit(frequency).as("frequency"),
                             col(s"$parentColumn.${CxiIdentity.CxiIdentityIds}").as("identities"),
-                            coalesce(col(s"$parentColumn.ord_date"), lit(ordDateFallback)).as("date"))))
+                            coalesce(col(s"$parentColumn.ord_date"), lit(ordDateFallback)).as("date")
+                        )
+                    )
+                )
         }
 
         filterOrdersWithModifiedIdentities(orderSummaryDiffDF)
@@ -172,10 +178,15 @@ object ExtractIdentityRelationshipsJob {
                         array(
                             extractOptionalRelatedIdentities(
                                 CdfDiffFormat.PreviousRecordColumnName,
-                                frequency = RemoveRelationshipFrequency),
+                                frequency = RemoveRelationshipFrequency
+                            ),
                             extractOptionalRelatedIdentities(
                                 CdfDiffFormat.CurrentRecordColumnName,
-                                frequency = AddRelationshipFrequency))))
+                                frequency = AddRelationshipFrequency
+                            )
+                        )
+                    )
+                )
                     .as("related_identities")
             )
             .select(col("related_identities.*"))
@@ -200,8 +211,8 @@ object ExtractIdentityRelationshipsJob {
       * all duplicate records will be merged.
       */
     private[identity] def createIdentityRelationships(
-                                                         relatedIdentitiesDS: Dataset[RelatedIdentities]
-                                                     )(implicit spark: SparkSession): Dataset[IdentityRelationship] = {
+        relatedIdentitiesDS: Dataset[RelatedIdentities]
+    )(implicit spark: SparkSession): Dataset[IdentityRelationship] = {
         import spark.implicits._
 
         relatedIdentitiesDS
@@ -221,8 +232,7 @@ object ExtractIdentityRelationshipsJob {
       */
     private def createIdentityRelationships(relatedIdentities: RelatedIdentities): Iterator[IdentityRelationship] = {
         // sort identities so that source-target order is deterministically defined
-        val sortedIdentities = relatedIdentities
-            .identities
+        val sortedIdentities = relatedIdentities.identities
             .sorted(IdentityId.SourceToTargetOrdering)
             .distinct
 
@@ -249,8 +259,7 @@ object ExtractIdentityRelationshipsJob {
         val srcTable = "newIdentityRelationsips"
         df.createOrReplaceTempView(srcTable)
 
-        df.sqlContext.sql(
-            s"""
+        df.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.source <=> $srcTable.source
@@ -274,8 +283,9 @@ object ExtractIdentityRelationshipsJob {
       * It is assumed that these records have the same key (source/source_type/target/target_type).
       */
     private[identity] def mergeIdentityRelationships(
-                                                        first: IdentityRelationship,
-                                                        second: IdentityRelationship): IdentityRelationship = {
+        first: IdentityRelationship,
+        second: IdentityRelationship
+    ): IdentityRelationship = {
         first.copy(
             frequency = first.frequency + second.frequency,
             created_date = dateOrdering.min(first.created_date, second.created_date),
@@ -304,7 +314,8 @@ object ExtractIdentityRelationshipsJob {
         }
 
         def parse(args: Seq[String]): CliArgs = {
-            optionsParser.parse(args, initOptions)
+            optionsParser
+                .parse(args, initOptions)
                 .getOrElse(throw new IllegalArgumentException("Could not parse arguments"))
         }
 

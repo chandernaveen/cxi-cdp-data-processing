@@ -1,19 +1,19 @@
 package com.cxi.cdp.data_processing
 package curated_zone.audience.service
 
-import java.time.Instant
-import java.util.UUID
-
 import com.cxi.cdp.data_processing.curated_zone.audience.model.Customer360
 import com.cxi.cdp.data_processing.refined_zone.hub.identity.model.IdentityId
 import com.cxi.cdp.data_processing.refined_zone.hub.model.CxiIdentity
+
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.graphframes.GraphFrame
 
+import java.time.Instant
+import java.util.UUID
+
 object AudienceService {
 
-    /**
-      * GraphFrames framework pre-defined column names
+    /** GraphFrames framework pre-defined column names
       * https://graphframes.github.io/graphframes/docs/_site/user-guide.html#creating-graphframes
       */
     object GraphFrames {
@@ -27,7 +27,8 @@ object AudienceService {
 
     def buildConnectedComponents(vertexDf: DataFrame, edgeDf: DataFrame): DataFrame = {
         val identityGraph = GraphFrame(vertexDf, edgeDf)
-        identityGraph.connectedComponents.run()
+        identityGraph.connectedComponents
+            .run()
             .withColumnRenamed(GraphFrames.VertexIdCol, CxiIdentity.CxiIdentityId)
             .withColumnRenamed(GraphFrames.ComponentCol, ComponentIdCol)
     }
@@ -61,10 +62,10 @@ object AudienceService {
       * 3. Deactivate all customers from the previous customer_360 whose customer_360 IDs were not reused.
       */
     def updateCustomer360(
-                             spark: SparkSession,
-                             connectedComponents: DataFrame,
-                             prevCustomer360: Dataset[Customer360]
-                         ): Dataset[Customer360] = {
+        spark: SparkSession,
+        connectedComponents: DataFrame,
+        prevCustomer360: Dataset[Customer360]
+    ): Dataset[Customer360] = {
         import spark.implicits._
 
         val prevActiveCustomer360 = prevCustomer360.filter(_.active_flag)
@@ -90,9 +91,10 @@ object AudienceService {
       * @param customerCreateDate   the customer's creation date
       */
     private[audience] case class MatchedPrevCustomer(
-                                                        numIdentitiesMatched: Int,
-                                                        numIdentitiesTotal: Int,
-                                                        customerCreateDate: java.sql.Date)
+        numIdentitiesMatched: Int,
+        numIdentitiesTotal: Int,
+        customerCreateDate: java.sql.Date
+    )
 
     /** An intermediate customer object created from the connected component.
       *
@@ -101,20 +103,24 @@ object AudienceService {
       * @param prevCustomers  previously created customers that have matched this connected component by identity ID
       */
     private[audience] case class IntermediateCustomer(
-                                                         componentId: Long,
-                                                         cxiIdentityIds: Set[String],
-                                                         prevCustomers: Map[String, MatchedPrevCustomer])
+        componentId: Long,
+        cxiIdentityIds: Set[String],
+        prevCustomers: Map[String, MatchedPrevCustomer]
+    )
 
     private[audience] object IntermediateCustomer {
 
         def mergeForSameComponent(first: IntermediateCustomer, second: IntermediateCustomer): IntermediateCustomer = {
             first.copy(
                 cxiIdentityIds = first.cxiIdentityIds ++ second.cxiIdentityIds,
-                prevCustomers = mergePrevCustomers(first.prevCustomers, second.prevCustomers))
+                prevCustomers = mergePrevCustomers(first.prevCustomers, second.prevCustomers)
+            )
         }
 
-        private def mergePrevCustomers(first: Map[String, MatchedPrevCustomer],
-                                       second: Map[String, MatchedPrevCustomer]): Map[String, MatchedPrevCustomer] = {
+        private def mergePrevCustomers(
+            first: Map[String, MatchedPrevCustomer],
+            second: Map[String, MatchedPrevCustomer]
+        ): Map[String, MatchedPrevCustomer] = {
             val customerIds = first.keySet ++ second.keySet
             customerIds
                 .flatMap(customerId => {
@@ -131,7 +137,10 @@ object AudienceService {
         }
     }
 
-    private[audience] def expandCustomer360ByIdentityId(spark: SparkSession, customer360: Dataset[Customer360]): DataFrame = {
+    private[audience] def expandCustomer360ByIdentityId(
+        spark: SparkSession,
+        customer360: Dataset[Customer360]
+    ): DataFrame = {
         import spark.implicits._
 
         customer360
@@ -162,10 +171,13 @@ object AudienceService {
             case None => Map.empty[String, MatchedPrevCustomer]
 
             case Some(customer360Id) =>
-                Map(customer360Id -> MatchedPrevCustomer(
-                    numIdentitiesMatched = 1,
-                    numIdentitiesTotal = row.getAs[Int](CustomerNumIdentitiesCol),
-                    customerCreateDate = row.getAs[java.sql.Date](CustomerCreateDateCol)))
+                Map(
+                    customer360Id -> MatchedPrevCustomer(
+                        numIdentitiesMatched = 1,
+                        numIdentitiesTotal = row.getAs[Int](CustomerNumIdentitiesCol),
+                        customerCreateDate = row.getAs[java.sql.Date](CustomerCreateDateCol)
+                    )
+                )
         }
 
         IntermediateCustomer(componentId, Set(cxiIdentityId), prevCustomers)
@@ -189,9 +201,10 @@ object AudienceService {
         )
     }
 
-    private[audience] def findWinningPrevCustomer(prevCustomers: Map[String, MatchedPrevCustomer]): Option[(String, MatchedPrevCustomer)] = {
-        prevCustomers
-            .toSeq
+    private[audience] def findWinningPrevCustomer(
+        prevCustomers: Map[String, MatchedPrevCustomer]
+    ): Option[(String, MatchedPrevCustomer)] = {
+        prevCustomers.toSeq
             .filter({ case (_, matchedPrevCustomer) =>
                 // consider only customers that have more than half of their previous identities matched
                 2 * matchedPrevCustomer.numIdentitiesMatched > matchedPrevCustomer.numIdentitiesTotal
@@ -204,8 +217,7 @@ object AudienceService {
     }
 
     private[audience] def groupIdentitiesByType(qualifiedIdentityIds: Set[String]): Map[String, Seq[String]] = {
-        qualifiedIdentityIds
-            .toSeq
+        qualifiedIdentityIds.toSeq
             .map(IdentityId.fromQualifiedIdentityId)
             .sorted(IdentityId.SourceToTargetOrdering)
             .groupBy(_.identity_type)
@@ -219,17 +231,18 @@ object AudienceService {
       * mark it as inactive, as its Customer ID was not reused and the customer no longer exists.
       */
     private[audience] def mergePrevAndNewCustomer360(
-                                                        spark: SparkSession,
-                                                        prevActiveCustomer360: Dataset[Customer360],
-                                                        newActiveCustomer360: Dataset[Customer360]
-                                                    ): Dataset[Customer360] = {
+        spark: SparkSession,
+        prevActiveCustomer360: Dataset[Customer360],
+        newActiveCustomer360: Dataset[Customer360]
+    ): Dataset[Customer360] = {
         import spark.implicits._
 
         newActiveCustomer360
             .joinWith(
                 prevActiveCustomer360,
                 newActiveCustomer360(Customer360IdCol) === prevActiveCustomer360(Customer360IdCol),
-                "full_outer")
+                "full_outer"
+            )
             .flatMap({
                 case (newCustomer, _) if newCustomer != null => Some(newCustomer)
                 case (null, prevCustomer) if prevCustomer != null => Some(prevCustomer.copy(active_flag = false))

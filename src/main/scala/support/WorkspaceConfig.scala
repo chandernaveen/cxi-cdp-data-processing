@@ -10,7 +10,7 @@ object WorkspaceConfigReader {
         val globalConfigDetails = spark.sparkContext.wholeTextFiles(configPath).collect.take(1)(0)._2
         val mapper = new ObjectMapper() with ScalaObjectMapper
         mapper.registerModule(DefaultScalaModule)
-        WorkspaceConfig(mapper.readValue(globalConfigDetails, classOf[Map[String,String]]))
+        WorkspaceConfig(mapper.readValue(globalConfigDetails, classOf[Map[String, String]]))
     }
 }
 

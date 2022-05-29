@@ -3,21 +3,20 @@ package refined_zone.hub.demographic
 
 import refined_zone.hub.identity.model._
 import refined_zone.service.MetadataService.extractMetadata
+import support.{SparkSessionFactory, WorkspaceConfigReader}
 import support.crypto_shredding.PrivacyFunctions
 import support.utils.ContractUtils
-import support.{SparkSessionFactory, WorkspaceConfigReader}
 
 import org.apache.log4j.Logger
-import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.functions._
 
 import java.nio.file.Paths
 
-
 /** This Spark job extracts identity relationships from order summary and writes them into identity_relationship table.
- *
- * TODO: This will be updated on performance ticket DP-2251 once we have CDF ready
- */
+  *
+  * TODO: This will be updated on performance ticket DP-2251 once we have CDF ready
+  */
 object DemographicIdentityRelationshipsJob {
 
     private val logger = Logger.getLogger(this.getClass.getName)
@@ -32,6 +31,8 @@ object DemographicIdentityRelationshipsJob {
         run(cliArgs)(SparkSessionFactory.getSparkSession())
     }
 
+    // TODO: refactor after the final scalafmt config is approved to remove scalastyle warning
+    // scalastyle:off method.length
     def run(cliArgs: CliArgs)(implicit spark: SparkSession): Unit = {
         val contract: ContractUtils = new ContractUtils(Paths.get(cliArgs.contractPath))
 
@@ -45,13 +46,15 @@ object DemographicIdentityRelationshipsJob {
 
         val refinedHubDB = contract.prop[String](getSchemaRefinedHubPath("db_name"))
         val demographicIdentityTable = contract.prop[String](getSchemaRefinedHubPath("demographic_identity_table"))
-        val demographicIdentityRelationshipTable = contract.prop[String](getSchemaRefinedHubPath("demographic_identity_relationship_table"))
+        val demographicIdentityRelationshipTable =
+            contract.prop[String](getSchemaRefinedHubPath("demographic_identity_relationship_table"))
 
         val workspaceConfigPath: String = contract.prop[String]("databricks_workspace_config")
         val workspaceConfig = WorkspaceConfigReader.readWorkspaceConfig(spark, workspaceConfigPath)
 
         val throtleEmailTableName = s"$rawDB.$throtleEmailTable"
-        val dfThrotleEmail = readThrotleTidEmail(throtleEmailTableName, findMaxFeedDateInRawTable(throtleEmailTableName))
+        val dfThrotleEmail =
+            readThrotleTidEmail(throtleEmailTableName, findMaxFeedDateInRawTable(throtleEmailTableName))
         val throtleIdfaTableName = s"$rawDB.$throtleIdfaTable"
         val dfThrotleIDFA = readThrotleTidIdfa(throtleIdfaTableName, findMaxFeedDateInRawTable(throtleIdfaTableName))
         val throtleAaidTableName = s"$rawDB.$throtleAaidTable"
@@ -70,8 +73,15 @@ object DemographicIdentityRelationshipsJob {
             writeDemographicIdentity(transformedDemographicIdentity, s"$refinedHubDB.$demographicIdentityTable")
 
             val transformedDemographicIdentityRelationship =
-                transformDemographicIdentityRelationship(transformedThrotleMaids, transformedThrotleEmail, cliArgs.runDate)
-            writeDemographicIdentityRelationship(transformedDemographicIdentityRelationship, s"$refinedHubDB.$demographicIdentityRelationshipTable")
+                transformDemographicIdentityRelationship(
+                    transformedThrotleMaids,
+                    transformedThrotleEmail,
+                    cliArgs.runDate
+                )
+            writeDemographicIdentityRelationship(
+                transformedDemographicIdentityRelationship,
+                s"$refinedHubDB.$demographicIdentityRelationshipTable"
+            )
         } finally {
             privacyFunctions.unauthorize()
         }
@@ -84,8 +94,7 @@ object DemographicIdentityRelationshipsJob {
     }
 
     def readThrotleTidEmail(tableName: String, feedDate: String)(implicit spark: SparkSession): DataFrame = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
               SELECT throtle_id, sha256_lower_email
               FROM $tableName
               WHERE feed_date = "$feedDate"
@@ -93,8 +102,7 @@ object DemographicIdentityRelationshipsJob {
     }
 
     def readThrotleTidIdfa(tableName: String, feedDate: String)(implicit spark: SparkSession): DataFrame = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
               SELECT throtle_id, native_maid
               FROM $tableName
               WHERE feed_date = "$feedDate"
@@ -105,13 +113,15 @@ object DemographicIdentityRelationshipsJob {
         readThrotleTidIdfa(tableName, feedDate) // as of now has same schema as tid_idfa dataset
 
     def readPrivacyLookupTableEmails(tableName: String)(implicit spark: SparkSession): DataFrame = {
-        spark.sql(
-            s"""
+        spark
+            .sql(
+                s"""
                |SELECT original_value, sha2(original_value, "256") AS lookup_email , hashed_value, identity_type
                |FROM $tableName
                |WHERE identity_type = "${IdentityType.Email.code}"
                |""".stripMargin
-        ).dropDuplicates("hashed_value", "identity_type")
+            )
+            .dropDuplicates("hashed_value", "identity_type")
     }
 
     def transformThrotleMaids(throtleIdfa: DataFrame, throtleAaid: DataFrame): DataFrame = {
@@ -136,7 +146,7 @@ object DemographicIdentityRelationshipsJob {
         val extractEmailMetadataUdf = udf(extractMetadata _)
 
         throtleEmailsWithoutDuplicates
-            .join(// filter out emails we don't have and get out hash-salted email
+            .join( // filter out emails we don't have and get out hash-salted email
                 broadcast(privacyLookupEmails),
                 throtleEmailsWithoutDuplicates("sha256_lower_email") === privacyLookupEmails("lookup_email"),
                 "inner"
@@ -148,7 +158,10 @@ object DemographicIdentityRelationshipsJob {
             )
     }
 
-    def transformDemographicIdentity(transformedThrotleMaids: DataFrame, transformedThrotleEmail: DataFrame): DataFrame = {
+    def transformDemographicIdentity(
+        transformedThrotleMaids: DataFrame,
+        transformedThrotleEmail: DataFrame
+    ): DataFrame = {
         val transformedMaidDemographicIdentities = transformedThrotleMaids
             .withColumn("throtle_id_identity_type", lit(IdentityType.ThrotleId.code))
             .select(
@@ -174,15 +187,15 @@ object DemographicIdentityRelationshipsJob {
                 )
             )
 
-        transformedMaidDemographicIdentities.unionByName(transformedEmailDemographicIdentities)
+        transformedMaidDemographicIdentities
+            .unionByName(transformedEmailDemographicIdentities)
             .dropDuplicates("cxi_identity_id", "type")
     }
 
     def writeDemographicIdentity(df: DataFrame, targetTable: String): Unit = {
         val srcTable = "newDemographicIdentity"
         df.createOrReplaceTempView(srcTable)
-        df.sqlContext.sql(
-            s"""
+        df.sqlContext.sql(s"""
                |MERGE INTO $targetTable
                |USING $srcTable
                |ON $targetTable.cxi_identity_id <=> $srcTable.cxi_identity_id
@@ -192,7 +205,11 @@ object DemographicIdentityRelationshipsJob {
             """.stripMargin)
     }
 
-    def transformDemographicIdentityRelationship(transformedThrotleMaids: DataFrame, transformedThrotleEmail: DataFrame, date: String): DataFrame = {
+    def transformDemographicIdentityRelationship(
+        transformedThrotleMaids: DataFrame,
+        transformedThrotleEmail: DataFrame,
+        date: String
+    ): DataFrame = {
         val transformedMaidDemographicIdentityRelationships = transformedThrotleMaids
             .withColumn("throtle_id_identity_type", lit(IdentityType.ThrotleId.code))
             .select(
@@ -210,7 +227,8 @@ object DemographicIdentityRelationshipsJob {
                 lit(IdentityType.Email.code).as("target_type")
             )
 
-        transformedMaidDemographicIdentityRelationships.unionByName(transformedEmailDemographicIdentityRelationships)
+        transformedMaidDemographicIdentityRelationships
+            .unionByName(transformedEmailDemographicIdentityRelationships)
             .dropDuplicates("source", "source_type", "target", "target_type")
             .withColumn("relationship", lit(RelationshipType))
             .withColumn("frequency", lit(1))
@@ -222,8 +240,7 @@ object DemographicIdentityRelationshipsJob {
     def writeDemographicIdentityRelationship(df: DataFrame, targetTable: String): Unit = {
         val srcTable = "newDemographicIdentityRelationship"
         df.createOrReplaceTempView(srcTable)
-        df.sqlContext.sql(
-            s"""
+        df.sqlContext.sql(s"""
                |MERGE INTO $targetTable
                |USING $srcTable
                |ON $targetTable.source <=> $srcTable.source
@@ -262,7 +279,8 @@ object DemographicIdentityRelationshipsJob {
         }
 
         def parse(args: Seq[String]): CliArgs = {
-            optionsParser.parse(args, initOptions)
+            optionsParser
+                .parse(args, initOptions)
                 .getOrElse(throw new IllegalArgumentException("Could not parse arguments"))
         }
 

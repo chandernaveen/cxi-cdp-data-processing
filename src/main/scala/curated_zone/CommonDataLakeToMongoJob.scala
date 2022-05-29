@@ -1,17 +1,22 @@
 package com.cxi.cdp.data_processing
 package curated_zone
 
-import support.SparkSessionFactory
-import support.utils.JsonUtils.sparkSession
-import support.utils.TransformUtils.ColumnsMapping
+import support.utils.{ContractUtils, TransformUtils}
 import support.utils.mongodb.MongoDbConfigUtils
 import support.utils.mongodb.MongoDbConfigUtils.{MongoDbConfig, MongoSparkConnectorClass}
-import support.utils.{ContractUtils, TransformUtils}
+import support.utils.JsonUtils.sparkSession
+import support.utils.TransformUtils.ColumnsMapping
+import support.SparkSessionFactory
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.{DefaultScalaModule, ScalaObjectMapper}
 import com.mongodb.spark.config.ReadConfig.mongoURIProperty
-import com.mongodb.spark.config.WriteConfig.{collectionNameProperty, databaseNameProperty, replaceDocumentProperty, shardKeyProperty}
+import com.mongodb.spark.config.WriteConfig.{
+    collectionNameProperty,
+    databaseNameProperty,
+    replaceDocumentProperty,
+    shardKeyProperty
+}
 import org.apache.log4j.Logger
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -47,7 +52,12 @@ object CommonDataLakeToMongoJob {
         val mapper = new ObjectMapper() with ScalaObjectMapper
         mapper.registerModule(DefaultScalaModule)
         val shardKey = mapper.writeValueAsString(contract.prop[Map[String, Int]]("mongo.shardKey"))
-        val transformedDf = process(sparkSession, s"$datalakeSourceDb.$datalakeSourceTable", columnsMappingOptions, includeAllSourceColumns)
+        val transformedDf = process(
+            sparkSession,
+            s"$datalakeSourceDb.$datalakeSourceTable",
+            columnsMappingOptions,
+            includeAllSourceColumns
+        )
 
         write(transformedDf, mongoDestDbName, mongoDestCollection, mongoDbConfig, shardKey, saveMode)
     }
@@ -56,15 +66,21 @@ object CommonDataLakeToMongoJob {
         spark: SparkSession,
         sourceTable: String,
         columnsMappingOptions: Option[Seq[Map[String, String]]],
-        includeAllSourceColumns: Boolean): DataFrame = {
+        includeAllSourceColumns: Boolean
+    ): DataFrame = {
 
         val sourceDf = spark.table(sourceTable)
         maybeTransform(sourceDf, columnsMappingOptions, includeAllSourceColumns)
     }
 
-    private def maybeTransform(sourceDf: DataFrame, columnsMappingOptions: Option[Seq[Map[String, String]]], includeAllSourceColumns: Boolean): DataFrame = {
+    private def maybeTransform(
+        sourceDf: DataFrame,
+        columnsMappingOptions: Option[Seq[Map[String, String]]],
+        includeAllSourceColumns: Boolean
+    ): DataFrame = {
         columnsMappingOptions match {
-            case Some(columnsMapping) => TransformUtils.applyColumnMapping(sourceDf, ColumnsMapping(columnsMapping), includeAllSourceColumns)
+            case Some(columnsMapping) =>
+                TransformUtils.applyColumnMapping(sourceDf, ColumnsMapping(columnsMapping), includeAllSourceColumns)
             case None => sourceDf
         }
     }
@@ -75,10 +91,10 @@ object CommonDataLakeToMongoJob {
         mongoDestCollection: String,
         mongoDbConfig: MongoDbConfig,
         shardKey: String,
-        saveMode: String): Unit = {
+        saveMode: String
+    ): Unit = {
 
-        dataFrame
-            .write
+        dataFrame.write
             .format(MongoSparkConnectorClass)
             .mode(saveMode)
             .option(databaseNameProperty, mongoDestDbName)

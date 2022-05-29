@@ -6,6 +6,7 @@ import com.cxi.cdp.data_processing.curated_zone.audience.service.AudienceService
 import com.cxi.cdp.data_processing.refined_zone.hub.identity.model.IdentityId
 import com.cxi.cdp.data_processing.refined_zone.hub.model.CxiIdentity
 import com.cxi.cdp.data_processing.support.BaseSparkBatchJobTest
+
 import org.apache.spark.sql.functions.collect_list
 import org.scalatest.Matchers
 
@@ -21,19 +22,23 @@ class AudienceServiceTest extends BaseSparkBatchJobTest with Matchers {
             TestCaseInput(
                 vertices = Seq("1", "2", "3", "4", "5"),
                 edges = Seq(("1", "2"), ("3", "4"), ("2", "5")),
-                expectedClusters = Array(Seq("1", "2", "5"), Seq("3", "4"))),
+                expectedClusters = Array(Seq("1", "2", "5"), Seq("3", "4"))
+            ),
             TestCaseInput(
                 vertices = Seq("1", "2", "3", "4", "5"),
                 edges = Seq(),
-                expectedClusters = Array(Seq("1"), Seq("2"), Seq("3"), Seq("4"), Seq("5"))),
+                expectedClusters = Array(Seq("1"), Seq("2"), Seq("3"), Seq("4"), Seq("5"))
+            ),
             TestCaseInput(
                 vertices = Seq("1", "2", "3", "4", "5"),
                 edges = Seq(("1", "2"), ("2", "3"), ("3", "4"), ("4", "5")),
-                expectedClusters = Array(Seq("1", "2", "3", "4", "5"))),
+                expectedClusters = Array(Seq("1", "2", "3", "4", "5"))
+            ),
             TestCaseInput(
                 vertices = Seq("1", "2", "3", "4", "5"),
                 edges = Seq(("1", "2"), ("1", "2"), ("3", "4"), ("3", "4")),
-                expectedClusters = Array(Seq("1", "2"), Seq("3", "4"), Seq("5")))
+                expectedClusters = Array(Seq("1", "2"), Seq("3", "4"), Seq("5"))
+            )
         )
 
         // when
@@ -54,7 +59,8 @@ class AudienceServiceTest extends BaseSparkBatchJobTest with Matchers {
     }
 
     private final val DefaultDate = java.sql.Date.valueOf(java.time.LocalDate.of(2022, java.time.Month.of(1), 30))
-    private final val DayAfterDefaultDate = java.sql.Date.valueOf(java.time.LocalDate.of(2022, java.time.Month.of(1), 31))
+    private final val DayAfterDefaultDate =
+        java.sql.Date.valueOf(java.time.LocalDate.of(2022, java.time.Month.of(1), 31))
 
     test("updateCustomer360 for new customers") {
         val connectedComponents = Seq(
@@ -89,7 +95,13 @@ class AudienceServiceTest extends BaseSparkBatchJobTest with Matchers {
         ).toDF(CxiIdentity.CxiIdentityId, AudienceService.ComponentIdCol)
 
         val prevCustomer360 = Seq(
-            Customer360("FirstCustomer", Map("email" -> Seq("one@example.com"), "phone" -> Seq("222")), DefaultDate, DefaultDate, true),
+            Customer360(
+                "FirstCustomer",
+                Map("email" -> Seq("one@example.com"), "phone" -> Seq("222")),
+                DefaultDate,
+                DefaultDate,
+                true
+            ),
             Customer360("SecondCustomer", Map("phone" -> Seq("555")), DefaultDate, DefaultDate, true)
         ).toDS
 
@@ -120,7 +132,13 @@ class AudienceServiceTest extends BaseSparkBatchJobTest with Matchers {
         ).toDF(CxiIdentity.CxiIdentityId, AudienceService.ComponentIdCol)
 
         val prevCustomer360 = Seq(
-            Customer360("FirstCustomer", Map("email" -> Seq("one@example.com"), "phone" -> Seq("222")), DefaultDate, DefaultDate, true),
+            Customer360(
+                "FirstCustomer",
+                Map("email" -> Seq("one@example.com"), "phone" -> Seq("222")),
+                DefaultDate,
+                DefaultDate,
+                true
+            ),
             Customer360("SecondCustomer", Map("phone" -> Seq("555")), DayAfterDefaultDate, DayAfterDefaultDate, true)
         ).toDS
 
@@ -131,7 +149,8 @@ class AudienceServiceTest extends BaseSparkBatchJobTest with Matchers {
         firstCustomer.customer_360_id shouldBe "FirstCustomer"
         firstCustomer.identities shouldBe Map(
             "email" -> Seq("one@example.com", "two@example.com"),
-            "phone" -> Seq("222", "555"))
+            "phone" -> Seq("222", "555")
+        )
         firstCustomer.active_flag shouldBe true
         firstCustomer.create_date shouldBe DefaultDate
 
@@ -207,7 +226,13 @@ class AudienceServiceTest extends BaseSparkBatchJobTest with Matchers {
 
         val prevCustomer360 = Seq(
             Customer360("FirstCustomer", Map("phone" -> Seq("111", "222")), DefaultDate, DefaultDate, true),
-            Customer360("SecondCustomer", Map("email" -> Seq("one@example.com", "two@example.com")), DefaultDate, DefaultDate, true)
+            Customer360(
+                "SecondCustomer",
+                Map("email" -> Seq("one@example.com", "two@example.com")),
+                DefaultDate,
+                DefaultDate,
+                true
+            )
         ).toDS
 
         // previous customers have lost their inner connections
@@ -232,7 +257,11 @@ class AudienceServiceTest extends BaseSparkBatchJobTest with Matchers {
         secondPrevCustomer.active_flag shouldBe false
     }
 
-    private def getCustomerWithIdentity(customers: Seq[Customer360], qualifiedIdentityId: String, active: Boolean = true): Customer360 = {
+    private def getCustomerWithIdentity(
+        customers: Seq[Customer360],
+        qualifiedIdentityId: String,
+        active: Boolean = true
+    ): Customer360 = {
         val identityId = IdentityId.fromQualifiedIdentityId(qualifiedIdentityId)
 
         val matchingCustomers = customers
@@ -255,14 +284,18 @@ class AudienceServiceTest extends BaseSparkBatchJobTest with Matchers {
             cxiIdentityIds = Set("1", "2"),
             prevCustomers = Map(
                 "FirstCustomer" -> MatchedPrevCustomer(1, 10, DefaultDate),
-                "SecondCustomer" -> MatchedPrevCustomer(2, 20, DefaultDate)))
+                "SecondCustomer" -> MatchedPrevCustomer(2, 20, DefaultDate)
+            )
+        )
 
         val secondComponent = IntermediateCustomer(
             componentId = 10L,
             cxiIdentityIds = Set("3"),
             prevCustomers = Map(
                 "SecondCustomer" -> MatchedPrevCustomer(11, 20, DefaultDate),
-                "ThirdCustomer" -> MatchedPrevCustomer(3, 30, DefaultDate)))
+                "ThirdCustomer" -> MatchedPrevCustomer(3, 30, DefaultDate)
+            )
+        )
 
         val expectedComponent = IntermediateCustomer(
             componentId = 10L,
@@ -270,7 +303,9 @@ class AudienceServiceTest extends BaseSparkBatchJobTest with Matchers {
             prevCustomers = Map(
                 "FirstCustomer" -> MatchedPrevCustomer(1, 10, DefaultDate),
                 "SecondCustomer" -> MatchedPrevCustomer(13, 20, DefaultDate),
-                "ThirdCustomer" -> MatchedPrevCustomer(3, 30, DefaultDate)))
+                "ThirdCustomer" -> MatchedPrevCustomer(3, 30, DefaultDate)
+            )
+        )
 
         IntermediateCustomer.mergeForSameComponent(firstComponent, secondComponent) shouldBe expectedComponent
     }
@@ -292,9 +327,12 @@ class AudienceServiceTest extends BaseSparkBatchJobTest with Matchers {
             "FirstCustomer" -> MatchedPrevCustomer(1, 10, DefaultDate), // not enough matched identities
             "SecondCustomer" -> MatchedPrevCustomer(13, 20, DefaultDate),
             "ThirdCustomer" -> MatchedPrevCustomer(16, 30, DefaultDate), // oldest customer with the most connections
-            "FourthCustomer" -> MatchedPrevCustomer(26, 35, DayAfterDefaultDate))
+            "FourthCustomer" -> MatchedPrevCustomer(26, 35, DayAfterDefaultDate)
+        )
 
-        findWinningPrevCustomer(prevCustomers) shouldBe Some(("ThirdCustomer", MatchedPrevCustomer(16, 30, DefaultDate)))
+        findWinningPrevCustomer(prevCustomers) shouldBe Some(
+            ("ThirdCustomer", MatchedPrevCustomer(16, 30, DefaultDate))
+        )
     }
 
     test("groupIdentitiesByType") {
@@ -309,7 +347,8 @@ class AudienceServiceTest extends BaseSparkBatchJobTest with Matchers {
         groupIdentitiesByType(qualifiedIdentityIds) shouldBe Map(
             "email" -> Seq("one@example.com", "two@example.com"),
             "phone" -> Seq("123", "456"),
-            "combination-bin" -> Seq("XXX"))
+            "combination-bin" -> Seq("XXX")
+        )
     }
 
     test("mergePrevAndNewCustomer360") {

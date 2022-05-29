@@ -8,7 +8,7 @@ class MetadataServiceTest extends FunSuite {
 
     case class TestCase(identityType: String, originalValue: String, expected: Map[String, String])
 
-    test("Extract metadata from different types of identities"){
+    test("Extract metadata from different types of identities") {
         // given
         val testCases = Seq(
             TestCase("phone", "12345678912", Map("phone_area_code" -> "1234")),

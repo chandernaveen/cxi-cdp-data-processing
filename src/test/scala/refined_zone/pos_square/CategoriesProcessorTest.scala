@@ -20,7 +20,10 @@ class CategoriesProcessorTest extends BaseSparkBatchJobTest {
                      },
                      "type": "CATEGORY"
                    }
-                   """, "objects" , "2021-10-11"),
+                   """,
+                "objects",
+                "2021-10-11"
+            ),
             (
                 s"""
                    {
@@ -30,7 +33,10 @@ class CategoriesProcessorTest extends BaseSparkBatchJobTest {
                      },
                      "type": "CATEGORY"
                    }
-                   """, "objects" , "2021-10-11"), // duplicate
+                   """,
+                "objects",
+                "2021-10-11"
+            ), // duplicate
             (
                 s"""
                    {
@@ -40,14 +46,20 @@ class CategoriesProcessorTest extends BaseSparkBatchJobTest {
                      },
                      "type": "CATEGORY"
                    }
-                   """, "objects" , "2021-10-10"),
+                   """,
+                "objects",
+                "2021-10-10"
+            ),
             (
                 s"""
                    {
                      "id": "3",
                      "type": "ITEM"
                    }
-                   """, "objects" , "2021-10-11"),
+                   """,
+                "objects",
+                "2021-10-11"
+            )
         ).toDF("record_value", "record_type", "feed_date")
 
         val tableName = "categories"
@@ -65,7 +77,7 @@ class CategoriesProcessorTest extends BaseSparkBatchJobTest {
         withClue("POS Square refined categories data do not match") {
             val expected = List(
                 ("IAVONRKHRTYYU7AP7EI57LA3", "Event"),
-                ("IAVONRKHRTYYU7AP7EI57LA3", "Event"),
+                ("IAVONRKHRTYYU7AP7EI57LA3", "Event")
             ).toDF("cat_id", "cat_nm").collect()
             actualSquareRefinedCategoriesData.length should equal(expected.length)
             actualSquareRefinedCategoriesData should contain theSameElementsAs expected
@@ -80,7 +92,7 @@ class CategoriesProcessorTest extends BaseSparkBatchJobTest {
             ("1", "Food"),
             ("1", "Food"), // duplicate
             ("2", "Liquor"),
-            ("3", "Beer"),
+            ("3", "Beer")
         ).toDF("cat_id", "cat_nm")
 
         // when
@@ -96,7 +108,7 @@ class CategoriesProcessorTest extends BaseSparkBatchJobTest {
             val expected = List(
                 ("1", "Food", cxiPartnerId, null, null),
                 ("2", "Liquor", cxiPartnerId, null, null),
-                ("3", "Beer", cxiPartnerId, null, null),
+                ("3", "Beer", cxiPartnerId, null, null)
             ).toDF("cat_id", "cat_nm", "cxi_partner_id", "cat_desc", "location_id").collect()
             actualSquareRefinedCategoriesData.length should equal(expected.length)
             actualSquareRefinedCategoriesData should contain theSameElementsAs expected

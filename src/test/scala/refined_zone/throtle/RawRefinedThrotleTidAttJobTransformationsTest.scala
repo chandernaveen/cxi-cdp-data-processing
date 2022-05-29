@@ -81,15 +81,27 @@ class RawRefinedThrotleTidAttJobTransformationsTest extends FunSuite {
             ThrotleCodeValueTestCase("income", "XYZ", TransformedField("income", "XYZ", null, false)),
             ThrotleCodeValueTestCase("income", null, TransformedField("income", null, null, true)),
             ThrotleCodeValueTestCase("occupation", "1", TransformedField("occupation", "1", "Homemaker", true)),
-            ThrotleCodeValueTestCase("occupation", "2", TransformedField("occupation", "2", "Professional/technical", true)),
+            ThrotleCodeValueTestCase(
+                "occupation",
+                "2",
+                TransformedField("occupation", "2", "Professional/technical", true)
+            ),
             ThrotleCodeValueTestCase("occupation", "ZXC", TransformedField("occupation", "ZXC", null, false)),
             ThrotleCodeValueTestCase("occupation", null, TransformedField("occupation", null, null, true)),
-            ThrotleCodeValueTestCase("some_unknown_category", null, TransformedField("some_unknown_category", null, null, true))
+            ThrotleCodeValueTestCase(
+                "some_unknown_category",
+                null,
+                TransformedField("some_unknown_category", null, null, true)
+            )
         )
 
         // when
         for (testCase <- testCases) {
-            RawRefinedThrotleTidAttJob.getThrotleTransformedField(testCase.code_category, testCase.code, dict) shouldEqual testCase.expected
+            RawRefinedThrotleTidAttJob.getThrotleTransformedField(
+                testCase.code_category,
+                testCase.code,
+                dict
+            ) shouldEqual testCase.expected
         }
     }
 

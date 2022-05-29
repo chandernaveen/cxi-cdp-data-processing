@@ -21,7 +21,8 @@ private[pre_aggr] object CliArgs {
     }
 
     def parse(args: Seq[String]): CliArgs = {
-        optionsParser.parse(args, initOptions)
+        optionsParser
+            .parse(args, initOptions)
             .getOrElse(throw new IllegalArgumentException("Could not parse arguments"))
     }
 

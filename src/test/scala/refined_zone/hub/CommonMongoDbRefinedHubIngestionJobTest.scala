@@ -1,8 +1,8 @@
 package com.cxi.cdp.data_processing
 package refined_zone.hub
 
-import support.BaseSparkBatchJobTest
 import support.utils.TransformUtils.{CastDataType, ColumnsMapping, DestCol, SourceCol}
+import support.BaseSparkBatchJobTest
 
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal}
 
@@ -18,9 +18,10 @@ class CommonMongoDbRefinedHubIngestionJobTest extends BaseSparkBatchJobTest {
         val actualJoinCondition = CommonMongoDbRefinedHubIngestionJob.constructJoinCondition(keys, srcTable, destTable)
 
         // then
-        actualJoinCondition should equal ("dest_partner.feed_date <=> src_partner.feed_date AND dest_partner.cxi_partner_id <=> src_partner.cxi_partner_id")
+        actualJoinCondition should equal(
+            "dest_partner.feed_date <=> src_partner.feed_date AND dest_partner.cxi_partner_id <=> src_partner.cxi_partner_id"
+        )
     }
-
 
     test("test сonstruct join condition with multiple keys") {
         // given
@@ -32,9 +33,10 @@ class CommonMongoDbRefinedHubIngestionJobTest extends BaseSparkBatchJobTest {
         val actualJoinCondition = CommonMongoDbRefinedHubIngestionJob.constructJoinCondition(keys, srcTable, destTable)
 
         // then
-        actualJoinCondition should equal ("dest_partner.feed_date <=> src_partner.feed_date AND dest_partner.mongo_object_id <=> src_partner.mongo_object_id AND dest_partner.cxi_partner_id <=> src_partner.cxi_partner_id")
+        actualJoinCondition should equal(
+            "dest_partner.feed_date <=> src_partner.feed_date AND dest_partner.mongo_object_id <=> src_partner.mongo_object_id AND dest_partner.cxi_partner_id <=> src_partner.cxi_partner_id"
+        )
     }
-
 
     test("test сonstruct columns that need to be updated") {
         // given
@@ -42,10 +44,13 @@ class CommonMongoDbRefinedHubIngestionJobTest extends BaseSparkBatchJobTest {
         val tableColumns = Array("cxi_partner_id", "partner_nm", "partner_type")
 
         // when
-        val actualColumnsToBeUpdated = CommonMongoDbRefinedHubIngestionJob.constructColumnsToUpdate(tableColumns, srcTable)
+        val actualColumnsToBeUpdated =
+            CommonMongoDbRefinedHubIngestionJob.constructColumnsToUpdate(tableColumns, srcTable)
 
         // then
-        actualColumnsToBeUpdated should equal ("cxi_partner_id = src_partner.cxi_partner_id, partner_nm = src_partner.partner_nm, partner_type = src_partner.partner_type")
+        actualColumnsToBeUpdated should equal(
+            "cxi_partner_id = src_partner.cxi_partner_id, partner_nm = src_partner.partner_nm, partner_type = src_partner.partner_type"
+        )
     }
 
     test("test сonstruct columns that need to be inserted") {
@@ -54,10 +59,13 @@ class CommonMongoDbRefinedHubIngestionJobTest extends BaseSparkBatchJobTest {
         val tableColumns = Array("cxi_partner_id", "partner_nm", "partner_type")
 
         // when
-        val actualColumnsToBeInserted = CommonMongoDbRefinedHubIngestionJob.constructColumnsToInsert(tableColumns, srcTable)
+        val actualColumnsToBeInserted =
+            CommonMongoDbRefinedHubIngestionJob.constructColumnsToInsert(tableColumns, srcTable)
 
         // then
-        actualColumnsToBeInserted should equal ("(cxi_partner_id, partner_nm, partner_type) VALUES (src_partner.cxi_partner_id, src_partner.partner_nm, src_partner.partner_type)")
+        actualColumnsToBeInserted should equal(
+            "(cxi_partner_id, partner_nm, partner_type) VALUES (src_partner.cxi_partner_id, src_partner.partner_nm, src_partner.partner_type)"
+        )
     }
 
     test("test mongo db refined hub ingestion transform") {
@@ -70,15 +78,23 @@ class CommonMongoDbRefinedHubIngestionJobTest extends BaseSparkBatchJobTest {
             ("cxi-usa-partner2", "partner 2", "20")
         ).toDF("cxiPartnerId", "partner_name", "some_column_to_cast")
 
-        val columnsMapping = ColumnsMapping(List(
-            Map(SourceCol -> "cxiPartnerId", DestCol -> "cxi_partner_id"),
-            Map(SourceCol -> "partner_name", DestCol -> "partner_nm"),
-            Map(SourceCol -> "some_column_to_cast", DestCol -> "column_after_cast", CastDataType -> "long"))
+        val columnsMapping = ColumnsMapping(
+            List(
+                Map(SourceCol -> "cxiPartnerId", DestCol -> "cxi_partner_id"),
+                Map(SourceCol -> "partner_name", DestCol -> "partner_nm"),
+                Map(SourceCol -> "some_column_to_cast", DestCol -> "column_after_cast", CastDataType -> "long")
+            )
         )
         val feedDate = "2021-10-12"
 
         // when
-        val actual = CommonMongoDbRefinedHubIngestionJob.transform(sourceCollectionDf, columnsMapping, List("cxi_partner_id"), feedDate, dropDuplicates = true)
+        val actual = CommonMongoDbRefinedHubIngestionJob.transform(
+            sourceCollectionDf,
+            columnsMapping,
+            List("cxi_partner_id"),
+            feedDate,
+            dropDuplicates = true
+        )
 
         // then
         val actualFieldsReturned = actual.schema.fields.map(f => f.name)

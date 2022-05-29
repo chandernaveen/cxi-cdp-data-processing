@@ -1,8 +1,8 @@
 package com.cxi.cdp.data_processing
 package support.utils
 
-import support.BaseSparkBatchJobTest
 import support.utils.TransformUtils.{CastDataType, ColumnsMapping, DestCol, SourceCol}
+import support.BaseSparkBatchJobTest
 
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal}
 
@@ -17,10 +17,12 @@ class TransformUtilsTest extends BaseSparkBatchJobTest {
             ("cxi-usa-partner2", "partner 2", "20", "efgh")
         ).toDF("cxiPartnerId", "partner_name", "some_column_to_cast", "temp_col")
 
-        val columnsMapping = ColumnsMapping(Seq(
-            Map(SourceCol -> "cxiPartnerId", DestCol -> "cxi_partner_id"),
-            Map(SourceCol -> "partner_name", DestCol -> "partner_nm"),
-            Map(SourceCol -> "some_column_to_cast", DestCol -> "column_after_cast", CastDataType -> "long"))
+        val columnsMapping = ColumnsMapping(
+            Seq(
+                Map(SourceCol -> "cxiPartnerId", DestCol -> "cxi_partner_id"),
+                Map(SourceCol -> "partner_name", DestCol -> "partner_nm"),
+                Map(SourceCol -> "some_column_to_cast", DestCol -> "column_after_cast", CastDataType -> "long")
+            )
         )
 
         // when
@@ -51,10 +53,12 @@ class TransformUtilsTest extends BaseSparkBatchJobTest {
             ("cxi-usa-partner2", "partner 2", "20", "efgh")
         ).toDF("cxiPartnerId", "partner_name", "some_column_to_cast", "temp_col")
 
-        val columnsMapping = ColumnsMapping(Seq(
-            Map(SourceCol -> "cxiPartnerId", DestCol -> "cxi_partner_id"),
-            Map(SourceCol -> "partner_name", DestCol -> "partner_nm"),
-            Map(SourceCol -> "some_column_to_cast", DestCol -> "column_after_cast", CastDataType -> "long"))
+        val columnsMapping = ColumnsMapping(
+            Seq(
+                Map(SourceCol -> "cxiPartnerId", DestCol -> "cxi_partner_id"),
+                Map(SourceCol -> "partner_name", DestCol -> "partner_nm"),
+                Map(SourceCol -> "some_column_to_cast", DestCol -> "column_after_cast", CastDataType -> "long")
+            )
         )
 
         // when

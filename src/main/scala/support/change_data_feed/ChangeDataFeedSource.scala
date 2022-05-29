@@ -42,16 +42,17 @@ object ChangeDataFeedSource {
         override def queryAllData(consumerId: String)(implicit spark: SparkSession): ChangeDataQueryResult = {
             val latestAvailableVersion = cdfService.getLatestAvailableVersion(table)
 
-            val df = spark.read.format("delta")
+            val df = spark.read
+                .format("delta")
                 .option("versionAsOf", latestAvailableVersion)
                 .table(table)
 
             ChangeDataQueryResult(
                 consumerId = consumerId,
-                tableMetadataSeq = Seq(ChangeDataQueryResult.TableMetadata(
-                    table = table,
-                    startVersion = 0L,
-                    endVersion = latestAvailableVersion)),
+                tableMetadataSeq = Seq(
+                    ChangeDataQueryResult
+                        .TableMetadata(table = table, startVersion = 0L, endVersion = latestAvailableVersion)
+                ),
                 data = Some(df)
             )
         }
@@ -59,7 +60,8 @@ object ChangeDataFeedSource {
     }
 
     /** CDF source for a simple union of tables. All tables must have the same schema. */
-    class SimpleUnion(protected val cdfService: ChangeDataFeedService, tables: Seq[String]) extends ChangeDataFeedSource {
+    class SimpleUnion(protected val cdfService: ChangeDataFeedService, tables: Seq[String])
+        extends ChangeDataFeedSource {
 
         private val tableSources = tables.map(table => new SingleTable(cdfService, table))
 

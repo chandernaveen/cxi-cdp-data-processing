@@ -11,8 +11,7 @@ object Salt {
             DBUtils.secrets.get(saltScope, saltKey)
         } catch {
             case e: Exception =>
-                throw new RuntimeException(
-                    s"Error getting salt with scope: $saltScope and key: $saltKey", e)
+                throw new RuntimeException(s"Error getting salt with scope: $saltScope and key: $saltKey", e)
         }
     }
 

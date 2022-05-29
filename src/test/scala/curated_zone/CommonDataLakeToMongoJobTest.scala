@@ -1,8 +1,8 @@
 package com.cxi.cdp.data_processing
 package curated_zone
 
-import support.BaseSparkBatchJobTest
 import support.utils.TransformUtils.{CastDataType, DestCol, SourceCol}
+import support.BaseSparkBatchJobTest
 
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal}
 
@@ -46,14 +46,17 @@ class CommonDataLakeToMongoJobTest extends BaseSparkBatchJobTest {
         ).toDF("domain_name", "signal_name", "es_type", "is_active", "number")
         sourceDf.createOrReplaceTempView(tempTable)
 
-        val columnsMappingOptions = Option(Seq(
-            Map(SourceCol -> "domain_name", DestCol -> "signal_domain_name"),
-            Map(SourceCol -> "signal_name", DestCol -> "signal_name"),
-            Map(SourceCol -> "number", DestCol -> "number_long", CastDataType -> "long"))
+        val columnsMappingOptions = Option(
+            Seq(
+                Map(SourceCol -> "domain_name", DestCol -> "signal_domain_name"),
+                Map(SourceCol -> "signal_name", DestCol -> "signal_name"),
+                Map(SourceCol -> "number", DestCol -> "number_long", CastDataType -> "long")
+            )
         )
 
         // when
-        val actual = CommonDataLakeToMongoJob.process(spark, tempTable, columnsMappingOptions, includeAllSourceColumns = false)
+        val actual =
+            CommonDataLakeToMongoJob.process(spark, tempTable, columnsMappingOptions, includeAllSourceColumns = false)
 
         // then
         val actualFieldsReturned = actual.schema.fields.map(_.name)

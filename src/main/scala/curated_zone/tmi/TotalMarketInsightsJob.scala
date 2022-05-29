@@ -2,15 +2,15 @@ package com.cxi.cdp.data_processing
 package curated_zone.tmi
 
 import refined_zone.hub.ChangeDataFeedViews
-import support.SparkSessionFactory
-import support.utils.ContractUtils
 import support.utils.mongodb.MongoDbConfigUtils
 import support.utils.mongodb.MongoDbConfigUtils.MongoSparkConnectorClass
+import support.utils.ContractUtils
+import support.SparkSessionFactory
 
 import org.apache.log4j.Logger
+import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.IntegerType
-import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 
 import java.nio.file.Paths
 
@@ -39,9 +39,7 @@ object TotalMarketInsightsJob {
 
         val orderSummaryTables = contract.prop[Seq[String]]("schema.order_summary_tables")
 
-        val orderSummaryCdf = ChangeDataFeedViews.orderSummary(
-            s"$dataServicesDb.$cdfTrackerTable",
-            orderSummaryTables)
+        val orderSummaryCdf = ChangeDataFeedViews.orderSummary(s"$dataServicesDb.$cdfTrackerTable", orderSummaryTables)
 
         val orderSummaryChangeDataResult =
             if (cliArgs.fullReprocess) {
@@ -67,7 +65,11 @@ object TotalMarketInsightsJob {
         }
     }
 
-    def process(contract: ContractUtils, orderDates: Set[String], fullReprocess: Boolean)(implicit spark: SparkSession): Unit = {
+    // TODO: refactor after the final scalafmt config is approved to remove scalastyle warning
+    // scalastyle:off method.length
+    def process(contract: ContractUtils, orderDates: Set[String], fullReprocess: Boolean)(implicit
+        spark: SparkSession
+    ): Unit = {
         val refinedHubDb = contract.prop[String]("schema.refined_hub.db_name")
         val orderSummaryTable = contract.prop[String]("schema.refined_hub.order_summary_table")
         val locationTable = contract.prop[String]("schema.refined_hub.location_table")
@@ -82,23 +84,42 @@ object TotalMarketInsightsJob {
         val totalMarketInsightsMongoCollectionName = contract.prop[String]("mongo.total_market_insights_collection")
 
         val shouldComputeTotalMarketInsights =
-            contract.propOrElse[Boolean]("jobs.databricks.total_market_insights_job.job_config.compute_total_market_insights", true)
+            contract.propOrElse[Boolean](
+                "jobs.databricks.total_market_insights_job.job_config.compute_total_market_insights",
+                true
+            )
 
         val orderSummary: DataFrame =
             readOrderSummary(orderDates, s"$refinedHubDb.$orderSummaryTable", s"$refinedHubDb.$locationTable")
 
         val partnerMarketInsights: DataFrame = computePartnerMarketInsights(orderSummary).cache()
-        writeToDatalakePartnerMarketInsights(partnerMarketInsights,
-            s"$curatedDb.$partnerMarketInsightsTable", fullReprocess)
-        writeToMongoPartnerMarketInsights(partnerMarketInsights,
-            mongoDbConfig.uri, mongoDbName, partnerMarketInsightsMongoCollectionName, fullReprocess)
+        writeToDatalakePartnerMarketInsights(
+            partnerMarketInsights,
+            s"$curatedDb.$partnerMarketInsightsTable",
+            fullReprocess
+        )
+        writeToMongoPartnerMarketInsights(
+            partnerMarketInsights,
+            mongoDbConfig.uri,
+            mongoDbName,
+            partnerMarketInsightsMongoCollectionName,
+            fullReprocess
+        )
 
         if (shouldComputeTotalMarketInsights) {
             val totalMarketInsights: DataFrame = computeTotalMarketInsights(partnerMarketInsights).cache()
-            writeToDatalakeTotalMarketInsights(totalMarketInsights,
-                s"$curatedDb.$totalMarketInsightsTable", fullReprocess)
-            writeToMongoTotalMarketInsights(totalMarketInsights,
-                mongoDbConfig.uri, mongoDbName, totalMarketInsightsMongoCollectionName, fullReprocess)
+            writeToDatalakeTotalMarketInsights(
+                totalMarketInsights,
+                s"$curatedDb.$totalMarketInsightsTable",
+                fullReprocess
+            )
+            writeToMongoTotalMarketInsights(
+                totalMarketInsights,
+                mongoDbConfig.uri,
+                mongoDbName,
+                totalMarketInsightsMongoCollectionName,
+                fullReprocess
+            )
         } else {
             logger.info("Skip calculation of total market insights based on a contract")
         }
@@ -117,9 +138,9 @@ object TotalMarketInsightsJob {
             .toSet
     }
 
-    def readOrderSummary(orderDates: Set[String],
-                         orderSummaryTable: String,
-                         locationTable: String)(implicit spark: SparkSession): DataFrame = {
+    def readOrderSummary(orderDates: Set[String], orderSummaryTable: String, locationTable: String)(implicit
+        spark: SparkSession
+    ): DataFrame = {
         import spark.implicits._
 
         val orderSummaryDF = spark.table(orderSummaryTable)
@@ -178,10 +199,15 @@ object TotalMarketInsightsJob {
                 $"location_nm",
                 $"date",
                 $"transaction_amount",
-                $"transaction_quantity")
+                $"transaction_quantity"
+            )
     }
 
-    def writeToDatalakePartnerMarketInsights(partnerMarketInsights: DataFrame, destTable: String, fullReprocess: Boolean = false): Unit = {
+    def writeToDatalakePartnerMarketInsights(
+        partnerMarketInsights: DataFrame,
+        destTable: String,
+        fullReprocess: Boolean = false
+    ): Unit = {
         if (fullReprocess) {
             partnerMarketInsights.sqlContext.sql(s"DELETE FROM $destTable")
         }
@@ -191,8 +217,7 @@ object TotalMarketInsightsJob {
 
         // <=> comparison operator is used for null-safe semantics
         // https://docs.databricks.com/spark/latest/spark-sql/language-manual/sql-ref-null-semantics.html#null-semantics
-        partnerMarketInsights.sqlContext.sql(
-            s"""
+        partnerMarketInsights.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.cxi_partner_id <=> $srcTable.cxi_partner_id
@@ -206,19 +231,18 @@ object TotalMarketInsightsJob {
     }
 
     def writeToMongoPartnerMarketInsights(
-                                             partnerMarketInsights: DataFrame,
-                                             mongoDbUri: String,
-                                             dbName: String,
-                                             collectionName: String,
-                                             fullReprocess: Boolean = false
-                                         ): Unit = {
+        partnerMarketInsights: DataFrame,
+        mongoDbUri: String,
+        dbName: String,
+        collectionName: String,
+        fullReprocess: Boolean = false
+    ): Unit = {
         val saveMode = if (fullReprocess) SaveMode.Overwrite else SaveMode.Append
 
         // either insert or update a document in Mongo based on these fields
         val shardKey = """{"cxi_partner_id": 1, "date": 1, "location_id": 1}"""
 
-        partnerMarketInsights
-            .write
+        partnerMarketInsights.write
             .format(MongoSparkConnectorClass)
             .mode(saveMode)
             .option("database", dbName)
@@ -236,17 +260,14 @@ object TotalMarketInsightsJob {
                 sum("transaction_amount").as("transaction_amount"),
                 sum("transaction_quantity").as("transaction_quantity")
             )
-            .select(
-                "location_type",
-                "region",
-                "state",
-                "city",
-                "date",
-                "transaction_amount",
-                "transaction_quantity")
+            .select("location_type", "region", "state", "city", "date", "transaction_amount", "transaction_quantity")
     }
 
-    def writeToDatalakeTotalMarketInsights(totalMarketInsights: DataFrame, destTable: String, fullReprocess: Boolean = false): Unit = {
+    def writeToDatalakeTotalMarketInsights(
+        totalMarketInsights: DataFrame,
+        destTable: String,
+        fullReprocess: Boolean = false
+    ): Unit = {
         if (fullReprocess) {
             totalMarketInsights.sqlContext.sql(s"DELETE FROM $destTable")
         }
@@ -256,8 +277,7 @@ object TotalMarketInsightsJob {
 
         // <=> comparison operator is used for null-safe semantics
         // https://docs.databricks.com/spark/latest/spark-sql/language-manual/sql-ref-null-semantics.html#null-semantics
-        totalMarketInsights.sqlContext.sql(
-            s"""
+        totalMarketInsights.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.location_type <=> $srcTable.location_type
@@ -273,19 +293,18 @@ object TotalMarketInsightsJob {
     }
 
     def writeToMongoTotalMarketInsights(
-                                           totalMarketInsights: DataFrame,
-                                           mongoDbUri: String,
-                                           dbName: String,
-                                           collectionName: String,
-                                           fullReprocess: Boolean = false
-                                       ): Unit = {
+        totalMarketInsights: DataFrame,
+        mongoDbUri: String,
+        dbName: String,
+        collectionName: String,
+        fullReprocess: Boolean = false
+    ): Unit = {
         // either insert or update a document in Mongo based on these fields
         val shardKey = """{"date": 1, "location_type": 1, "region": 1, "state": 1, "city": 1}"""
 
         val saveMode = if (fullReprocess) SaveMode.Overwrite else SaveMode.Append
 
-        totalMarketInsights
-            .write
+        totalMarketInsights.write
             .format(MongoSparkConnectorClass)
             .mode(saveMode)
             .option("database", dbName)
@@ -317,7 +336,8 @@ object TotalMarketInsightsJob {
         }
 
         def parse(args: Seq[String]): CliArgs = {
-            optionsParser.parse(args, initOptions)
+            optionsParser
+                .parse(args, initOptions)
                 .getOrElse(throw new IllegalArgumentException("Could not parse arguments"))
         }
 

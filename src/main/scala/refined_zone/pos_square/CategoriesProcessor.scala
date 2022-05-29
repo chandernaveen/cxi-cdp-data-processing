@@ -1,11 +1,11 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
-import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
 import refined_zone.pos_square.config.ProcessorConfig
+import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
 
-import org.apache.spark.sql.functions.lit
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.functions.lit
 
 object CategoriesProcessor {
     def process(spark: SparkSession, config: ProcessorConfig, destDbName: String): Unit = {
@@ -20,8 +20,7 @@ object CategoriesProcessor {
     }
 
     def readCategories(spark: SparkSession, date: String, table: String): DataFrame = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
                |SELECT
                |get_json_object(record_value, "$$.id") as cat_id,
                |get_json_object(record_value, "$$.category_data.name") as cat_nm
@@ -42,8 +41,7 @@ object CategoriesProcessor {
         val srcTable = "newCategories"
 
         df.createOrReplaceTempView(srcTable)
-        df.sqlContext.sql(
-            s"""
+        df.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.cxi_partner_id <=> "$cxiPartnerId" AND $destTable.location_id <=> $srcTable.location_id AND $destTable.cat_id <=> $srcTable.cat_id

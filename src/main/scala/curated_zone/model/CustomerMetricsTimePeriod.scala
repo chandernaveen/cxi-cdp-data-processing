@@ -5,7 +5,9 @@ import enumeratum.values._
 
 import scala.collection.immutable
 
-sealed abstract class CustomerMetricsTimePeriod(val value: String, val numberOfDays: Int) extends StringEnumEntry with Serializable
+sealed abstract class CustomerMetricsTimePeriod(val value: String, val numberOfDays: Int)
+    extends StringEnumEntry
+    with Serializable
 
 // scalastyle:off magic.number
 object CustomerMetricsTimePeriod extends StringEnum[CustomerMetricsTimePeriod] {

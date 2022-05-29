@@ -49,7 +49,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
 
             // the most recent order, recency = 1.0
             ("cust3", "partner3", parse("2022-02-20"), "loc1")
-
         ).toDF("customer_360_id", "cxi_partner_id", "ord_date", "location_id")
 
         // when
@@ -106,8 +105,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
 
             // the most recent order, recency = 1.0
             ("cust3", "partner3", parse("2022-02-20"), "loc3")
-
-
         ).toDF("customer_360_id", "cxi_partner_id", "ord_date", "location_id")
 
         // when
@@ -124,7 +121,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
                 ("cust1", AllLocationsAlias, "partner3", 0.0),
                 ("cust2", AllLocationsAlias, "partner3", 0.6),
                 ("cust3", AllLocationsAlias, "partner3", 1.0)
-
             ).toDF("customer_360_id", "location_id", "cxi_partner_id", "recency_score")
             actual.schema.fields.map(_.name) shouldEqual expected.schema.fields.map(_.name)
             actual.collect() should contain theSameElementsAs expected.collect()
@@ -155,7 +151,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
 
             // single order per partner and location, recency = 1.0
             ("cust1", "partner2", "loc3", "ord21")
-
         ).toDF("customer_360_id", "cxi_partner_id", "location_id", "ord_id")
 
         // when
@@ -170,7 +165,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
                 ("cust1", "loc1", "partner2", 1.0),
                 ("cust2", "loc1", "partner2", 0.0),
                 ("cust1", "loc3", "partner2", 1.0)
-
             ).toDF("customer_360_id", "location_id", "cxi_partner_id", "frequency_score")
             actual.schema.fields.map(_.name) shouldEqual expected.schema.fields.map(_.name)
             actual.collect() should contain theSameElementsAs expected.collect()
@@ -201,7 +195,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
 
             // single order per partner, recency = 1.0
             ("cust1", "partner3", "loc1", "ord21")
-
         ).toDF("customer_360_id", "cxi_partner_id", "location_id", "ord_id")
 
         // when
@@ -216,7 +209,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
                 ("cust1", AllLocationsAlias, "partner2", 1.0),
                 ("cust2", AllLocationsAlias, "partner2", 0.0),
                 ("cust1", AllLocationsAlias, "partner3", 1.0)
-
             ).toDF("customer_360_id", "location_id", "cxi_partner_id", "frequency_score")
             actual.schema.fields.map(_.name) shouldEqual expected.schema.fields.map(_.name)
             actual.collect() should contain theSameElementsAs expected.collect()
@@ -257,7 +249,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
 
             // partner3, loc1
             ("cust1", "partner3", "loc1", "ord31", 15.0)
-
         ).toDF("customer_360_id", "cxi_partner_id", "location_id", "ord_id", "ord_pay_total")
 
         // when
@@ -276,7 +267,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
                 ("cust2", "loc1", "partner2", 1.0),
                 ("cust3", "loc1", "partner2", 0.0),
                 ("cust1", "loc1", "partner3", 1.0)
-
             ).toDF("customer_360_id", "location_id", "cxi_partner_id", "monetary_score")
             actual.schema.fields.map(_.name) shouldEqual expected.schema.fields.map(_.name)
             actual.collect() should contain theSameElementsAs expected.collect()
@@ -317,7 +307,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
 
             // partner4
             ("cust1", "partner4", "loc1", "ord31", 15.0)
-
         ).toDF("customer_360_id", "cxi_partner_id", "location_id", "ord_id", "ord_pay_total")
 
         // when
@@ -336,7 +325,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
                 ("cust2", AllLocationsAlias, "partner3", 1.0),
                 ("cust3", AllLocationsAlias, "partner3", 0.0),
                 ("cust1", AllLocationsAlias, "partner4", 1.0)
-
             ).toDF("customer_360_id", "location_id", "cxi_partner_id", "monetary_score")
             actual.schema.fields.map(_.name) shouldEqual expected.schema.fields.map(_.name)
             actual.collect() should contain theSameElementsAs expected.collect()
@@ -351,11 +339,9 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
             ("cust1", "partner1", parse("2021-12-25"), "loc1"),
             ("cust1", "partner1", parse("2022-01-25"), "loc1"),
             ("cust1", "partner1", parse("2022-03-15"), "loc1"),
-
             ("cust2", "partner1", parse("2021-12-21"), "loc1"),
             ("cust2", "partner1", parse("2022-01-20"), "loc1"),
             ("cust2", "partner1", parse("2022-02-19"), "loc1"),
-
             ("cust3", "partner1", parse("2022-01-19"), "loc1"),
             ("cust3", "partner1", parse("2022-02-18"), "loc1"),
             ("cust3", "partner1", parse("2022-03-20"), "loc1"),
@@ -364,7 +350,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
             ("cust1", "partner1", parse("2022-01-20"), "loc2"),
             ("cust1", "partner1", parse("2022-01-25"), "loc2"),
             ("cust1", "partner1", parse("2022-03-15"), "loc2"),
-
             ("cust2", "partner1", parse("2022-01-25"), "loc2"),
             ("cust2", "partner1", parse("2022-03-15"), "loc2"),
 
@@ -372,11 +357,9 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
             ("cust1", "partner3", parse("2022-01-19"), "loc1"),
             ("cust1", "partner3", parse("2022-01-20"), "loc1"),
             ("cust1", "partner3", parse("2022-03-20"), "loc1"),
-
             ("cust2", "partner3", parse("2022-01-19"), "loc1"),
             ("cust2", "partner3", parse("2022-01-18"), "loc1"),
             ("cust2", "partner3", parse("2022-03-20"), "loc1")
-
         ).toDF("customer_360_id", "cxi_partner_id", "ord_date", "location_id")
 
         // when
@@ -393,7 +376,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
                 ("cust2", "loc2", "partner1", 0),
                 ("cust1", "loc1", "partner3", 1),
                 ("cust2", "loc1", "partner3", 0)
-
             ).toDF("customer_360_id", "location_id", "cxi_partner_id", "txn_all_months")
             actual.schema.fields.map(_.name) shouldEqual expected.schema.fields.map(_.name)
             actual.collect() should contain theSameElementsAs expected.collect()
@@ -408,11 +390,9 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
             ("cust1", "partner1", parse("2021-12-25"), "loc1"),
             ("cust1", "partner1", parse("2022-01-25"), "loc2"),
             ("cust1", "partner1", parse("2022-03-15"), "loc3"),
-
             ("cust2", "partner1", parse("2021-12-21"), "loc1"),
             ("cust2", "partner1", parse("2022-01-20"), "loc5"),
             ("cust2", "partner1", parse("2022-02-19"), "loc6"),
-
             ("cust3", "partner1", parse("2022-01-19"), "loc2"),
             ("cust3", "partner1", parse("2022-02-18"), "loc3"),
             ("cust3", "partner1", parse("2022-03-20"), "loc3"),
@@ -421,7 +401,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
             ("cust1", "partner2", parse("2022-01-20"), "loc2"),
             ("cust1", "partner2", parse("2022-01-25"), "loc1"),
             ("cust1", "partner2", parse("2022-03-15"), "loc3"),
-
             ("cust2", "partner2", parse("2022-01-25"), "loc2"),
             ("cust2", "partner2", parse("2022-03-15"), "loc3"),
 
@@ -429,11 +408,9 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
             ("cust1", "partner3", parse("2022-01-19"), "loc1"),
             ("cust1", "partner3", parse("2022-01-20"), "loc2"),
             ("cust1", "partner3", parse("2022-03-20"), "loc2"),
-
             ("cust2", "partner3", parse("2022-01-19"), "loc3"),
             ("cust2", "partner3", parse("2022-01-18"), "loc3"),
             ("cust2", "partner3", parse("2022-03-20"), "loc3")
-
         ).toDF("customer_360_id", "cxi_partner_id", "ord_date", "location_id")
 
         // when
@@ -450,7 +427,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
                 ("cust2", AllLocationsAlias, "partner2", 0),
                 ("cust1", AllLocationsAlias, "partner3", 1),
                 ("cust2", AllLocationsAlias, "partner3", 0)
-
             ).toDF("customer_360_id", "location_id", "cxi_partner_id", "txn_all_months")
             actual.schema.fields.map(_.name) shouldEqual expected.schema.fields.map(_.name)
             actual.collect() should contain theSameElementsAs expected.collect()
@@ -479,7 +455,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
             // partner1, loc2
             // rfm_score = 1.0, ,txn_all_months = 1, is_loyal = true
             ("cust1", "partner1", "loc2", "ord113")
-
         ).toDF("customer_360_id", "cxi_partner_id", "location_id", "ord_id")
 
         val recencyScore = Seq(
@@ -557,7 +532,6 @@ class LoyaltyFunctionsTest extends BaseSparkBatchJobTest {
             // partner3
             // rfm_score = 1.0, ,txn_all_months = 1, is_loyal = true
             ("cust1", "partner3", "loc2", "ord113")
-
         ).toDF("customer_360_id", "cxi_partner_id", "location_id", "ord_id")
 
         val recencyScore = Seq(

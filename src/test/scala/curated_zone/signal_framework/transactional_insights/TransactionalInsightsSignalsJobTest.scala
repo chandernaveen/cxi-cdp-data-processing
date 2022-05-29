@@ -51,10 +51,16 @@ class TransactionalInsightsSignalsJobTest extends BaseSparkBatchJobTest {
             // cust-2, partner-1, _ALL loc: order_metrics/total_amount metrics for 90 days period only
             // 7 days
             ("cust-1", "partner-1", "_ALL", sqlDate("2021-12-02"), "order_metrics", "total_amount", 456),
-            ("cust-1", "partner-1", "_ALL", sqlDate("2021-12-03"), "order_metrics", "total_amount", 12),
-
-
-        ).toDF("customer_360_id", "cxi_partner_id", "location_id", "ord_date", "signal_domain", "signal_name", "signal_value")
+            ("cust-1", "partner-1", "_ALL", sqlDate("2021-12-03"), "order_metrics", "total_amount", 12)
+        ).toDF(
+            "customer_360_id",
+            "cxi_partner_id",
+            "location_id",
+            "ord_date",
+            "signal_domain",
+            "signal_name",
+            "signal_value"
+        )
 
         preAggDf.createOrReplaceTempView(preAggTable)
 
@@ -68,18 +74,22 @@ class TransactionalInsightsSignalsJobTest extends BaseSparkBatchJobTest {
                 ("cust-1", "partner-1", "loc-1", "order_metrics", "total_orders", 10, "time_period_30"),
                 ("cust-1", "partner-1", "loc-1", "order_metrics", "total_orders", 21, "time_period_60"),
                 ("cust-1", "partner-1", "loc-1", "order_metrics", "total_orders", 36, "time_period_90"),
-
                 ("cust-1", "partner-2", "loc-2", "order_metrics", "total_orders", 19, "time_period_7"),
                 ("cust-1", "partner-2", "loc-2", "order_metrics", "total_orders", 19, "time_period_30"),
                 ("cust-1", "partner-2", "loc-2", "order_metrics", "total_orders", 19, "time_period_60"),
                 ("cust-1", "partner-2", "loc-2", "order_metrics", "total_orders", 19, "time_period_90"),
-
                 ("cust-1", "partner-1", "loc-1", "order_metrics", "total_amount", 157, "time_period_60"),
                 ("cust-1", "partner-1", "loc-1", "order_metrics", "total_amount", 157, "time_period_90"),
-
                 ("cust-1", "partner-1", "_ALL", "order_metrics", "total_amount", 468, "time_period_90")
-
-            ).toDF("customer_360_id", "cxi_partner_id", "location_id", "signal_domain", "signal_name", "signal_value", "date_option")
+            ).toDF(
+                "customer_360_id",
+                "cxi_partner_id",
+                "location_id",
+                "signal_domain",
+                "signal_name",
+                "signal_value",
+                "date_option"
+            )
 
             actual.schema.fields.map(_.name) shouldEqual expected.schema.fields.map(_.name)
             actual.collect() should contain theSameElementsAs expected.collect()

@@ -1,9 +1,9 @@
 package com.cxi.cdp.data_processing
 package support.crypto_shredding.hashing.function_types.common
 
+import com.cxi.cdp.data_processing.refined_zone.hub.identity.model.IdentityType
 import support.BaseSparkBatchJobTest
 
-import com.cxi.cdp.data_processing.refined_zone.hub.identity.model.IdentityType
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.{DefaultScalaModule, ScalaObjectMapper}
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper}
@@ -39,11 +39,14 @@ class PiiColumnsConfigTest extends BaseSparkBatchJobTest {
         val piiColumnsConfig = PiiColumnsConfig.parse(rawConfig)
 
         // then
-        piiColumnsConfig.columns.map(columnsConfig => (columnsConfig._1, columnsConfig._3.map(_.code).orNull)) should contain theSameElementsAs
+        piiColumnsConfig.columns.map(columnsConfig =>
+            (columnsConfig._1, columnsConfig._3.map(_.code).orNull)
+        ) should contain theSameElementsAs
             List(
                 ("MAID_AAID", IdentityType.MaidAAID.code),
                 ("ipv_4", IdentityType.IPv4.code),
-                ("ipv_6", IdentityType.IPv6.code))
+                ("ipv_6", IdentityType.IPv6.code)
+            )
 
     }
 

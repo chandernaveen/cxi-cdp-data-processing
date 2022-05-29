@@ -8,22 +8,41 @@ import org.scalatest.{FunSuite, Matchers}
 class TransformFunctionsTest extends FunSuite with Matchers {
 
     test("Normalize phone number") {
-        val phone_numbers = Seq("2124567890", "212-456-7890", "(212)456-7890", "(212)-456-7890", "212.456.7890", "212 456 7890", "+12124567890",
-            "+12124567890", "+1 212.456.7890", "1-212-456-7890", "12124567890", "  12124567890  ")
+        val phone_numbers = Seq(
+            "2124567890",
+            "212-456-7890",
+            "(212)456-7890",
+            "(212)-456-7890",
+            "212.456.7890",
+            "212 456 7890",
+            "+12124567890",
+            "+12124567890",
+            "+1 212.456.7890",
+            "1-212-456-7890",
+            "12124567890",
+            "  12124567890  "
+        )
         for (phone_number <- phone_numbers) {
             TransformFunctions.normalizePhoneNumber(phone_number) shouldBe "12124567890"
         }
     }
 
     test("Invalid phone number - normalization should return null") {
-        val phone_numbers = Seq(null, "", " ", "123456789", "!@!$#", "123--123--1234", "+212-456-7890", "1ABC2124567890")
+        val phone_numbers =
+            Seq(null, "", " ", "123456789", "!@!$#", "123--123--1234", "+212-456-7890", "1ABC2124567890")
         for (phone_number <- phone_numbers) {
             TransformFunctions.normalizePhoneNumber(phone_number) shouldBe null
         }
     }
 
     test("Normalize email") {
-        val emails = Seq("paul123@mailbox.com", "PAUL123@mailbox.com", "Paul123@mailBoX.com", "Paul123@Mailbox.Com", " Paul123@Mailbox.Com ")
+        val emails = Seq(
+            "paul123@mailbox.com",
+            "PAUL123@mailbox.com",
+            "Paul123@mailBoX.com",
+            "Paul123@Mailbox.Com",
+            " Paul123@Mailbox.Com "
+        )
         for (email <- emails) {
             TransformFunctions.normalizeEmail(email) shouldBe "paul123@mailbox.com"
         }

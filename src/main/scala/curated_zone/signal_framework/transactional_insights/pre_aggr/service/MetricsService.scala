@@ -1,10 +1,11 @@
 package com.cxi.cdp.data_processing
 package curated_zone.signal_framework.transactional_insights.pre_aggr.service
 
-import com.cxi.cdp.data_processing.curated_zone.model.signal.SignalDomain
 import com.cxi.cdp.data_processing.curated_zone.model.signal.transactional_insights._
-import org.apache.spark.sql.functions._
+import com.cxi.cdp.data_processing.curated_zone.model.signal.SignalDomain
+
 import org.apache.spark.sql.{Column, DataFrame}
+import org.apache.spark.sql.functions._
 
 private[pre_aggr] object MetricsService {
 
@@ -16,22 +17,26 @@ private[pre_aggr] object MetricsService {
         orderSummary
             .withColumn(
                 MetricsServiceHelper.metricColumnName(OrderMetric.signalDomainName, OrderMetric.TotalOrders.signalName),
-                lit(1L))
+                lit(1L)
+            )
             .withColumn(
                 MetricsServiceHelper.metricColumnName(OrderMetric.signalDomainName, OrderMetric.TotalAmount.signalName),
-                MetricsServiceHelper.dollarsToCentsUdf(col("ord_pay_total")))
+                MetricsServiceHelper.dollarsToCentsUdf(col("ord_pay_total"))
+            )
     }
 
     def addTimeOfDayMetrics(orderSummary: DataFrame): DataFrame = {
         orderSummary.convertSignalValuesToMetrics(
             signalColumn = MetricsServiceHelper.hourToTimeOfDayUdf(hour(col("ord_timestamp"))),
-            signalDomain = TimeOfDayMetric)
+            signalDomain = TimeOfDayMetric
+        )
     }
 
     def addChannelMetrics(orderSummary: DataFrame): DataFrame = {
         orderSummary.convertSignalValuesToMetrics(
             signalColumn = MetricsServiceHelper.channelCodeToChannelMetricUdf(col("ord_target_channel_id")),
-            signalDomain = ChannelMetric)
+            signalDomain = ChannelMetric
+        )
     }
 
     def addTenderTypeMetrics(orderSummary: DataFrame, orderTenderType: DataFrame): DataFrame = {
@@ -39,11 +44,10 @@ private[pre_aggr] object MetricsService {
             .filter(col("tender_type").isNotNull)
             .convertSignalValuesToMetrics(
                 signalColumn = MetricsServiceHelper.extractTenderTypeMetricUdf(col("tender_type")),
-                signalDomain = TenderTypeMetric)
+                signalDomain = TenderTypeMetric
+            )
 
-        val orderIdToTenderId = orderSummary.select(
-            col("ord_id"),
-            explode(col("tender_ids")).as("tender_id"))
+        val orderIdToTenderId = orderSummary.select(col("ord_id"), explode(col("tender_ids")).as("tender_id"))
 
         val metricColumns = MetricsServiceHelper.getMetricColumns(TenderTypeMetric)
         val metricAggregations = metricColumns.map(columnName => sum(columnName).as(columnName))
@@ -51,13 +55,12 @@ private[pre_aggr] object MetricsService {
         val tenderTypeMetricsByOrderId = orderIdToTenderId
             .join(orderTenderTypeWithMetrics, Seq("tender_id"))
             .groupBy(col("ord_id"))
-            .agg(
-                metricAggregations.head,
-                metricAggregations.drop(1): _*)
+            .agg(metricAggregations.head, metricAggregations.drop(1): _*)
 
         orderSummary
             .join(tenderTypeMetricsByOrderId, Seq("ord_id"), "left_outer")
-            .na.fill(0L, metricColumns)
+            .na
+            .fill(0L, metricColumns)
     }
 
     implicit class DataFrameMetricsOps(df: DataFrame) {

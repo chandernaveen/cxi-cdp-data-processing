@@ -1,8 +1,9 @@
 package com.cxi.cdp.data_processing
 package raw_zone
 
-import java.time.LocalDate
 import org.scalatest.{FunSuite, Matchers}
+
+import java.time.LocalDate
 
 class FileIngestionFrameworkTest extends FunSuite with Matchers {
 

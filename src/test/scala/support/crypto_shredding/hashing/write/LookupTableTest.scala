@@ -2,9 +2,9 @@ package com.cxi.cdp.data_processing
 package support.crypto_shredding.hashing.write
 
 import refined_zone.hub.identity.model.IdentityType
-import support.BaseSparkBatchJobTest
 import support.crypto_shredding.hashing.function_types.CryptoHashingResult
 import support.tags.RequiresDatabricksRemoteCluster
+import support.BaseSparkBatchJobTest
 
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper}
@@ -38,7 +38,7 @@ class LookupTableTest extends BaseSparkBatchJobTest with BeforeAndAfterEach {
             Seq(
                 CryptoHashingResult("ov_1", "hv_1", IdentityType.Email.code),
                 CryptoHashingResult("ov_2", "hv_2", IdentityType.Phone.code),
-                CryptoHashingResult("ov_3", "hv_3", IdentityType.Email.code),
+                CryptoHashingResult("ov_3", "hv_3", IdentityType.Email.code)
             )
         )
 
@@ -47,7 +47,8 @@ class LookupTableTest extends BaseSparkBatchJobTest with BeforeAndAfterEach {
 
         // then
         withClue("Saved pii data does not match") {
-            val actual_1 = spark.table(s"$destDb.$destTable")
+            val actual_1 = spark
+                .table(s"$destDb.$destTable")
                 .select("cxi_source", "feed_date", "run_id", "original_value", "hashed_value", "identity_type")
             val expected_1 = Seq(
                 (cxiSource, sqlDate(dateRaw), runId1, "ov_1", "hv_1", IdentityType.Email.code),
@@ -65,7 +66,7 @@ class LookupTableTest extends BaseSparkBatchJobTest with BeforeAndAfterEach {
             Seq(
                 CryptoHashingResult("ov_1", "hv_1", IdentityType.Email.code),
                 CryptoHashingResult("ov_2", "hv_2", IdentityType.Phone.code),
-                CryptoHashingResult("ov_3", "hv_3", IdentityType.Email.code),
+                CryptoHashingResult("ov_3", "hv_3", IdentityType.Email.code)
             )
         )
 
@@ -74,7 +75,8 @@ class LookupTableTest extends BaseSparkBatchJobTest with BeforeAndAfterEach {
 
         // then
         withClue("Saved pii data does not match") {
-            val actual_2 = spark.table(s"$destDb.$destTable")
+            val actual_2 = spark
+                .table(s"$destDb.$destTable")
                 .select("cxi_source", "feed_date", "run_id", "original_value", "hashed_value", "identity_type")
             val expected_2 = Seq(
                 (cxiSource, sqlDate(dateRaw), runId2, "ov_1", "hv_1", IdentityType.Email.code),
@@ -92,7 +94,7 @@ class LookupTableTest extends BaseSparkBatchJobTest with BeforeAndAfterEach {
             Seq(
                 CryptoHashingResult("ov_11", "hv_11", IdentityType.Email.code),
                 CryptoHashingResult("ov_22", "hv_22", IdentityType.Phone.code),
-                CryptoHashingResult("ov_33", "hv_33", IdentityType.Email.code),
+                CryptoHashingResult("ov_33", "hv_33", IdentityType.Email.code)
             )
         )
 
@@ -101,7 +103,8 @@ class LookupTableTest extends BaseSparkBatchJobTest with BeforeAndAfterEach {
 
         // then
         withClue("Saved pii data does not match") {
-            val actual_3 = spark.table(s"$destDb.$destTable")
+            val actual_3 = spark
+                .table(s"$destDb.$destTable")
                 .select("cxi_source", "feed_date", "run_id", "original_value", "hashed_value", "identity_type")
             val expected_3 = Seq(
                 (cxiSource, sqlDate(dateRaw), runId1, "ov_1", "hv_1", IdentityType.Email.code),
@@ -130,7 +133,8 @@ class LookupTableTest extends BaseSparkBatchJobTest with BeforeAndAfterEach {
 
         // then
         withClue("Saved pii data does not match") {
-            val actual_4 = spark.table(s"$destDb.$destTable")
+            val actual_4 = spark
+                .table(s"$destDb.$destTable")
                 .select("cxi_source", "feed_date", "run_id", "original_value", "hashed_value", "identity_type")
             val expected_4 = Seq(
                 (cxiSource, sqlDate(dateRaw), runId1, "ov_1", "hv_1", IdentityType.Email.code),
@@ -152,7 +156,11 @@ class LookupTableTest extends BaseSparkBatchJobTest with BeforeAndAfterEach {
         val cxiSource5 = "cxi-usa-burgerking"
         val df5 = spark.createDataset(
             Seq(
-                CryptoHashingResult("ov_111", "hv_111", IdentityType.Email.code) // same pii previously inserted, expect copy
+                CryptoHashingResult(
+                    "ov_111",
+                    "hv_111",
+                    IdentityType.Email.code
+                ) // same pii previously inserted, expect copy
             )
         )
 
@@ -161,7 +169,8 @@ class LookupTableTest extends BaseSparkBatchJobTest with BeforeAndAfterEach {
 
         // then
         withClue("Saved pii data does not match") {
-            val actual_4 = spark.table(s"$destDb.$destTable")
+            val actual_4 = spark
+                .table(s"$destDb.$destTable")
                 .select("cxi_source", "feed_date", "run_id", "original_value", "hashed_value", "identity_type")
             val expected_4 = Seq(
                 (cxiSource, sqlDate(dateRaw), runId1, "ov_1", "hv_1", IdentityType.Email.code),
@@ -179,8 +188,7 @@ class LookupTableTest extends BaseSparkBatchJobTest with BeforeAndAfterEach {
     }
 
     def createTempTable(tableName: String): Unit = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
                |CREATE TABLE IF NOT EXISTS $tableName
                (
                |  `cxi_source` STRING,

@@ -1,12 +1,13 @@
 package com.cxi.cdp.data_processing
 package support.change_data_feed
 
-import java.util.Objects
-
 import com.cxi.cdp.data_processing.support.change_data_feed.ChangeDataFeedService._
+
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.sql.functions.{col, lit, struct, when}
 import org.apache.spark.sql.types.{StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Row, SparkSession}
+
+import java.util.Objects
 
 /** Contains utility methods to transform Change Data Feed datasets into the CDF diff format.
   *
@@ -87,18 +88,19 @@ object CdfDiffFormat {
     final val CurrentRecordColumnName = "current_record"
 
     /** Transform a Change Data Feed dataset into the diff format. */
-    def transformChangeDataFeed(
-                                   changeDataFeedDF: DataFrame,
-                                   compositeKeyColumns: Seq[String])(implicit spark: SparkSession): DataFrame = {
+    def transformChangeDataFeed(changeDataFeedDF: DataFrame, compositeKeyColumns: Seq[String])(implicit
+        spark: SparkSession
+    ): DataFrame = {
         verifyCdfColumnsPresent(changeDataFeedDF)
 
-        val diffSchema = StructType(Seq(
-            StructField(PreviousRecordColumnName, changeDataFeedDF.schema),
-            StructField(CurrentRecordColumnName, changeDataFeedDF.schema)
-        ))
+        val diffSchema = StructType(
+            Seq(
+                StructField(PreviousRecordColumnName, changeDataFeedDF.schema),
+                StructField(CurrentRecordColumnName, changeDataFeedDF.schema)
+            )
+        )
 
-        val diffRDD = changeDataFeedDF
-            .rdd
+        val diffRDD = changeDataFeedDF.rdd
             .map(row => {
                 val key = extractCompositeKey(row, compositeKeyColumns)
                 val intermediateDiff = updateIntermediateDiff(IntermediateCdfRowDiff(None, None), row)
@@ -106,7 +108,6 @@ object CdfDiffFormat {
             })
             .reduceByKey(reduceIntermediateDiffs _)
             .map({ case (_, intermediateDiff) => finalizeDiff(intermediateDiff) })
-
 
         val diffDF = spark.createDataFrame(diffRDD, diffSchema)
 
@@ -128,7 +129,8 @@ object CdfDiffFormat {
         df.select(
             lit(null).cast(df.schema).as(PreviousRecordColumnName),
             // `when` is needed to make this column nullable
-            when(lit(true), struct(originalColumns: _*).cast(df.schema)).as(CurrentRecordColumnName))
+            when(lit(true), struct(originalColumns: _*).cast(df.schema)).as(CurrentRecordColumnName)
+        )
     }
 
     private def dropNestedCdfColumns(df: DataFrame): DataFrame = {
@@ -149,7 +151,8 @@ object CdfDiffFormat {
 
         if (!cdfColumnsPresent) {
             throw new IllegalArgumentException(
-                s"The provided DataFrame is not a Change Data Feed. Its columns are: ${df.columns.toList}")
+                s"The provided DataFrame is not a Change Data Feed. Its columns are: ${df.columns.toList}"
+            )
         }
     }
 
@@ -169,9 +172,9 @@ object CdfDiffFormat {
       * - for the `highestVersionCandidate` it is UpdatePostImage record
       */
     private case class IntermediateCdfRowDiff(
-                                                 lowestVersionCandidate: Option[Row],
-                                                 highestVersionCandidate: Option[Row]
-                                             )
+        lowestVersionCandidate: Option[Row],
+        highestVersionCandidate: Option[Row]
+    )
 
     private final val LowestVersionCandidateChangeTypes = Set(
         ChangeType.Insert,
@@ -191,9 +194,10 @@ object CdfDiffFormat {
         case object PreferHighest extends VersionPreference(_ > _)
 
         def updateCandidate(
-                               maybeCandidate: Option[Row],
-                               changeTypes: Set[String],
-                               versionPreference: VersionPreference): Option[Row] = {
+            maybeCandidate: Option[Row],
+            changeTypes: Set[String],
+            versionPreference: VersionPreference
+        ): Option[Row] = {
             if (changeTypes.contains(getChangeType(row))) {
                 maybeCandidate
                     .map(candidate => {
@@ -218,8 +222,9 @@ object CdfDiffFormat {
     }
 
     private def reduceIntermediateDiffs(
-                                           first: IntermediateCdfRowDiff,
-                                           second: IntermediateCdfRowDiff): IntermediateCdfRowDiff = {
+        first: IntermediateCdfRowDiff,
+        second: IntermediateCdfRowDiff
+    ): IntermediateCdfRowDiff = {
         val rowsFromSecond = Seq(second.lowestVersionCandidate, second.highestVersionCandidate).flatten
         rowsFromSecond.foldLeft(first)({ case (diff, row) => updateIntermediateDiff(diff, row) })
     }

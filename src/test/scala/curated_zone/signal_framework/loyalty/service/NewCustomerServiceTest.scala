@@ -19,7 +19,6 @@ class NewCustomerServiceTest extends BaseSparkBatchJobTest {
             // made 2 orders, should be considered only once
             ("cust1", "partner1", parse("2022-02-24"), "loc1", "ord1"),
             ("cust1", "partner1", parse("2022-02-23"), "loc1", "ord2"),
-
             ("cust1", "partner1", parse("2022-02-15"), "loc2", "ord3"),
             ("cust2", "partner1", parse("2022-02-15"), "loc1", "ord4"),
             ("cust1", "partner2", parse("2022-02-15"), "loc1", "ord5"),
@@ -34,7 +33,6 @@ class NewCustomerServiceTest extends BaseSparkBatchJobTest {
             // should be ignored, 'ord_date' is out of the timeframe
             ("cust3", "partner0", parse("2022-02-14"), "loc1", "ord3")
         ).toDF("customer_360_id", "cxi_partner_id", "ord_date", "location_id", "ord_id")
-
 
         // when
         val actual = NewCustomerService().getNewCustomersPerPartnerAndLocation(customer360orders, "2022-02-24", 10)
@@ -64,7 +62,6 @@ class NewCustomerServiceTest extends BaseSparkBatchJobTest {
             // made 2 orders in different locations, should be considered only once
             ("cust2", "partner1", parse("2022-02-15"), "loc2", "ord3"),
             ("cust2", "partner1", parse("2022-02-15"), "loc1", "ord4"),
-
             ("cust3", "partner1", parse("2022-02-15"), "loc1", "ord5"),
             ("cust2", "partner2", parse("2022-02-15"), "loc1", "ord6"),
             ("cust1", "partner2", parse("2022-02-15"), "loc1", "ord7"),
@@ -78,7 +75,6 @@ class NewCustomerServiceTest extends BaseSparkBatchJobTest {
 
             // should be ignored, 'ord_date' is out of the timeframe
             ("cust3", "partner0", parse("2022-02-14"), "loc1", "ord3")
-
         ).toDF("customer_360_id", "cxi_partner_id", "ord_date", "location_id", "ord_id")
 
         // when

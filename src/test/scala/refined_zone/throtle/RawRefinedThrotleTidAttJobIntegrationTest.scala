@@ -1,8 +1,8 @@
 package com.cxi.cdp.data_processing
 package refined_zone.throtle
 
-import support.BaseSparkBatchJobTest
 import support.tags.RequiresDatabricksRemoteCluster
+import support.BaseSparkBatchJobTest
 
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper}
@@ -26,9 +26,10 @@ class RawRefinedThrotleTidAttJobIntegrationTest extends BaseSparkBatchJobTest wi
         // when
         RawRefinedThrotleTidAttJob.write(destTable, tid_att1)
 
-        //then
+        // then
         withClue("Saved tid_att values do not match") {
-            val actual = spark.table(destTable)
+            val actual = spark
+                .table(destTable)
                 .select("throtle_id", "throtle_hhid", "income", "occupation_code", "home_value", "dwelling_type")
             val expected = Seq(
                 ("thr_id_01", "thr_hh_id_11", "250K+", "Geologist", "1M+", "S"),
@@ -42,9 +43,10 @@ class RawRefinedThrotleTidAttJobIntegrationTest extends BaseSparkBatchJobTest wi
         // write initial set of rows one more time - emulate job re-run
         RawRefinedThrotleTidAttJob.write(destTable, tid_att1)
 
-        //then
+        // then
         withClue("Saved tid_att values do not match") {
-            val actual = spark.table(destTable)
+            val actual = spark
+                .table(destTable)
                 .select("throtle_id", "throtle_hhid", "income", "occupation_code", "home_value", "dwelling_type")
             val expected = Seq(
                 ("thr_id_01", "thr_hh_id_11", "250K+", "Geologist", "1M+", "S"),
@@ -64,9 +66,10 @@ class RawRefinedThrotleTidAttJobIntegrationTest extends BaseSparkBatchJobTest wi
         // when
         RawRefinedThrotleTidAttJob.write(destTable, tid_att2)
 
-        //then
+        // then
         withClue("Saved tid_att values do not match") {
-            val actual = spark.table(destTable)
+            val actual = spark
+                .table(destTable)
                 .select("throtle_id", "throtle_hhid", "income", "occupation_code", "home_value", "dwelling_type")
             val expected = Seq(
                 ("thr_id_01", "thr_hh_id_11", "250K+", "Scientist", "1M+", "S"),
@@ -90,8 +93,7 @@ class RawRefinedThrotleTidAttJobIntegrationTest extends BaseSparkBatchJobTest wi
     }
 
     def createTempTable(tableName: String): Unit = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
                |CREATE TABLE IF NOT EXISTS $tableName
                (
                |    `throtle_id` STRING NOT NULL ,

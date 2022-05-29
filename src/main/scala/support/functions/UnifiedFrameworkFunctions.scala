@@ -5,27 +5,30 @@ import io.delta.tables.DeltaTable
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs._
 import org.apache.log4j.{Level, Logger}
+import org.apache.spark.sql.{Column, DataFrame, Row, SparkSession}
 import org.apache.spark.sql.functions.{lit, to_timestamp}
 import org.apache.spark.sql.types.{IntegerType, StructField, StructType}
-import org.apache.spark.sql.{Column, DataFrame, Row, SparkSession}
 
-
-/**
- * @author - Name of Author
- * @createdOn - Date
- * @version - 1.0
- * @Ticket - Ticket tracking details
- * @App-Dependency - App that uses this
- * @function-desc - Description
- */
+/** @author - Name of Author
+  * @createdOn - Date
+  * @version - 1.0
+  * @Ticket - Ticket tracking details
+  * @App-Dependency - App that uses this
+  * @function-desc - Description
+  */
 object UnifiedFrameworkFunctions {
 
-    /**
-     * Generic
-     *
-     * @function-desc - Initiate the Logger process
-     */
-    def fnInitializeLogger(loggerName: String, logSystem: String, logLevel: String, logAppender: String, isRootLogEnabled: String): Logger = {
+    /** Generic
+      *
+      * @function-desc - Initiate the Logger process
+      */
+    def fnInitializeLogger(
+        loggerName: String,
+        logSystem: String,
+        logLevel: String,
+        logAppender: String,
+        isRootLogEnabled: String
+    ): Logger = {
         // Logger Configuration
         var logger: Logger = null
 
@@ -35,8 +38,7 @@ object UnifiedFrameworkFunctions {
                 val appender = logger.getAppender("logAppender")
                 Logger.getRootLogger().addAppender(appender)
             }
-        }
-        else {
+        } else {
             logger = Logger.getRootLogger();
         }
         logLevel match {
@@ -50,11 +52,10 @@ object UnifiedFrameworkFunctions {
 
     // COMMAND ----------
 
-    /**
-     * Generic
-     *
-     * @function-desc - Generates spark configuration based on contract configuration
-     */
+    /** Generic
+      *
+      * @function-desc - Generates spark configuration based on contract configuration
+      */
     def applySparkConfigOptions(spark: SparkSession, configOptions: Map[String, Any]): Unit = {
         configOptions.foreach {
             case (key, value: String) => spark.conf.set(key, value)
@@ -71,10 +72,11 @@ object UnifiedFrameworkFunctions {
         def toTimestamp(x: String, fieldName: String): Column = {
             try {
                 to_timestamp(lit(x))
-            }
-            catch {
+            } catch {
                 case x: java.lang.NumberFormatException => {
-                    throw new IllegalArgumentException(s"Value '${x}' in parameter '${fieldName}' can not be converted to TimestampType")
+                    throw new IllegalArgumentException(
+                        s"Value '${x}' in parameter '${fieldName}' can not be converted to TimestampType"
+                    )
                 }
                 case x: java.lang.NullPointerException => {
                     lit(null)
@@ -88,39 +90,45 @@ object UnifiedFrameworkFunctions {
                 StructType(List(StructField("number", IntegerType, true)))
             )
             val values = scala.collection.Map(
-                "processName" -> lit(logContext.processName)
-                , "entity" -> lit(logContext.entity)
-                , "runID" -> lit(logContext.runID)
-                , "dpYear" -> lit(logContext.dpYear)
-                , "dpMonth" -> lit(logContext.dpMonth)
-                , "dpDay" -> lit(logContext.dpDay)
-                , "dpHour" -> lit(logContext.dpHour)
-                , "dpPartition" -> lit(logContext.dpPartition)
-                , "processStartTime" -> toTimestamp(logContext.processStartTime, "processStartTime")
-                , "processEndTime" -> toTimestamp(logContext.processEndTime, "processEndTime")
-                , "writeStatus" -> lit(logContext.writeStatus)
-                , "errorMessage" -> lit(logContext.errorMessage)
-                , "readRowCount" -> lit(readRowCount)
+                "processName" -> lit(logContext.processName),
+                "entity" -> lit(logContext.entity),
+                "runID" -> lit(logContext.runID),
+                "dpYear" -> lit(logContext.dpYear),
+                "dpMonth" -> lit(logContext.dpMonth),
+                "dpDay" -> lit(logContext.dpDay),
+                "dpHour" -> lit(logContext.dpHour),
+                "dpPartition" -> lit(logContext.dpPartition),
+                "processStartTime" -> toTimestamp(logContext.processStartTime, "processStartTime"),
+                "processEndTime" -> toTimestamp(logContext.processEndTime, "processEndTime"),
+                "writeStatus" -> lit(logContext.writeStatus),
+                "errorMessage" -> lit(logContext.errorMessage),
+                "readRowCount" -> lit(readRowCount)
             )
             // TODO: replace DeltaTable functionality with pure Spark SQL/DataFrame API, as it's not supported by databricks-connect
             val logTbl = DeltaTable.forName(logContext.logTable)
-            logTbl.alias("t")
+            logTbl
+                .alias("t")
                 .merge(dummyDf, "1 = 0")
-                .whenNotMatched().insert(values)
+                .whenNotMatched()
+                .insert(values)
                 .execute()
         }
 
     }
 
-    def fnWriteAuditTable(logContext: LogContext, spark: SparkSession, importDF: DataFrame = null, logger: Logger = null): Unit = {
+    def fnWriteAuditTable(
+        logContext: LogContext,
+        spark: SparkSession,
+        importDF: DataFrame = null,
+        logger: Logger = null
+    ): Unit = {
         try {
             var readCount: Long = 0.toLong
             if (importDF != null) {
                 readCount = importDF.count
             }
             Logs.write(logContext = logContext, readRowCount = readCount.toInt, spark = spark)
-        }
-        catch {
+        } catch {
             case e: Throwable =>
                 if (logger != null) {
                     logger.error("Function 'fn_writeAuditTable' failed with error:" + e.toString(), e)
@@ -133,10 +141,11 @@ object UnifiedFrameworkFunctions {
     def replaceWhereForSingleColumnWriteOption(df: DataFrame, params: Map[String, String]): Map[String, String] = {
         val controlCol = params("controlCol")
 
-        val controlColValuesProcessed = df.select(controlCol)
+        val controlColValuesProcessed = df
+            .select(controlCol)
             .distinct
             .collect
-            .map(_ (0))
+            .map(_(0))
             .map(r => s"'$r'")
             .mkString(",")
 
@@ -162,11 +171,10 @@ object UnifiedFrameworkFunctions {
     val writeOptionsFunctionsMap: Map[String, WriteOptionsFunction] =
         Map("replaceWhereForSingleColumn" -> replaceWhereForSingleColumnWriteOption)
 
-    /**
-     * Generic
-     *
-     * @function-desc - Provide a list of all files including those in sub-directories
-     */
+    /** Generic
+      *
+      * @function-desc - Provide a list of all files including those in sub-directories
+      */
     def getAllFiles(hadoopConf: Configuration, path: String): Seq[String] = {
         val fs: FileSystem = FileSystem.get(hadoopConf)
 
@@ -175,9 +183,11 @@ object UnifiedFrameworkFunctions {
             if (files.isEmpty) {
                 List()
             } else {
-                files.map(file => {
-                    if (file.isDirectory) listRecursive(fs, file.getPath.toString) else List(file.getPath.toString)
-                }).reduce(_ ++ _)
+                files
+                    .map(file => {
+                        if (file.isDirectory) listRecursive(fs, file.getPath.toString) else List(file.getPath.toString)
+                    })
+                    .reduce(_ ++ _)
             }
         }
         listRecursive(fs, path)

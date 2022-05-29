@@ -1,9 +1,9 @@
 package com.cxi.cdp.data_processing
 package curated_zone.tmi
 
-import support.SparkSessionFactory
-import support.utils.ContractUtils
 import support.utils.mongodb.MongoDbConfigUtils
+import support.utils.ContractUtils
+import support.SparkSessionFactory
 
 import org.apache.log4j.Logger
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -47,12 +47,22 @@ object TotalMarketInsightsFromSegmintJob {
 
         val totalMarketInsights: DataFrame = transformTotalMarketInsights(totalMarketInsightsSource).cache()
 
-        writeToDatalakeTotalMarketInsights(totalMarketInsights, s"$curatedDb.$totalMarketInsightsTable", cliArgs.overwrite)
-        writeToMongoTotalMarketInsights(totalMarketInsights, mongoDbConfig.uri, mongoDbName, totalMarketInsightsMongoCollectionName, cliArgs.overwrite)
+        writeToDatalakeTotalMarketInsights(
+            totalMarketInsights,
+            s"$curatedDb.$totalMarketInsightsTable",
+            cliArgs.overwrite
+        )
+        writeToMongoTotalMarketInsights(
+            totalMarketInsights,
+            mongoDbConfig.uri,
+            mongoDbName,
+            totalMarketInsightsMongoCollectionName,
+            cliArgs.overwrite
+        )
     }
 
     def readTotalMarketInsights(refinedSegmintTable: String)(implicit spark: SparkSession): DataFrame = {
-            spark.sqlContext.sql(
+        spark.sqlContext.sql(
             s"""
                 SELECT
                     location_type, region, state, city, date AS date,
@@ -99,7 +109,8 @@ object TotalMarketInsightsFromSegmintJob {
         }
 
         def parse(args: Seq[String]): CliArgs = {
-            optionsParser.parse(args, initOptions)
+            optionsParser
+                .parse(args, initOptions)
                 .getOrElse(throw new IllegalArgumentException("Could not parse arguments"))
         }
     }

@@ -3,8 +3,8 @@ package support.crypto_shredding.hashing.write
 
 import support.crypto_shredding.hashing.function_types.CryptoHashingResult
 
-import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Dataset, SparkSession}
+import org.apache.spark.sql.functions._
 
 class LookupTable(spark: SparkSession, val dbName: String, val tableName: String) extends Serializable {
 
@@ -20,8 +20,7 @@ class LookupTable(spark: SparkSession, val dbName: String, val tableName: String
 
         dfToWrite.createOrReplaceTempView(srcTable)
 
-        spark.sql(
-            s"""
+        spark.sql(s"""
                |MERGE INTO $dbName.$tableName
                |USING $srcTable
                |ON $dbName.$tableName.feed_date <=> '$dateRaw'

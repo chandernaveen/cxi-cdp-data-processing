@@ -1,17 +1,18 @@
 package com.cxi.cdp.data_processing
 package curated_zone.signal_framework.transactional_insights.pre_aggr
 
-import java.nio.file.Paths
-
 import com.cxi.cdp.data_processing.curated_zone.signal_framework.transactional_insights.pre_aggr.model._
 import com.cxi.cdp.data_processing.curated_zone.signal_framework.transactional_insights.pre_aggr.service._
 import com.cxi.cdp.data_processing.refined_zone.hub.ChangeDataFeedViews
-import com.cxi.cdp.data_processing.support.SparkSessionFactory
 import com.cxi.cdp.data_processing.support.change_data_feed.ChangeDataFeedSource
 import com.cxi.cdp.data_processing.support.utils.ContractUtils
+import com.cxi.cdp.data_processing.support.SparkSessionFactory
+
 import org.apache.log4j.Logger
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.{DataFrame, Dataset, SaveMode, SparkSession}
+import org.apache.spark.sql.functions.col
+
+import java.nio.file.Paths
 
 /** This job pre-aggregates Transactional Insight metrics for each order date, customer360, partner, and location.
   *
@@ -53,13 +54,13 @@ object PreAggrTransactionalInsightsJob {
     }
 
     private case class ProcessingContext(
-                                            orderSummary: DataFrame,
-                                            orderTenderType: DataFrame,
-                                            customer360: DataFrame,
-                                            destTable: String,
-                                            maybeOrderDates: Option[Set[String]],
-                                            finalizeOnSuccessFn: FinalizeOnSuccessFn
-                                )
+        orderSummary: DataFrame,
+        orderTenderType: DataFrame,
+        customer360: DataFrame,
+        destTable: String,
+        maybeOrderDates: Option[Set[String]],
+        finalizeOnSuccessFn: FinalizeOnSuccessFn
+    )
 
     /** Returns processing context based on the job mode.
       * 1. for full reprocess mode, orderSummary will have all orders, and maybeOrderDates will be empty
@@ -68,8 +69,9 @@ object PreAggrTransactionalInsightsJob {
       *    for the orders that were changed, and orderSummary will have all orders for these dates
       *    b. if here were no changes, processing context is not returned
       */
-    private def getProcessingContext(contract: ContractUtils, fullReprocess: Boolean)
-                                    (implicit spark: SparkSession): Option[ProcessingContext] = {
+    private def getProcessingContext(contract: ContractUtils, fullReprocess: Boolean)(implicit
+        spark: SparkSession
+    ): Option[ProcessingContext] = {
         val orderSummaryCdf = getOrderSummaryCdf(contract)
         val orderTenderType = spark.table(getOrderTenderTypeTable(contract))
         val customer360 = spark.table(getCustomer360Table(contract))
@@ -84,7 +86,8 @@ object PreAggrTransactionalInsightsJob {
                     customer360 = customer360,
                     destTable = destTable,
                     maybeOrderDates = None,
-                    finalizeOnSuccessFn = () => orderSummaryCdf.markProcessed(cdfResult))
+                    finalizeOnSuccessFn = () => orderSummaryCdf.markProcessed(cdfResult)
+                )
             })
         } else {
             val cdfResult = orderSummaryCdf.queryChangeData(CdfConsumerId)
@@ -173,9 +176,11 @@ object PreAggrTransactionalInsightsJob {
         s"$db.$table"
     }
 
-    private def write(ds: Dataset[PreAggrTransactionalInsightsRecord],
-                      destTable: String,
-                      maybeOrderDates: Option[Set[String]]): Unit = {
+    private def write(
+        ds: Dataset[PreAggrTransactionalInsightsRecord],
+        destTable: String,
+        maybeOrderDates: Option[Set[String]]
+    ): Unit = {
         val writeOptions = maybeOrderDates match {
             case None => Map.empty[String, String]
             case Some(orderDates) =>
@@ -183,8 +188,7 @@ object PreAggrTransactionalInsightsJob {
                 Map("replaceWhere" -> s"ord_date in $orderDatesSqlArray")
         }
 
-        ds
-            .write
+        ds.write
             .format("delta")
             .partitionBy("ord_date")
             .mode(SaveMode.Overwrite)

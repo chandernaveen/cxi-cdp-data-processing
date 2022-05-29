@@ -3,7 +3,7 @@ package support.utils
 
 import org.scalatest.{FunSuite, Matchers}
 
-class PathUtilsTest extends FunSuite with Matchers  {
+class PathUtilsTest extends FunSuite with Matchers {
 
     test("concatPaths") {
         PathUtils.concatPaths("/a/b", "c/d") shouldBe "/a/b/c/d"

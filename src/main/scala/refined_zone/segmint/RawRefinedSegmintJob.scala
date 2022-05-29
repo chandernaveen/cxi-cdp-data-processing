@@ -1,19 +1,19 @@
 package com.cxi.cdp.data_processing
 package refined_zone.segmint
 
-import support.SparkSessionFactory
 import support.normalization.DateNormalization
 import support.utils.ContractUtils
+import support.SparkSessionFactory
 
 import org.apache.log4j.Logger
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, IntegerType, StringType, StructType}
-import org.apache.spark.sql.{DataFrame, SparkSession}
 
 import java.nio.file.Paths
+import java.time.{DayOfWeek, LocalDate}
 import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
-import java.time.{DayOfWeek, LocalDate}
 import scala.util.{Failure, Success, Try}
 
 /** This job parses Raw Segmint Data into a simple Refined copy
@@ -40,20 +40,20 @@ object RawRefinedSegmintJob {
         val contract: ContractUtils = new ContractUtils(Paths.get("/mnt/" + cliArgs.contractPath))
         val feedDate = cliArgs.date.toString
 
-        //Source configuration, contract driven
+        // Source configuration, contract driven
         val srcDbName = contract.prop[String](getSchemaRawPath("db_name"))
         val srcTable = contract.prop[String](getSchemaRawPath("data_table"))
 
-        //Supplement configuration, contract driven
+        // Supplement configuration, contract driven
         val postalCodeDb = contract.prop[String](getSchemaRefinedHubPath("db_name"))
         val postalCodeTable = contract.prop[String](getSchemaRefinedHubPath("postal_table"))
 
-        //Target configuration, contract driven
+        // Target configuration, contract driven
         val refinedSegmingDb = contract.prop[String](getSchemaRefinedSegmintPath("db_name"))
         val segmintTable = contract.prop[String](getSchemaRefinedSegmintPath("segmint_table"))
 
         val segmintRawDf = readSegmint(spark, feedDate, s"${srcDbName}.${srcTable}")
-        val postalCodesDf = readPostalCodes(spark,s"$postalCodeDb.$postalCodeTable")
+        val postalCodesDf = readPostalCodes(spark, s"$postalCodeDb.$postalCodeTable")
 
         val segmintTransformDf = transformSegmint(segmintRawDf, broadcast(postalCodesDf))
 
@@ -64,35 +64,36 @@ object RawRefinedSegmintJob {
         import spark.implicits._
 
         val postalMerch = new StructType()
-          .add("date", StringType)
-          .add("merchant", StringType)
-          .add("category", StringType)
-          .add("location_type", StringType)
-          .add("state", StringType)
-          .add("postal_code", StringType)
-          .add("distinct_customers", IntegerType)
-          .add("transaction_quantity", IntegerType)
-          .add("transaction_amount", DoubleType)
-          .add("transaction_amount_avg", DoubleType)
+            .add("date", StringType)
+            .add("merchant", StringType)
+            .add("category", StringType)
+            .add("location_type", StringType)
+            .add("state", StringType)
+            .add("postal_code", StringType)
+            .add("distinct_customers", IntegerType)
+            .add("transaction_quantity", IntegerType)
+            .add("transaction_amount", DoubleType)
+            .add("transaction_amount_avg", DoubleType)
 
         val iso8601DateConverterUdf = udf(convertYearWeekToIso8601Date _)
 
-        spark.table(table)
+        spark
+            .table(table)
             .filter($"record_type" === "zip_merch" && $"feed_date" === date)
             .select(from_csv($"record_value", postalMerch, Map("sep" -> "|")).as("postal_merch"))
             .select(
-              iso8601DateConverterUdf($"postal_merch.date").as("date"),
-              $"postal_merch.merchant",
-              $"postal_merch.location_type",
-              $"postal_merch.state",
-              $"postal_merch.postal_code",
-              $"postal_merch.transaction_quantity",
-              $"postal_merch.transaction_amount")
-            .filter($"state" =!= "" && $"postal_code"  =!= "" && $"location_type".isNotNull)
+                iso8601DateConverterUdf($"postal_merch.date").as("date"),
+                $"postal_merch.merchant",
+                $"postal_merch.location_type",
+                $"postal_merch.state",
+                $"postal_merch.postal_code",
+                $"postal_merch.transaction_quantity",
+                $"postal_merch.transaction_amount"
+            )
+            .filter($"state" =!= "" && $"postal_code" =!= "" && $"location_type".isNotNull)
     }
 
-    /**
-      * Converts date (string) in 'YYYY-WW' format to the date (string) in 'yyyy-MM-dd' format.
+    /** Converts date (string) in 'YYYY-WW' format to the date (string) in 'yyyy-MM-dd' format.
       * Number of the week is converted to the exact date based on the fact, that Segmint ingestion happens on Saturdays.
       * (Friday is treated as the last day of the week).
       * @param yearWeekDate date in 'YYYY-WW' format
@@ -114,8 +115,7 @@ object RawRefinedSegmintJob {
     }
 
     def readPostalCodes(spark: SparkSession, table: String): DataFrame = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
                |SELECT
                |    postal_code,
                |    city,
@@ -139,8 +139,7 @@ object RawRefinedSegmintJob {
         val srcTable = "newSegmint"
 
         df.createOrReplaceTempView(srcTable)
-        df.sqlContext.sql(
-            s"""
+        df.sqlContext.sql(s"""
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.date = $srcTable.date AND $destTable.merchant = $srcTable.merchant AND $destTable.postal_code = $srcTable.postal_code
@@ -151,9 +150,7 @@ object RawRefinedSegmintJob {
                |""".stripMargin)
     }
 
-    case class CliArgs(contractPath: String,
-                       date: LocalDate,
-                       sourceDateDirFormat: String = "yyyyMMdd") {
+    case class CliArgs(contractPath: String, date: LocalDate, sourceDateDirFormat: String = "yyyyMMdd") {
         val sourceDateDirFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(sourceDateDirFormat)
     }
 
@@ -164,7 +161,10 @@ object RawRefinedSegmintJob {
                 case Seq(contractPath, rawDate, sourceDateDirFormat) =>
                     CliArgs(contractPath, parseDate(rawDate), sourceDateDirFormat)
                 case Seq(contractPath, rawDate) => CliArgs(contractPath, parseDate(rawDate))
-                case _ => throw new IllegalArgumentException("Expected CLI arguments: <contractPath> <date (yyyy-MM-dd)> <sourceDateDirFormat?>")
+                case _ =>
+                    throw new IllegalArgumentException(
+                        "Expected CLI arguments: <contractPath> <date (yyyy-MM-dd)> <sourceDateDirFormat?>"
+                    )
             }
         }
 
@@ -172,7 +172,11 @@ object RawRefinedSegmintJob {
         private def parseDate(rawDate: String): LocalDate = {
             Try(LocalDate.parse(rawDate, DateTimeFormatter.ISO_DATE)) match {
                 case Success(date) => date
-                case Failure(e) => throw new IllegalArgumentException(s"Unable to parse date from $rawDate, expected format is yyyy-MM-dd", e)
+                case Failure(e) =>
+                    throw new IllegalArgumentException(
+                        s"Unable to parse date from $rawDate, expected format is yyyy-MM-dd",
+                        e
+                    )
             }
         }
     }

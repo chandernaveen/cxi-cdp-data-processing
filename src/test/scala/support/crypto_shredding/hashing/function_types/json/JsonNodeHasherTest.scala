@@ -11,17 +11,36 @@ class JsonNodeHasherTest extends FunSuite with Matchers {
 
     import PiiColumnsConfig._
 
-    val piiConfig: PiiColumnsConfig = PiiColumnsConfig(Seq(
-        ("record_value", InnerColumn.JsonPath("$.pii_column"), identity, Option.empty),
-        ("record_value", InnerColumn.JsonPath("$.nested.column"), identity, Option.empty),
-        ("record_value", InnerColumn.JsonPath("$.nested..recursive_column"), identity, Option.empty)
-    ))
+    val piiConfig: PiiColumnsConfig = PiiColumnsConfig(
+        Seq(
+            ("record_value", InnerColumn.JsonPath("$.pii_column"), identity, Option.empty),
+            ("record_value", InnerColumn.JsonPath("$.nested.column"), identity, Option.empty),
+            ("record_value", InnerColumn.JsonPath("$.nested..recursive_column"), identity, Option.empty)
+        )
+    )
 
-    val piiConfigWithTransform: PiiColumnsConfig = PiiColumnsConfig(Seq(
-        ("record_value", InnerColumn.JsonPath("$.pii_column"), TransformFunctions.get("normalizeEmail").get, Option.empty),
-        ("record_value", InnerColumn.JsonPath("$.nested.column"), TransformFunctions.get("normalizeEmail").get, Option.empty),
-        ("record_value", InnerColumn.JsonPath("$.nested..recursive_column"), TransformFunctions.get("normalizeEmail").get, Option.empty)
-    ))
+    val piiConfigWithTransform: PiiColumnsConfig = PiiColumnsConfig(
+        Seq(
+            (
+                "record_value",
+                InnerColumn.JsonPath("$.pii_column"),
+                TransformFunctions.get("normalizeEmail").get,
+                Option.empty
+            ),
+            (
+                "record_value",
+                InnerColumn.JsonPath("$.nested.column"),
+                TransformFunctions.get("normalizeEmail").get,
+                Option.empty
+            ),
+            (
+                "record_value",
+                InnerColumn.JsonPath("$.nested..recursive_column"),
+                TransformFunctions.get("normalizeEmail").get,
+                Option.empty
+            )
+        )
+    )
 
     val mapper = new ObjectMapper with ScalaObjectMapper
     val salt = "NaCl"
@@ -30,8 +49,7 @@ class JsonNodeHasherTest extends FunSuite with Matchers {
 
     test("test json-path hash with non-matching columns") {
         // given
-        val input = mapper.readTree(
-            s"""
+        val input = mapper.readTree(s"""
                 {
                   "another_record_value": {
                      "pii_column": "pii_column_value_will_not_change"
@@ -43,8 +61,7 @@ class JsonNodeHasherTest extends FunSuite with Matchers {
         val actual = hasher.apply(input)
 
         // then
-        val expected = mapper.readTree(
-            s"""
+        val expected = mapper.readTree(s"""
                 {
                   "another_record_value" : {
                     "pii_column" : "pii_column_value_will_not_change"
@@ -58,8 +75,7 @@ class JsonNodeHasherTest extends FunSuite with Matchers {
 
     test("test json-path hash with matching columns") {
         // given
-        val input = mapper.readTree(
-            s"""
+        val input = mapper.readTree(s"""
                 {
                   "record_value": {
                     "regular_column": "regular_column_value",
@@ -90,8 +106,7 @@ class JsonNodeHasherTest extends FunSuite with Matchers {
         val actual = hasher.apply(input)
 
         // then
-        val expected = mapper.readTree(
-            s"""
+        val expected = mapper.readTree(s"""
                 {
                   "record_value" : {
                     "regular_column" : "regular_column_value",
@@ -144,8 +159,7 @@ class JsonNodeHasherTest extends FunSuite with Matchers {
 
     test("test json-path hash with non-matching columns (with transform functions)") {
         // given
-        val input = mapper.readTree(
-            s"""
+        val input = mapper.readTree(s"""
                 {
                   "another_record_value": {
                      "pii_column": "pii_column_value_will_not_change"
@@ -157,8 +171,7 @@ class JsonNodeHasherTest extends FunSuite with Matchers {
         val actual = hasherWithTransformFunction.apply(input)
 
         // then
-        val expected = mapper.readTree(
-            s"""
+        val expected = mapper.readTree(s"""
                 {
                   "another_record_value" : {
                     "pii_column" : "pii_column_value_will_not_change"
@@ -172,8 +185,7 @@ class JsonNodeHasherTest extends FunSuite with Matchers {
 
     test("test json-path hash with matching columns (with transform functions)") {
         // given
-        val input = mapper.readTree(
-            s"""
+        val input = mapper.readTree(s"""
                 {
                   "record_value": {
                     "regular_column": "regular_column_value",
@@ -204,8 +216,7 @@ class JsonNodeHasherTest extends FunSuite with Matchers {
         val actual = hasherWithTransformFunction.apply(input)
 
         // then
-        val expected = mapper.readTree(
-            s"""
+        val expected = mapper.readTree(s"""
                 {
                   "record_value" : {
                     "regular_column" : "regular_column_value",
