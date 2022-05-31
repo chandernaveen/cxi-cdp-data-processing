@@ -28,8 +28,6 @@ object FileIngestionFramework {
 
     val basePropName = "jobs.databricks.landing_to_raw_job.job_config"
 
-    // TODO: refactor after the final scalafmt config is approved to remove scalastyle warning
-    // scalastyle:off method.length
     def main(args: Array[String]): Unit = {
         val logger: Logger = configureLogger()
         logger.info("Main class arguments: " + args.mkString(", "))
@@ -64,13 +62,7 @@ object FileIngestionFramework {
         } catch {
             case e: Throwable =>
                 // If run failed write Audit log table to indicate data processing failure
-                val logContext = buildLogContext(
-                    config = config,
-                    processEndTime = java.time.LocalDateTime.now.toString,
-                    writeStatus = "0",
-                    errorMessage = e.toString
-                )
-
+                val logContext = buildLogContext(config = config, writeStatus = "0", errorMessage = e.toString)
                 fnWriteAuditTable(logContext, logger = logger, spark = spark)
                 logger.error(s"Failed to new files from ${config.sourcePath}. Due to error: ${e.toString}")
                 throw e
@@ -79,18 +71,11 @@ object FileIngestionFramework {
         processLandingDF(logger, cliArgs, np, config, spark, landingDF)
 
         val files = filesProcessed.size
-        val logContext = buildLogContext(
-            config = config,
-            processEndTime = java.time.LocalDateTime.now.toString,
-            writeStatus = "1",
-            errorMessage = ""
-        )
+        val logContext = buildLogContext(config = config, writeStatus = "1", errorMessage = "")
         fnWriteAuditTable(logContext = logContext, logger = logger, spark = spark)
         logger.info(s"""Files processed: $files""")
     }
 
-    // TODO: refactor after the final scalafmt config is approved to remove scalastyle warning
-    // scalastyle:off method.length
     private def processLandingDF(
         logger: Logger,
         cliArgs: CliArgs,
@@ -129,22 +114,13 @@ object FileIngestionFramework {
         } catch {
             case cryptoShreddingEx: CryptoShreddingException =>
                 logger.error(s"Failed to apply crypto shredding ${cryptoShreddingEx.getMessage}", cryptoShreddingEx)
-                val logContext = buildLogContext(
-                    config = config,
-                    processEndTime = java.time.LocalDateTime.now.toString,
-                    writeStatus = "0",
-                    errorMessage = cryptoShreddingEx.toString
-                )
+                val logContext =
+                    buildLogContext(config = config, writeStatus = "0", errorMessage = cryptoShreddingEx.toString)
                 fnWriteAuditTable(logContext = logContext, logger = logger, spark = spark)
                 throw cryptoShreddingEx
             case e: Throwable =>
                 // If run failed write Audit log table to indicate data processing failure
-                val logContext = buildLogContext(
-                    config = config,
-                    processEndTime = java.time.LocalDateTime.now.toString,
-                    writeStatus = "0",
-                    errorMessage = e.toString
-                )
+                val logContext = buildLogContext(config = config, writeStatus = "0", errorMessage = e.toString)
                 fnWriteAuditTable(logContext = logContext, logger = logger, spark = spark)
                 logger.error(s"Failed to write to delta location ${config.targetPath}. Due to error: ${e.toString}")
                 throw e
@@ -207,9 +183,9 @@ object FileIngestionFramework {
 
     def buildLogContext(
         config: FileIngestionFrameworkConfig,
-        processEndTime: String,
         writeStatus: String,
-        errorMessage: String
+        errorMessage: String,
+        processEndTime: String = java.time.LocalDateTime.now.toString
     ): LogContext = {
         LogContext(
             logTable = config.logTable,

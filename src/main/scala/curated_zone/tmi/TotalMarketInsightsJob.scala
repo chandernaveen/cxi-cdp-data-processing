@@ -65,8 +65,6 @@ object TotalMarketInsightsJob {
         }
     }
 
-    // TODO: refactor after the final scalafmt config is approved to remove scalastyle warning
-    // scalastyle:off method.length
     def process(contract: ContractUtils, orderDates: Set[String], fullReprocess: Boolean)(implicit
         spark: SparkSession
     ): Unit = {
@@ -82,12 +80,6 @@ object TotalMarketInsightsJob {
         val mongoDbName = contract.prop[String]("mongo.db")
         val partnerMarketInsightsMongoCollectionName = contract.prop[String]("mongo.partner_market_insights_collection")
         val totalMarketInsightsMongoCollectionName = contract.prop[String]("mongo.total_market_insights_collection")
-
-        val shouldComputeTotalMarketInsights =
-            contract.propOrElse[Boolean](
-                "jobs.databricks.total_market_insights_job.job_config.compute_total_market_insights",
-                true
-            )
 
         val orderSummary: DataFrame =
             readOrderSummary(orderDates, s"$refinedHubDb.$orderSummaryTable", s"$refinedHubDb.$locationTable")
@@ -106,7 +98,7 @@ object TotalMarketInsightsJob {
             fullReprocess
         )
 
-        if (shouldComputeTotalMarketInsights) {
+        if (shouldComputeTotalMarketInsights(contract)) {
             val totalMarketInsights: DataFrame = computeTotalMarketInsights(partnerMarketInsights).cache()
             writeToDatalakeTotalMarketInsights(
                 totalMarketInsights,
@@ -123,6 +115,13 @@ object TotalMarketInsightsJob {
         } else {
             logger.info("Skip calculation of total market insights based on a contract")
         }
+    }
+
+    private def shouldComputeTotalMarketInsights(contract: ContractUtils): Boolean = {
+        contract.propOrElse[Boolean](
+            "jobs.databricks.total_market_insights_job.job_config.compute_total_market_insights",
+            true
+        )
     }
 
     def getOrderDatesToProcess(orderSummaryChangeData: DataFrame): Set[String] = {

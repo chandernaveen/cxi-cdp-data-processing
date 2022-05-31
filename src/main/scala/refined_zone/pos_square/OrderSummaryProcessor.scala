@@ -51,7 +51,6 @@ object OrderSummaryProcessor {
                |""".stripMargin)
     }
 
-    // TODO: refactor after the final scalafmt config is approved to remove scalastyle warning
     // scalastyle:off method.length
     def transformOrderSummary(
         orderSummary: DataFrame,

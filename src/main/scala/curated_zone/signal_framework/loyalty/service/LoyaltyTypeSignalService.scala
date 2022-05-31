@@ -16,25 +16,29 @@ class LoyaltyTypeSignalService(
     val regularCustomerService: RegularCustomerService
 ) extends Serializable {
 
-    // TODO: refactor after the final scalafmt config is approved to remove scalastyle warning
-    // scalastyle:off method.length
     def getLoyaltyTypesForTimePeriod(
         customer360orders: DataFrame,
         timePeriod: CustomerMetricsTimePeriod,
         feedDate: String,
         loyaltyCfg: LoyaltyConfig
     ): DataFrame = {
-
         val endDate = LocalDate.parse(feedDate).minusDays(timePeriod.numberOfDays).toString(DateFormat)
 
-        val loyalPerLocation = loyalCustomerService.getLoyalCustomersPerPartnerAndLocation(
-            customer360orders,
-            endDate,
-            loyaltyCfg.loyalCustomerTimeframeDays,
-            loyaltyCfg.rfmThreshold
-        )
+        val loyaltyTypesPerLocation = getLoyaltyTypesPerLocation(customer360orders, endDate, loyaltyCfg)
+        val loyaltyTypesForAllLocations = getLoyaltyTypesForAllLocations(customer360orders, endDate, loyaltyCfg)
 
-        val loyalAllLocations = loyalCustomerService.getLoyalCustomersPerPartnerForAllLocations(
+        loyaltyTypesPerLocation
+            .unionByName(loyaltyTypesForAllLocations)
+            .withColumn("date_option", lit(timePeriod.value))
+            .withColumnRenamed("loyalty_type", "signal_value")
+    }
+
+    private def getLoyaltyTypesPerLocation(
+        customer360orders: DataFrame,
+        endDate: String,
+        loyaltyCfg: LoyaltyConfig
+    ): DataFrame = {
+        val loyalPerLocation = loyalCustomerService.getLoyalCustomersPerPartnerAndLocation(
             customer360orders,
             endDate,
             loyaltyCfg.loyalCustomerTimeframeDays,
@@ -48,17 +52,42 @@ class LoyaltyTypeSignalService(
             loyaltyCfg
         )
 
+        val newPerLocation = newCustomerService.getNewCustomersPerPartnerAndLocation(
+            customer360orders,
+            endDate,
+            loyaltyCfg.newCustomerTimeframeDays
+        )
+
+        val newLoyalAtRiskPerLocation = newPerLocation.unionByName(loyalPerLocation).unionByName(atRiskPerLocation)
+
+        val regularPerLocation = regularCustomerService.getRegularCustomersPerPartnerAndLocation(
+            customer360orders,
+            newLoyalAtRiskPerLocation,
+            endDate,
+            loyaltyCfg.regularCustomerTimeframeDays
+        )
+
+        newLoyalAtRiskPerLocation
+            .unionByName(regularPerLocation)
+    }
+
+    private def getLoyaltyTypesForAllLocations(
+        customer360orders: DataFrame,
+        endDate: String,
+        loyaltyCfg: LoyaltyConfig
+    ): DataFrame = {
+        val loyalAllLocations = loyalCustomerService.getLoyalCustomersPerPartnerForAllLocations(
+            customer360orders,
+            endDate,
+            loyaltyCfg.loyalCustomerTimeframeDays,
+            loyaltyCfg.rfmThreshold
+        )
+
         val atRiskAllLocations = atRiskCustomerService.getAtRiskCustomersPerPartnerForAllLocations(
             loyalAllLocations,
             customer360orders,
             endDate,
             loyaltyCfg
-        )
-
-        val newPerLocation = newCustomerService.getNewCustomersPerPartnerAndLocation(
-            customer360orders,
-            endDate,
-            loyaltyCfg.newCustomerTimeframeDays
         )
 
         val newAllLocations = newCustomerService.getNewCustomersPerPartnerForAllLocations(
@@ -67,15 +96,8 @@ class LoyaltyTypeSignalService(
             loyaltyCfg.newCustomerTimeframeDays
         )
 
-        val newLoyalAtRiskPerLocation = newPerLocation.unionByName(loyalPerLocation).unionByName(atRiskPerLocation)
         val newLoyalAtRiskAllLocations = newAllLocations.unionByName(loyalAllLocations).unionByName(atRiskAllLocations)
 
-        val regularPerLocation = regularCustomerService.getRegularCustomersPerPartnerAndLocation(
-            customer360orders,
-            newLoyalAtRiskPerLocation,
-            endDate,
-            loyaltyCfg.regularCustomerTimeframeDays
-        )
         val regularAllLocations = regularCustomerService.getRegularCustomersPerPartnerAllLocations(
             customer360orders,
             newLoyalAtRiskAllLocations,
@@ -83,13 +105,10 @@ class LoyaltyTypeSignalService(
             loyaltyCfg.regularCustomerTimeframeDays
         )
 
-        newLoyalAtRiskPerLocation
-            .unionByName(newLoyalAtRiskAllLocations)
-            .unionByName(regularPerLocation)
+        newLoyalAtRiskAllLocations
             .unionByName(regularAllLocations)
-            .withColumn("date_option", lit(timePeriod.value))
-            .withColumnRenamed("loyalty_type", "signal_value")
     }
+
 }
 
 object LoyaltyTypeSignalService {

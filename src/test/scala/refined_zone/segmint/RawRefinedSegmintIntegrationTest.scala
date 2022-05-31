@@ -1,8 +1,8 @@
 package com.cxi.cdp.data_processing
 package refined_zone.segmint
 
-import support.BaseSparkBatchJobTest
 import support.tags.RequiresDatabricksRemoteCluster
+import support.BaseSparkBatchJobTest
 
 import org.scalatest.BeforeAndAfterEach
 
@@ -19,14 +19,24 @@ class RawRefinedSegmintIntegrationTest extends BaseSparkBatchJobTest with Before
         // given
         // initial set of data
         val segmintData_1 = Seq(
-            ("2021-01-11", "MCDONALD'S", "FAST FOOD RESTAURANTS","AK", "99504", 10, 2.99, "City 1", "Region 1"),
+            ("2021-01-11", "MCDONALD'S", "FAST FOOD RESTAURANTS", "AK", "99504", 10, 2.99, "City 1", "Region 1"),
             ("2021-01-11", "MOOSE'S TOOTH", "PIZZA PARLORS", "AK", "99502", 1, 1.99, "City 3", "Region 1"),
             ("2021-01-11", "STARBUCKS", "COFFEE SHOPS", "AK", "99503", 5, 5.99, "City 2", "Region 1"),
             ("2021-01-11", "TACO BELL", "MEXICAN RESTAURANTS", "AK", "99504", 2, 3.0, "City 1", "Region 1"),
             ("2021-01-18", "MCDONALD'S", "FAST FOOD RESTAURANTS", "AK", "99504", 10, 5.99, "City 1", "Region 1"),
             ("2021-01-18", "STARBUCKS", "COFFEE SHOPS", "AK", "99503", 4, 5.99, "City 2", "Region 1"),
             ("2021-01-25", "STARBUCKS", "COFFEE SHOPS", "AK", "99503", 3, 5.99, "City 2", "Region 1")
-        ).toDF("date", "merchant", "location_type", "state", "postal_code", "transaction_quantity", "transaction_amount", "city", "region")
+        ).toDF(
+            "date",
+            "merchant",
+            "location_type",
+            "state",
+            "postal_code",
+            "transaction_quantity",
+            "transaction_amount",
+            "city",
+            "region"
+        )
 
         // when
         // write segmintData_1 first time
@@ -34,8 +44,19 @@ class RawRefinedSegmintIntegrationTest extends BaseSparkBatchJobTest with Before
 
         // then
         withClue("Saved Segmint data does not match") {
-            val actual = spark.table(destTable)
-                .select("date", "merchant", "location_type", "state", "postal_code", "transaction_quantity", "transaction_amount", "city", "region")
+            val actual = spark
+                .table(destTable)
+                .select(
+                    "date",
+                    "merchant",
+                    "location_type",
+                    "state",
+                    "postal_code",
+                    "transaction_quantity",
+                    "transaction_amount",
+                    "city",
+                    "region"
+                )
             assertDataFrameDataEquals(segmintData_1, actual)
         }
 
@@ -45,16 +66,47 @@ class RawRefinedSegmintIntegrationTest extends BaseSparkBatchJobTest with Before
 
         // then
         withClue("Saved Segmint data does not match") {
-            val actual = spark.table(destTable)
-                .select("date", "merchant", "location_type", "state", "postal_code", "transaction_quantity", "transaction_amount", "city", "region")
+            val actual = spark
+                .table(destTable)
+                .select(
+                    "date",
+                    "merchant",
+                    "location_type",
+                    "state",
+                    "postal_code",
+                    "transaction_quantity",
+                    "transaction_amount",
+                    "city",
+                    "region"
+                )
             assertDataFrameDataEquals(segmintData_1, actual)
         }
 
         // given
         val segmintData_2 = Seq(
-            ("2021-01-11", "MCDONALD'S", "FAST FOOD RESTAURANTS","AK", "99504", 10, 2.99, "City 1", "Region 2"), // updated region
+            (
+                "2021-01-11",
+                "MCDONALD'S",
+                "FAST FOOD RESTAURANTS",
+                "AK",
+                "99504",
+                10,
+                2.99,
+                "City 1",
+                "Region 2"
+            ), // updated region
             ("2022-02-24", "MOOSE'S TOOTH", "PIZZA PARLORS", "AK", "99502", 3, 4.99, "City 3", "Region 1") // added row
-        ).toDF("date", "merchant", "location_type", "state", "postal_code", "transaction_quantity", "transaction_amount", "city", "region")
+        ).toDF(
+            "date",
+            "merchant",
+            "location_type",
+            "state",
+            "postal_code",
+            "transaction_quantity",
+            "transaction_amount",
+            "city",
+            "region"
+        )
 
         // when
         // write segmintData_2 - 1 row is updated, 1 row is added
@@ -63,17 +115,58 @@ class RawRefinedSegmintIntegrationTest extends BaseSparkBatchJobTest with Before
         // then
         withClue("Saved Segmint data does not match") {
             val expected = Seq(
-                ("2021-01-11", "MCDONALD'S", "FAST FOOD RESTAURANTS","AK", "99504", 10, 2.99, "City 1", "Region 2"), // updated row
+                (
+                    "2021-01-11",
+                    "MCDONALD'S",
+                    "FAST FOOD RESTAURANTS",
+                    "AK",
+                    "99504",
+                    10,
+                    2.99,
+                    "City 1",
+                    "Region 2"
+                ), // updated row
                 ("2021-01-11", "MOOSE'S TOOTH", "PIZZA PARLORS", "AK", "99502", 1, 1.99, "City 3", "Region 1"),
                 ("2021-01-11", "STARBUCKS", "COFFEE SHOPS", "AK", "99503", 5, 5.99, "City 2", "Region 1"),
                 ("2021-01-11", "TACO BELL", "MEXICAN RESTAURANTS", "AK", "99504", 2, 3.0, "City 1", "Region 1"),
                 ("2021-01-18", "MCDONALD'S", "FAST FOOD RESTAURANTS", "AK", "99504", 10, 5.99, "City 1", "Region 1"),
                 ("2021-01-18", "STARBUCKS", "COFFEE SHOPS", "AK", "99503", 4, 5.99, "City 2", "Region 1"),
                 ("2021-01-25", "STARBUCKS", "COFFEE SHOPS", "AK", "99503", 3, 5.99, "City 2", "Region 1"),
-                ("2022-02-24", "MOOSE'S TOOTH", "PIZZA PARLORS", "AK", "99502", 3, 4.99, "City 3", "Region 1") // added row
-            ).toDF("date", "merchant", "location_type", "state", "postal_code", "transaction_quantity", "transaction_amount", "city", "region")
-            val actual = spark.table(destTable)
-                .select("date", "merchant", "location_type", "state", "postal_code", "transaction_quantity", "transaction_amount", "city", "region")
+                (
+                    "2022-02-24",
+                    "MOOSE'S TOOTH",
+                    "PIZZA PARLORS",
+                    "AK",
+                    "99502",
+                    3,
+                    4.99,
+                    "City 3",
+                    "Region 1"
+                ) // added row
+            ).toDF(
+                "date",
+                "merchant",
+                "location_type",
+                "state",
+                "postal_code",
+                "transaction_quantity",
+                "transaction_amount",
+                "city",
+                "region"
+            )
+            val actual = spark
+                .table(destTable)
+                .select(
+                    "date",
+                    "merchant",
+                    "location_type",
+                    "state",
+                    "postal_code",
+                    "transaction_quantity",
+                    "transaction_amount",
+                    "city",
+                    "region"
+                )
             assertDataFrameDataEquals(expected, actual)
         }
 
@@ -90,8 +183,7 @@ class RawRefinedSegmintIntegrationTest extends BaseSparkBatchJobTest with Before
     }
 
     def createTempTable(tableName: String): Unit = {
-        spark.sql(
-            s"""
+        spark.sql(s"""
                CREATE TABLE IF NOT EXISTS $tableName
                (
                    `date` DATE,

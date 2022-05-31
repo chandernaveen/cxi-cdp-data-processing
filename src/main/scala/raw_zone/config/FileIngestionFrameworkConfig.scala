@@ -38,30 +38,21 @@ case class FileIngestionFrameworkConfig(
 
 object FileIngestionFrameworkConfig {
 
-    // TODO: refactor after the final scalafmt config is approved to remove scalastyle warning
-    // scalastyle:off method.length
     def apply(
         feedDate: LocalDate,
         sourceDateDirFormatter: DateTimeFormatter,
         contractUtils: ContractUtils,
         basePropName: String
     ): FileIngestionFrameworkConfig = {
-
-        val schemaPath = contractUtils.propOrElse[String](jobConfigPropName(basePropName, "read.schemaPath"), "")
+        val baseSourcePath = "/mnt/" + contractUtils.prop(jobConfigPropName(basePropName, "read.path"))
+        val maybeSchemaPath = contractUtils.propOrNone[String](jobConfigPropName(basePropName, "read.schemaPath"))
+        val targetPath = "/mnt/" + contractUtils.prop(jobConfigPropName(basePropName, "write.path"))
 
         FileIngestionFrameworkConfig(
-            sourcePath = getSourcePath(
-                "/mnt/" + contractUtils.prop(jobConfigPropName(basePropName, "read.path")),
-                feedDate,
-                sourceDateDirFormatter
-            ),
-            targetPath = "/mnt/" + contractUtils.prop(jobConfigPropName(basePropName, "write.path")),
+            sourcePath = getSourcePath(baseSourcePath, feedDate, sourceDateDirFormatter),
+            targetPath = targetPath,
             targetPartitionColumns =
-                try {
-                    contractUtils.prop(jobConfigPropName(basePropName, "write.partitionColumns"))
-                } catch {
-                    case _: Throwable => Seq[String]("feed_date")
-                },
+                contractUtils.propOrElse(jobConfigPropName(basePropName, "write.partitionColumns"), Seq("feed_date")),
             processName = contractUtils.prop(jobConfigPropName(basePropName, "audit.processName")),
             sourceEntity = contractUtils.prop(jobConfigPropName(basePropName, "audit.entity")),
             logTable = contractUtils.prop(jobConfigPropName(basePropName, "audit.logTable")),
@@ -73,11 +64,7 @@ object FileIngestionFrameworkConfig {
             ),
             transformationName = contractUtils
                 .propOrElse[String](jobConfigPropName(basePropName, "transform.transformationName"), "identity"),
-            schema = if (schemaPath.nonEmpty) {
-                Some(DataType.fromJson(DBUtils.fs.head(s"/mnt/$schemaPath")).asInstanceOf[StructType])
-            } else {
-                None
-            },
+            schema = maybeSchemaPath.map(parseSchema),
             saveModeFromContract =
                 contractUtils.propOrElse[String](jobConfigPropName(basePropName, "write.saveMode"), "append"),
             configOptions = contractUtils.propOrElse[Map[String, Any]](
@@ -106,6 +93,10 @@ object FileIngestionFrameworkConfig {
     /** Creates the final source path from the base path (which comes from a contract) and the processing date. */
     private def getSourcePath(basePath: String, date: LocalDate, sourceDateDirFormat: DateTimeFormatter): String = {
         PathUtils.concatPaths(basePath, sourceDateDirFormat.format(date))
+    }
+
+    private def parseSchema(schemaPath: String): StructType = {
+        DataType.fromJson(DBUtils.fs.head(s"/mnt/$schemaPath")).asInstanceOf[StructType]
     }
 
 }

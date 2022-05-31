@@ -3,7 +3,7 @@ package raw_zone
 
 import support.{SparkSessionFactory, WorkspaceConfigReader}
 import support.change_data_feed.{ChangeDataFeedService, ChangeDataFeedSource}
-import support.crypto_shredding.PrivacyFunctions
+import support.crypto_shredding.PrivacyFunctions.inAuthorizedContext
 import support.utils.ContractUtils
 
 import org.apache.log4j.Logger
@@ -35,11 +35,8 @@ object PrivacyLookupDeduplicationJob {
         val privacyFinalTable = getPrivacyTable(contract)
 
         val workspaceConfigPath: String = contract.prop[String]("databricks_workspace_config")
-        val privacyFunctions =
-            new PrivacyFunctions(spark, WorkspaceConfigReader.readWorkspaceConfig(spark, workspaceConfigPath))
 
-        try {
-            privacyFunctions.authorize()
+        inAuthorizedContext(spark, WorkspaceConfigReader.readWorkspaceConfig(spark, workspaceConfigPath)) {
             val cdfService = new ChangeDataFeedService(cdfTrackerTable)
             val singleTable = new ChangeDataFeedSource.SingleTable(cdfService, privacyIntermediateTable)
             val changeDataResult =
@@ -62,8 +59,6 @@ object PrivacyLookupDeduplicationJob {
                     logger.info(s"Update CDF tracker: ${changeDataResult.tableMetadataSeq}")
                     singleTable.markProcessed(changeDataResult)
             }
-        } finally {
-            privacyFunctions.unauthorize()
         }
     }
 

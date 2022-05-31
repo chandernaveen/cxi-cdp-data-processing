@@ -23,3 +23,22 @@ class PrivacyFunctions(spark: SparkSession, workspaceConfig: WorkspaceConfig) {
     private def getSparkConfStorageAccountValue: String =
         DBUtils.secrets.get(workspaceConfig.azureKeyVaultScopeName, "cxi-int-cryptoShredding-storageAccountAccessKey")
 }
+
+object PrivacyFunctions {
+
+    /** Executes `body` in the authorized context,
+      * allowing it to access restricted data such as the privacy lookup table.
+      *
+      * Ensures that authorization settings are unset in case of a failure.
+      */
+    def inAuthorizedContext[T](spark: SparkSession, workspaceConfig: WorkspaceConfig)(body: => T): T = {
+        val privacyFunctions = new PrivacyFunctions(spark, workspaceConfig)
+        try {
+            privacyFunctions.authorize()
+            body
+        } finally {
+            privacyFunctions.unauthorize()
+        }
+    }
+
+}

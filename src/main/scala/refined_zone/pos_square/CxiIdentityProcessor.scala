@@ -7,8 +7,9 @@ import refined_zone.hub.model.CxiIdentity._
 import refined_zone.pos_square.config.ProcessorConfig
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.{getSchemaRefinedHubPath, getSchemaRefinedPath}
 import refined_zone.service.MetadataService.extractMetadata
-import support.crypto_shredding.{CryptoShredding, PrivacyFunctions}
 import support.crypto_shredding.config.CryptoShreddingConfig
+import support.crypto_shredding.CryptoShredding
+import support.crypto_shredding.PrivacyFunctions.inAuthorizedContext
 import support.utils.ContractUtils
 import support.WorkspaceConfigReader
 
@@ -165,9 +166,18 @@ object CxiIdentityProcessor {
         fullCustomerData
     }
 
-    // TODO: refactor after the final scalafmt config is approved to remove scalastyle warning
-    // scalastyle:off method.length
     def computeWeight3CxiCustomerId(
+        fullCustomerData: DataFrame,
+        transformedOrderCustomersPickupData: DataFrame
+    ): DataFrame = {
+        val allEmails = computeWeight3EmailAddressCxiCustomerId(fullCustomerData, transformedOrderCustomersPickupData)
+        val allPhones = computeWeight3PhoneNumberCxiCustomerId(fullCustomerData, transformedOrderCustomersPickupData)
+
+        // Not hashing cause it is supposed to be hash already (weight 3 was in crypto for Landing/Raw)
+        allEmails.unionByName(allPhones)
+    }
+
+    private def computeWeight3EmailAddressCxiCustomerId(
         fullCustomerData: DataFrame,
         transformedOrderCustomersPickupData: DataFrame
     ): DataFrame = {
@@ -193,9 +203,14 @@ object CxiIdentityProcessor {
                 lit(3).as(Weight)
             )
 
-        val allEmails = emailsSource.unionByName(emailsPickup)
+        emailsSource.unionByName(emailsPickup)
+    }
 
-        val phoneSource = fullCustomerData
+    private def computeWeight3PhoneNumberCxiCustomerId(
+        fullCustomerData: DataFrame,
+        transformedOrderCustomersPickupData: DataFrame
+    ): DataFrame = {
+        val phonesSource = fullCustomerData
             .filter(col("phone_number").isNotNull)
             .select(
                 col("ord_id"),
@@ -217,11 +232,7 @@ object CxiIdentityProcessor {
                 lit(3).as(Weight)
             )
 
-        val allPhones = phoneSource.unionByName(phonesPickup)
-
-        allEmails.unionByName(
-            allPhones
-        ) // Not hashing cause it is supposed to be hash already (weight 3 was in crypto for Landing/Raw)
+        phonesSource.unionByName(phonesPickup)
     }
 
     def computeWeight2CxiCustomerId(cryptoShreddingConfig: CryptoShreddingConfig, fullCustomerData: DataFrame)(implicit
@@ -341,13 +352,10 @@ object CxiIdentityProcessor {
         contract: ContractUtils,
         cryptoShreddingConfig: CryptoShreddingConfig
     ): Unit = {
-
         val workspaceConfigPath: String = contract.prop[String]("databricks_workspace_config")
         val workspaceConfig = WorkspaceConfigReader.readWorkspaceConfig(spark, workspaceConfigPath)
-        val privacyFunctions = new PrivacyFunctions(spark, workspaceConfig)
 
-        try {
-            privacyFunctions.authorize()
+        inAuthorizedContext(spark, workspaceConfig) {
             val privacyTable = readPrivacyLookupTable(spark, contract, cryptoShreddingConfig)
             val cxiIdentities = allCustomerIds
                 .select(CxiIdentityId, Type, Weight)
@@ -374,8 +382,6 @@ object CxiIdentityProcessor {
                    |WHEN NOT MATCHED
                    |  THEN INSERT *
                    |""".stripMargin)
-        } finally {
-            privacyFunctions.unauthorize()
         }
     }
 

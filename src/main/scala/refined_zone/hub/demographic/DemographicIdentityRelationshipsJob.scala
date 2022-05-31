@@ -4,7 +4,7 @@ package refined_zone.hub.demographic
 import refined_zone.hub.identity.model._
 import refined_zone.service.MetadataService.extractMetadata
 import support.{SparkSessionFactory, WorkspaceConfigReader}
-import support.crypto_shredding.PrivacyFunctions
+import support.crypto_shredding.PrivacyFunctions.inAuthorizedContext
 import support.utils.ContractUtils
 
 import org.apache.log4j.Logger
@@ -31,8 +31,6 @@ object DemographicIdentityRelationshipsJob {
         run(cliArgs)(SparkSessionFactory.getSparkSession())
     }
 
-    // TODO: refactor after the final scalafmt config is approved to remove scalastyle warning
-    // scalastyle:off method.length
     def run(cliArgs: CliArgs)(implicit spark: SparkSession): Unit = {
         val contract: ContractUtils = new ContractUtils(Paths.get(cliArgs.contractPath))
 
@@ -60,9 +58,7 @@ object DemographicIdentityRelationshipsJob {
         val throtleAaidTableName = s"$rawDB.$throtleAaidTable"
         val dfThrotleAAID = readThrotleTidAaid(throtleAaidTableName, findMaxFeedDateInRawTable(throtleAaidTableName))
 
-        val privacyFunctions = new PrivacyFunctions(spark, workspaceConfig)
-        try {
-            privacyFunctions.authorize()
+        inAuthorizedContext(spark, workspaceConfig) {
             val privacyLookupDf = readPrivacyLookupTableEmails(s"$lookupDB.$lookupTable")
 
             val transformedThrotleMaids = transformThrotleMaids(dfThrotleIDFA, dfThrotleAAID)
@@ -82,8 +78,6 @@ object DemographicIdentityRelationshipsJob {
                 transformedDemographicIdentityRelationship,
                 s"$refinedHubDB.$demographicIdentityRelationshipTable"
             )
-        } finally {
-            privacyFunctions.unauthorize()
         }
     }
 

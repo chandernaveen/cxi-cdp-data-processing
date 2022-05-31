@@ -203,8 +203,6 @@ class ContractUtils(jsonPath: String) extends Serializable {
         propToString(name, properties.toMap)
     }
 
-    // TODO: refactor after the final scalafmt config is approved to remove scalastyle warning
-    // scalastyle:off line.size.limit
     protected def propToString(name: String, map: scala.collection.immutable.Map[String, Object]): String = {
         if (name == null) {
             throw new IllegalArgumentException("Name is null")
@@ -221,7 +219,11 @@ class ContractUtils(jsonPath: String) extends Serializable {
                         case _ => {
                             print(s"${listOfNames(0)}.")
                             if (isInstanceOfMap(value.get)) {
-                                s"${listOfNames(0)}.${propToString(listOfNames.slice(1, listOfNames.size).mkString("."), value.get.asInstanceOf[scala.collection.immutable.Map[String, Object]])}"
+                                val restNamesAsString = propToString(
+                                    listOfNames.slice(1, listOfNames.size).mkString("."),
+                                    value.get.asInstanceOf[scala.collection.immutable.Map[String, Object]]
+                                )
+                                s"${listOfNames(0)}.$restNamesAsString"
                             } else {
                                 throw new RuntimeException(s"Unknown Class Name ${value.get.getClass.getName}")
                             }

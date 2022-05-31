@@ -225,8 +225,6 @@ object Customer360SignalsJob {
             .where(col("signal_generation_date") === feedDateCol)
     }
 
-    // TODO: refactor after the final scalafmt config is approved to remove scalastyle warning
-    // scalastyle:off method.length
     def transformPartnerLocationSignals(
         spark: SparkSession,
         partnerLocationSignalsDf: DataFrame,
@@ -234,21 +232,8 @@ object Customer360SignalsJob {
         locationsDf: DataFrame
     ): DataFrame = {
         import spark.implicits._
-        // take only signals that exist in signal universe
-        val recognizedSignals = partnerLocationSignalsDf
-            .withColumnRenamed("signal_domain", "domain_name")
-            .join(signalUniverseDs, Seq("domain_name", "signal_name"), "inner")
-            .withColumn("signal_es_name", concat(col("signal_name"), lit("_"), col("es_type")))
-            .select(
-                "domain_name",
-                "signal_es_name",
-                "es_field_parent_section_name",
-                "customer_360_id",
-                "cxi_partner_id",
-                "location_id",
-                "date_option",
-                "signal_value"
-            )
+
+        val recognizedSignals = getPartnerLocationRecognizedSignals(partnerLocationSignalsDf, signalUniverseDs)
 
         val signalUniverse = signalUniverseDs.collect()
         val partnerLocationSignalsByDomain = extractPartnerLocationSignalDomainAsColumn(recognizedSignals)
@@ -285,6 +270,27 @@ object Customer360SignalsJob {
             .groupBy("customer_360_id")
             .pivot("es_field_parent_section_name")
             .agg(collect_list("partner_location_entry"))
+    }
+
+    private def getPartnerLocationRecognizedSignals(
+        partnerLocationSignalsDf: DataFrame,
+        signalUniverseDs: Dataset[SignalUniverse]
+    ): DataFrame = {
+        // take only signals that exist in signal universe
+        partnerLocationSignalsDf
+            .withColumnRenamed("signal_domain", "domain_name")
+            .join(signalUniverseDs, Seq("domain_name", "signal_name"), "inner")
+            .withColumn("signal_es_name", concat(col("signal_name"), lit("_"), col("es_type")))
+            .select(
+                "domain_name",
+                "signal_es_name",
+                "es_field_parent_section_name",
+                "customer_360_id",
+                "cxi_partner_id",
+                "location_id",
+                "date_option",
+                "signal_value"
+            )
     }
 
     def groupPartnerLocationSignalsByDomainAndTimePeriod(signalsByDomainToMap: DataFrame): DataFrame = {

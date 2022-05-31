@@ -103,8 +103,6 @@ object RawRefinedThrotleTidAttJob {
         refinedDf
     }
 
-    // TODO: refactor after the final scalafmt config is approved to remove scalastyle warning
-    // scalastyle:off method.length
     private[throtle] def transform(
         rawDf: DataFrame,
         doNotTransformColumnNames: Set[String],
@@ -114,7 +112,6 @@ object RawRefinedThrotleTidAttJob {
         allColumnNames: Set[String],
         spark: SparkSession
     ): DataFrame = {
-
         val getThrotleCodeValueUdf =
             udf((code_category: String, code: String) => getThrotleTransformedField(code_category, code, dictionary))
         val parseBooleanFieldUdf = udf(parseBooleanField _)
@@ -155,7 +152,6 @@ object RawRefinedThrotleTidAttJob {
             .toSeq
 
         transformedDf.select(finalColumns: _*)
-
     }
 
     private[throtle] def castToInt(columnName: String, value: String): Integer = {

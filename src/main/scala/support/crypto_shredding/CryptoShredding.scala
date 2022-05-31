@@ -5,10 +5,10 @@ import support.crypto_shredding.config.CryptoShreddingConfig
 import support.crypto_shredding.hashing.{HashFunctionFactory, Salt}
 import support.crypto_shredding.hashing.function_types.IHashFunction
 import support.crypto_shredding.hashing.write.LookupTable
+import support.crypto_shredding.PrivacyFunctions.inAuthorizedContext
 import support.WorkspaceConfigReader
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.lit
 
 class CryptoShredding(val spark: SparkSession, config: CryptoShreddingConfig) {
 
@@ -26,15 +26,10 @@ class CryptoShredding(val spark: SparkSession, config: CryptoShreddingConfig) {
 
         val (hashedOriginalDf, extractedPersonalInformationDf) = function.hash(df)
 
-        val privacyFunctions = new PrivacyFunctions(spark, workspaceConfig)
-
-        try {
-            privacyFunctions.authorize()
+        inAuthorizedContext(spark, workspaceConfig) {
             val lookupTable = new LookupTable(spark, config.lookupDestDbName, config.lookupDestTableName)
             lookupTable.upsert(extractedPersonalInformationDf, config.cxiSource, config.dateRaw, config.runId)
             hashedOriginalDf
-        } finally {
-            privacyFunctions.unauthorize()
         }
     }
 
