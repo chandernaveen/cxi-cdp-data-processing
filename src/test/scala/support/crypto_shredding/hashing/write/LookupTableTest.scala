@@ -14,7 +14,7 @@ class LookupTableTest extends BaseSparkBatchJobTest with BeforeAndAfterEach {
     import spark.implicits._
 
     val destDb = "default"
-    val destTable = "lookup_table_intermediate_test"
+    val destTable = generateUniqueTableName("lookup_table_intermediate_test")
 
     override protected def beforeEach(): Unit = {
         super.beforeEach()

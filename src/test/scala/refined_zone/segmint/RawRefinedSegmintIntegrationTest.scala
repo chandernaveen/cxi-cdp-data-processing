@@ -6,12 +6,10 @@ import support.BaseSparkBatchJobTest
 
 import org.scalatest.BeforeAndAfterEach
 
-import java.util.UUID
-
 @RequiresDatabricksRemoteCluster(reason = "Uses delta table so can not be executed locally")
 class RawRefinedSegmintIntegrationTest extends BaseSparkBatchJobTest with BeforeAndAfterEach {
 
-    val destTable = s"integration_test_segmint_postal_merch_${UUID.randomUUID().toString.substring(0, 8)}"
+    val destTable = generateUniqueTableName("integration_test_segmint_postal_merch")
 
     test("Write to refined Segmint table") {
         import spark.implicits._

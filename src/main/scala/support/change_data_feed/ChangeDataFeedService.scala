@@ -1,6 +1,7 @@
 package com.cxi.cdp.data_processing
 package support.change_data_feed
 
+import org.apache.log4j.Logger
 import org.apache.spark.sql.{Row, SparkSession}
 import org.apache.spark.sql.functions._
 
@@ -21,6 +22,8 @@ import org.apache.spark.sql.functions._
   * for the consumer / table, and read row changes between these versions.
   */
 class ChangeDataFeedService(val cdfTrackerTable: String) {
+
+    private val logger = Logger.getLogger(this.getClass.getName)
 
     /** Returns true if ChangeDataFeed is currently enabled for the specified table. */
     def isCdfEnabled(table: String)(implicit spark: SparkSession): Boolean = {
@@ -134,7 +137,9 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
     }
 
     /** Updates latest processed versions in the CDF Tracker table. */
-    def setLatestProcessedVersion(updates: CdfTrackerRow*)(implicit spark: SparkSession): Unit = {
+    def setLatestProcessedVersion(consumerId: String, updates: CdfTrackerTableVersion*)(implicit
+        spark: SparkSession
+    ): Unit = {
         import spark.implicits._
 
         val srcTable = "cdf_tracker_updates"
@@ -143,12 +148,21 @@ class ChangeDataFeedService(val cdfTrackerTable: String) {
         spark.sql(s"""
                 MERGE INTO $cdfTrackerTable
                 USING $srcTable
-                ON $cdfTrackerTable.consumer_id <=> $srcTable.consumer_id
+                ON $cdfTrackerTable.consumer_id <=> '$consumerId'
                   AND $cdfTrackerTable.table_name <=> $srcTable.table_name
                 WHEN MATCHED
-                  THEN UPDATE SET *
+                  THEN UPDATE SET
+                    latest_processed_version = $srcTable.latest_processed_version
                 WHEN NOT MATCHED
-                  THEN INSERT *
+                  THEN INSERT (
+                    consumer_id,
+                    table_name,
+                    latest_processed_version
+                  ) VALUES(
+                    '$consumerId',
+                    $srcTable.table_name,
+                    $srcTable.latest_processed_version
+                  )
             """)
     }
 

@@ -23,9 +23,8 @@ trait ChangeDataFeedSource {
     def queryAllData(consumerId: String)(implicit spark: SparkSession): ChangeDataQueryResult
 
     def markProcessed(result: ChangeDataQueryResult)(implicit spark: SparkSession): Unit = {
-        val cdfTrackerUpdates = result.tableMetadataSeq
-            .map(m => CdfTrackerRow(result.consumerId, m.table, m.endVersion))
-        cdfService.setLatestProcessedVersion(cdfTrackerUpdates: _*)
+        val updates = result.tableMetadataSeq.map(m => CdfTrackerTableVersion(m.table, m.endVersion))
+        cdfService.setLatestProcessedVersion(result.consumerId, updates: _*)
     }
 
 }

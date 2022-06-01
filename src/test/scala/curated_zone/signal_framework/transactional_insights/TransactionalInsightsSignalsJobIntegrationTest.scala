@@ -11,7 +11,7 @@ import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper}
 class TransactionalInsightsSignalsJobIntegrationTest extends BaseSparkBatchJobTest with BeforeAndAfterEach {
 
     import spark.implicits._
-    val destTable = "integration_test_daily_signals_table"
+    val destTable = generateUniqueTableName("integration_test_daily_signals_table")
 
     test("Write final DF to the destination table") {
 

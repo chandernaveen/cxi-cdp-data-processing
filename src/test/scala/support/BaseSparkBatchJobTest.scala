@@ -7,6 +7,7 @@ import org.scalatest.{BeforeAndAfter, FunSuite}
 
 import java.io.File
 import java.nio.file.Paths
+import java.util.UUID
 
 class BaseSparkBatchJobTest extends FunSuite with BeforeAndAfter with DataFrameSuiteBase {
     override implicit def reuseContextIfPossible: Boolean = true
@@ -54,4 +55,13 @@ class BaseSparkBatchJobTest extends FunSuite with BeforeAndAfter with DataFrameS
         conf.set("spark.sql.session.timeZone", "UTC")
         conf
     }
+
+    /** Generates a unique table name with the provided prefix.
+      * Useful in tests that create tables in Databricks to allow parallel test runs.
+      */
+    def generateUniqueTableName(tablePrefix: String): String = {
+        val randomSuffix = UUID.randomUUID().toString.substring(0, 8)
+        tablePrefix + "_" + randomSuffix
+    }
+
 }

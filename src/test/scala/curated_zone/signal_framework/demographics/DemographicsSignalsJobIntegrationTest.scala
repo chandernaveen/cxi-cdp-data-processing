@@ -16,7 +16,7 @@ class DemographicsSignalsJobIntegrationTest extends BaseSparkBatchJobTest with B
 
     import spark.implicits._
 
-    val destTable = "integration_test_daily_generic_signals_table"
+    val destTable = generateUniqueTableName("integration_test_daily_generic_signals_table")
 
     test("test write") {
         // given
