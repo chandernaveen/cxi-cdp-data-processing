@@ -1,8 +1,8 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
-import com.cxi.cdp.data_processing.refined_zone.hub.identity.model.IdentityType
 import raw_zone.pos_square.model.{Fulfillment, Tender}
+import refined_zone.hub.identity.model.IdentityType
 import refined_zone.hub.model.CxiIdentity._
 import refined_zone.pos_square.config.ProcessorConfig
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.{getSchemaRefinedHubPath, getSchemaRefinedPath}
@@ -17,56 +17,74 @@ import org.apache.spark.sql.{Column, DataFrame, Encoders, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DataTypes
 
+import java.time.LocalDate
+
 object CxiIdentityProcessor {
 
-    def process(spark: SparkSession, config: ProcessorConfig, destDbName: String, payments: DataFrame): DataFrame = {
+    def process(spark: SparkSession, config: ProcessorConfig, payments: DataFrame): DataFrame = {
+
+        val refinedHubDbName = config.contract.prop[String](getSchemaRefinedHubPath("db_name"))
+        val identityIntermediateTable =
+            config.contract.prop[String](getSchemaRefinedHubPath("identity_intermediate_table"))
 
         val refinedDbTable = config.contract.prop[String](getSchemaRefinedPath("db_name"))
         val customersDimTable = config.contract.prop[String](getSchemaRefinedPath("customer_table"))
-        val identityTable = config.contract.prop[String](getSchemaRefinedHubPath("identity_table"))
+
+        val workspaceConfigPath: String = config.contract.prop[String]("databricks_workspace_config")
+        val workspaceConfig = WorkspaceConfigReader.readWorkspaceConfig(spark, workspaceConfigPath)
 
         val customers = broadcast(readAllCustomersDim(spark, refinedDbTable, customersDimTable))
-
-        val orderCustomersData = readOrderCustomersData(spark, config.dateRaw, config.srcDbName, config.srcTable)
-        val transformedOrderCustomersData = transformOrderCustomersData(orderCustomersData, config.cxiPartnerId)
-
         val orderCustomersPickupData =
             readOrderCustomersPickupData(spark, config.dateRaw, config.srcDbName, config.srcTable)
-        val transformedOrderCustomersPickupData =
-            transformOrderCustomersPickupData(orderCustomersPickupData, config.cxiPartnerId)
-                .cache()
+        val orderCustomersData = readOrderCustomersData(spark, config.dateRaw, config.srcDbName, config.srcTable)
 
-        val fullCustomerData = transformCustomers(transformedOrderCustomersData, customers, payments)
-            .cache()
+        val (transformedOrderCustomersPickupData, fullCustomerData) =
+            transform(config, orderCustomersData, orderCustomersPickupData, customers, payments)
 
         val strongIds = computeWeight3CxiCustomerId(fullCustomerData, transformedOrderCustomersPickupData)
-        val cryptoShreddingConfig = CryptoShreddingConfig(
-            country = config.contract.prop[String]("partner.country"),
-            cxiSource = config.cxiPartnerId,
-            lookupDestDbName = config.contract.prop[String]("schema.crypto.db_name"),
-            lookupDestTableName = config.contract.prop[String]("schema.crypto.lookup_table"),
-            workspaceConfigPath = config.contract.prop[String]("databricks_workspace_config"),
-            date = config.date,
-            runId = config.runId
-        )
+        val cryptoShreddingConfig: CryptoShreddingConfig = getCryptoShreddingConfig(config, workspaceConfigPath)
         val hashedCombinations = computeWeight2CxiCustomerId(cryptoShreddingConfig, fullCustomerData)(spark)
 
         val allIdentitiesIds = strongIds
             .unionAll(hashedCombinations)
             .cache()
 
-        writeCxiIdentities(
-            spark,
-            allIdentitiesIds,
-            s"$destDbName.$identityTable",
-            config.contract,
-            cryptoShreddingConfig
-        )
+        inAuthorizedContext(spark, workspaceConfig) {
+            val privacyTable = readPrivacyLookupTable(spark, config.contract, cryptoShreddingConfig)
+            val cxiIdentitiesWithMetadata = addCxiIdentitiesMetadata(privacyTable, allIdentitiesIds)
+
+            writeCxiIdentities(
+                cxiIdentitiesWithMetadata,
+                s"$refinedHubDbName.$identityIntermediateTable",
+                cryptoShreddingConfig.dateRaw,
+                cryptoShreddingConfig.runId
+            )
+            // TODO: Remove in the scope of DP-2558
+            writeCxiIdentitiesOldTable(cxiIdentitiesWithMetadata, s"$refinedHubDbName.pos_identity")
+        }
 
         val cxiIdentitiesIdsByOrder = allIdentitiesIds
             .groupBy("ord_id")
             .agg(collect_list(struct(col(Type) as "identity_type", col(CxiIdentityId))) as CxiIdentityIds)
         cxiIdentitiesIdsByOrder
+    }
+
+    def transform(
+        config: ProcessorConfig,
+        orderCustomersData: DataFrame,
+        orderCustomersPickupData: DataFrame,
+        customers: DataFrame,
+        payments: DataFrame
+    ): (DataFrame, DataFrame) = {
+
+        val transformedOrderCustomersData = transformOrderCustomersData(orderCustomersData, config.cxiPartnerId)
+        val transformedOrderCustomersPickupData =
+            transformOrderCustomersPickupData(orderCustomersPickupData, config.cxiPartnerId)
+                .cache()
+        val fullCustomerData = transformCustomers(transformedOrderCustomersData, customers, payments)
+            .cache()
+
+        (transformedOrderCustomersPickupData, fullCustomerData)
     }
 
     def readOrderCustomersData(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
@@ -345,44 +363,51 @@ object CxiIdentityProcessor {
             col("card_brand").isNotNull and
             col("pan").isNotNull
 
+    def addCxiIdentitiesMetadata(privacyTable: DataFrame, allCustomerIds: DataFrame): DataFrame = {
+
+        val cxiIdentities = allCustomerIds
+            .select(CxiIdentityId, Type, Weight)
+            .dropDuplicates(CxiIdentityId, Type)
+            .join(
+                privacyTable,
+                allCustomerIds(CxiIdentityId) === privacyTable("hashed_value") &&
+                    allCustomerIds(Type) === privacyTable("identity_type"),
+                "left"
+            )
+
+        val metadataUdf = udf(extractMetadata _)
+        cxiIdentities
+            .withColumn(Metadata, metadataUdf(col(Type), col("original_value")))
+            .drop("original_value", "hashed_value", "identity_type")
+    }
+
     def writeCxiIdentities(
-        spark: SparkSession,
-        allCustomerIds: DataFrame,
+        cxiIdentitiesWithMetadata: DataFrame,
         destTable: String,
-        contract: ContractUtils,
-        cryptoShreddingConfig: CryptoShreddingConfig
+        feedDate: String,
+        runId: String
     ): Unit = {
-        val workspaceConfigPath: String = contract.prop[String]("databricks_workspace_config")
-        val workspaceConfig = WorkspaceConfigReader.readWorkspaceConfig(spark, workspaceConfigPath)
 
-        inAuthorizedContext(spark, workspaceConfig) {
-            val privacyTable = readPrivacyLookupTable(spark, contract, cryptoShreddingConfig)
-            val cxiIdentities = allCustomerIds
-                .select(CxiIdentityId, Type, Weight)
-                .dropDuplicates(CxiIdentityId, Type)
-                .join(
-                    privacyTable,
-                    allCustomerIds(CxiIdentityId) === privacyTable("hashed_value") &&
-                        allCustomerIds(Type) === privacyTable("identity_type"),
-                    "left"
-                )
+        val srcTable = "newIdentities"
+        cxiIdentitiesWithMetadata.createOrReplaceTempView(srcTable)
+        cxiIdentitiesWithMetadata.sqlContext.sql(s"""
+               |INSERT OVERWRITE TABLE $destTable
+               |PARTITION(feed_date = '$feedDate', run_id = '$runId')
+               |SELECT * FROM $srcTable
+               |""".stripMargin)
+    }
 
-            val metadataUdf = udf(extractMetadata _)
-            val cxiIdentitiesWithMetadata = cxiIdentities
-                .withColumn(Metadata, metadataUdf(col(Type), col("original_value")))
-                .drop("original_value", "hashed_value", "identity_type")
+    def writeCxiIdentitiesOldTable(cxiIdentitiesWithMetadata: DataFrame, destTable: String): Unit = {
+        val srcTable = "newIdentities"
 
-            val srcTable = "newIdentities"
-
-            cxiIdentitiesWithMetadata.createOrReplaceTempView(srcTable)
-            cxiIdentitiesWithMetadata.sqlContext.sql(s"""
-                   |MERGE INTO $destTable
-                   |USING $srcTable
-                   |ON $destTable.$CxiIdentityId = $srcTable.$CxiIdentityId
-                   |WHEN NOT MATCHED
-                   |  THEN INSERT *
-                   |""".stripMargin)
-        }
+        cxiIdentitiesWithMetadata.createOrReplaceTempView(srcTable)
+        cxiIdentitiesWithMetadata.sqlContext.sql(s"""
+               |MERGE INTO $destTable
+               |USING $srcTable
+               |ON $destTable.$CxiIdentityId = $srcTable.$CxiIdentityId
+               |WHEN NOT MATCHED
+               |  THEN INSERT *
+               |""".stripMargin)
     }
 
     def readPrivacyLookupTable(
@@ -400,6 +425,18 @@ object CxiIdentityProcessor {
                | AND feed_date='${cryptoShreddingConfig.dateRaw}'
                | AND run_id='${cryptoShreddingConfig.runId}'
                |""".stripMargin
+        )
+    }
+
+    private def getCryptoShreddingConfig(config: ProcessorConfig, workspaceConfigPath: String) = {
+        CryptoShreddingConfig(
+            country = config.contract.prop[String]("partner.country"),
+            cxiSource = config.cxiPartnerId,
+            lookupDestDbName = config.contract.prop[String]("schema.crypto.db_name"),
+            lookupDestTableName = config.contract.prop[String]("schema.crypto.lookup_table"),
+            workspaceConfigPath = workspaceConfigPath,
+            date = config.date,
+            runId = config.runId
         )
     }
 

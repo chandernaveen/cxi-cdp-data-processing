@@ -31,7 +31,6 @@ object RawRefinedSquarePartnerJob {
         val srcDbName = contract.prop[String](getSchemaRawPath("db_name"))
         val srcTable = contract.prop[String](getSchemaRawPath("all_record_types_table"))
         val destDbName = contract.prop[String](getSchemaRefinedPath("db_name"))
-        val refinedHubDestDbName = contract.prop[String](getSchemaRefinedHubPath("db_name"))
 
         val processorCommonConfig = ProcessorConfig(
             contract,
@@ -48,8 +47,8 @@ object RawRefinedSquarePartnerJob {
         MenuItemsProcessor.process(spark, cxiPartnerId, date, s"$srcDbName.$srcTable", s"$destDbName.$menuItemTable")
         CustomersProcessor.process(spark, processorCommonConfig, destDbName)
         val payments = PaymentsProcessor.process(spark, processorCommonConfig, destDbName)
-        val cxiIdentityIdsByOrder =
-            CxiIdentityProcessor.process(spark, processorCommonConfig, refinedHubDestDbName, payments)
+        val cxiIdentityIdsByOrder = CxiIdentityProcessor.process(spark, processorCommonConfig, payments)
+
         OrderTaxesProcessor.process(spark, processorCommonConfig, destDbName)
         OrderTenderTypesProcessor.process(spark, processorCommonConfig, destDbName)
         OrderSummaryProcessor.process(spark, processorCommonConfig, destDbName, cxiIdentityIdsByOrder)
