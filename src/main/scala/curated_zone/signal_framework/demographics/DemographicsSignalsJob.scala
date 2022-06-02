@@ -110,7 +110,12 @@ object DemographicsSignalsJob {
             "occupation" -> profileSignalDomainName,
             "children" -> profileSignalDomainName,
             "new_credit_range" -> profileSignalDomainName,
-            "credit_ranges" -> profileSignalDomainName
+            "credit_ranges" -> profileSignalDomainName,
+            "children_interests" -> profileSignalDomainName,
+            "education_code" -> profileSignalDomainName,
+            "home_owner" -> profileSignalDomainName,
+            "net_worth" -> profileSignalDomainName,
+            "marital_status" -> profileSignalDomainName
         )
         signalNameToSignalDomain
     }
