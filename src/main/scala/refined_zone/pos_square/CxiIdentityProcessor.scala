@@ -17,8 +17,6 @@ import org.apache.spark.sql.{Column, DataFrame, Encoders, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DataTypes
 
-import java.time.LocalDate
-
 object CxiIdentityProcessor {
 
     def process(spark: SparkSession, config: ProcessorConfig, payments: DataFrame): DataFrame = {
@@ -59,8 +57,6 @@ object CxiIdentityProcessor {
                 cryptoShreddingConfig.dateRaw,
                 cryptoShreddingConfig.runId
             )
-            // TODO: Remove in the scope of DP-2558
-            writeCxiIdentitiesOldTable(cxiIdentitiesWithMetadata, s"$refinedHubDbName.pos_identity")
         }
 
         val cxiIdentitiesIdsByOrder = allIdentitiesIds
@@ -394,19 +390,6 @@ object CxiIdentityProcessor {
                |INSERT OVERWRITE TABLE $destTable
                |PARTITION(feed_date = '$feedDate', run_id = '$runId')
                |SELECT * FROM $srcTable
-               |""".stripMargin)
-    }
-
-    def writeCxiIdentitiesOldTable(cxiIdentitiesWithMetadata: DataFrame, destTable: String): Unit = {
-        val srcTable = "newIdentities"
-
-        cxiIdentitiesWithMetadata.createOrReplaceTempView(srcTable)
-        cxiIdentitiesWithMetadata.sqlContext.sql(s"""
-               |MERGE INTO $destTable
-               |USING $srcTable
-               |ON $destTable.$CxiIdentityId = $srcTable.$CxiIdentityId
-               |WHEN NOT MATCHED
-               |  THEN INSERT *
                |""".stripMargin)
     }
 

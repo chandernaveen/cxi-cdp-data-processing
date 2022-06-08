@@ -23,6 +23,8 @@ class CdfDiffFormatTest extends BaseSparkBatchJobTest with Matchers {
         val cdfData = Seq(
             // a simple insert
             BankAccountCdfRecord("Investment Bank", 1L, 0L, _change_type = ChangeType.Insert, _commit_version = 1L),
+            // duplicate, should be removed during transformation
+            BankAccountCdfRecord("Investment Bank", 1L, 0L, _change_type = ChangeType.Insert, _commit_version = 1L),
 
             // an insert with a further update
             BankAccountCdfRecord("Best Bank", 123L, 0L, _change_type = ChangeType.Insert, _commit_version = 1L),
