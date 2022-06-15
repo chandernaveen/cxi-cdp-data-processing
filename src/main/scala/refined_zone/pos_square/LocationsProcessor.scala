@@ -1,9 +1,9 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
-import com.cxi.cdp.data_processing.support.cleansing.udfs.cleanseZipCode
 import refined_zone.pos_square.config.ProcessorConfig
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.{getSchemaRefinedHubPath, getSchemaRefinedPath}
+import support.cleansing.udfs.cleanseZipCode
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
