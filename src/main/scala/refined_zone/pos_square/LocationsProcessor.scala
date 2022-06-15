@@ -3,7 +3,7 @@ package refined_zone.pos_square
 
 import refined_zone.pos_square.config.ProcessorConfig
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.{getSchemaRefinedHubPath, getSchemaRefinedPath}
-import support.cleansing.udfs.cleanseZipCode
+import support.cleansing.LocationCleansing
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
@@ -25,6 +25,7 @@ object LocationsProcessor {
 
     def readLocations(spark: SparkSession, date: String, table: String): DataFrame = {
         import spark.implicits._
+        val cleanseZipCode = udf(LocationCleansing.cleanseZipCode _)
 
         spark
             .table(table)
