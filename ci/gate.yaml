@@ -1,0 +1,220 @@
+trigger: none
+
+variables:
+- group: cxi-cdp-data-processing
+- name: BranchName
+  value: $[ replace(variables['System.PullRequest.SourceBranch'], 'refs/heads/', '') ]
+
+stages:
+- stage: PR_checks
+  pool:
+     vmimage: ubuntu-18.04
+  jobs:
+    - job: run_tests_and_build
+      steps:
+       - task: UsePythonVersion@0
+         inputs:
+           versionSpec: '3.8.*'
+           addToPath: true
+           architecture: 'x64'
+
+       - task: AzureCLI@2
+         displayName: opening firewall 
+         inputs:
+           azureSubscription: 'cxi-devops'
+           scriptType: 'bash'
+           scriptLocation: 'inlineScript'
+           inlineScript: |
+                       IPADDR=$(dig +short "myip.opendns.com" "@resolver1.opendns.com")
+                       echo "Opening firewall: $IPADDR"
+                       az storage account network-rule add -g rg-dev-eastus2-dataplatform --account-name dls2deveastus2cxi --ip-address $IPADDR
+                       az keyvault network-rule add --name kv-dev-eastus2-cdp --ip-address $IPADDR
+                       az keyvault network-rule wait --name kv-dev-eastus2-cdp --updated
+           failOnStandardError: true
+
+       - task: Bash@3
+         displayName: Install Databricks-Connect
+         inputs:
+           targetType: 'inline'
+           script: |
+             python -m venv .venv &&
+             sbt setupDatabricksConnect
+
+       - task: AzureKeyVault@2
+         displayName: Get Databricks workspace secret token
+         name: get_databricks_secret_token
+         inputs:
+            azureSubscription: 'cxi-devops'
+            KeyVaultName: 'kv-dev-eastus2-cdp'
+            SecretsFilter: 'cxi-int-dbws-workspaceToken'
+            RunAsPreJob: false
+
+
+       - task: configuredatabricks@0
+         displayName: Configure databricks
+         enabled: true
+         inputs:
+           url: $(WORKSPACE-REGION-URL)
+           token: $(cxi-int-dbws-workspaceToken)
+
+       - script: |
+          source .venv/bin/activate
+          echo "y
+              $(WORKSPACE-REGION-URL)
+              $(cxi-int-dbws-workspaceToken)
+              $(EXISTING-CLUSTER-ID)
+              $(WORKSPACE-ORG-ID)
+              $(DATABRICKS-PORT)" | databricks-connect configure
+          databricks-connect test
+         displayName: 'Configure databricks-connect'
+         enabled: true
+
+       - task: Bash@3
+         displayName: Check formatting
+         inputs:
+           targetType: 'inline'
+           script: 'sbt scalafmtCheckAll || >&2 echo "Code is not properly formatted. Run \"sbt scalafmtAll\" to reformat."'
+
+       - task: Bash@3
+         displayName: Execute tests
+         inputs:
+           targetType: 'inline'
+           script: 'sbt jacoco'
+
+       - task: PublishTestResults@2
+         condition: always()
+         displayName: publish tests result
+         inputs:
+           testResultsFormat: 'JUnit'
+           testResultsFiles: '**/target/test-reports/*.xml'
+           searchFolder: '$(Build.SourcesDirectory)'
+           mergeTestResults: true
+           testRunTitle: 'JUnit'
+
+       - task: PublishCodeCoverageResults@1
+         condition: always()
+         displayName: publish JaCoCo code coverage results
+         inputs:
+           codeCoverageTool: 'JaCoCo'
+           summaryFileLocation: '**/target/scala-2.12/jacoco/report/*.xml'
+           reportDirectory: '**/target/scala-2.12/jacoco/report/html/'
+           failIfCoverageEmpty: true
+
+       - bash: |
+            short_hash=`git rev-parse --short=7 HEAD`
+            echo ""
+            echo "Full git hash:  $(Build.SourceVersion)"
+            echo "Short git hash: $short_hash"
+            echo ""
+            ## Fail step if full hash does not start with short hash
+            if [[ $(Build.SourceVersion) != $short_hash* ]]; then
+              echo "--> Hashes do not match! Aborting."
+              exit 1
+            fi
+            echo "--> Hashes match. Storing short hash for subsequent steps."
+            ## Store variable for subsequent steps
+            echo "##vso[task.setvariable variable=short_hash]$short_hash"
+            echo "##vso[task.setvariable variable=short_hash_out;isOutput=true]$short_hash"
+         workingDirectory: $(Build.SourcesDirectory)
+         name: hash
+         displayName: get short git hash
+        
+       - bash : echo "##vso[task.setvariable variable=cxi-int-dbws-workspaceToken-out;issecret=true;isOutput=true]$(cxi-int-dbws-workspaceToken)"
+         name: dbws 
+         displayName: cxi-int-dbws-workspaceToken
+       
+
+       - script: echo "##vso[build.updatebuildnumber]PR-$(System.PullRequest.PullRequestId)-$(short_hash)"
+         displayName: update build number
+         condition: and(succeeded(), eq(variables['Build.Reason'],'PullRequest'))
+
+       - script: echo ##vso[build.addbuildtag]PR-$(System.PullRequest.PullRequestId)-$(short_hash)
+         displayName: add tag 
+         condition: and(succeeded(), eq(variables['Build.Reason'],'PullRequest'))
+
+
+       - task: Bash@3
+         displayName: publish pr artifacts
+         inputs:
+           targetType: 'inline'
+           script: |
+             mkdir -p $(Build.SourcesDirectory)/pr/$(System.PullRequest.PullRequestId)-$(short_hash)
+             cp $(Build.SourcesDirectory)/target/scala-2.12/cxi_cdp_data_processing_assembly_2_12.jar $(Build.SourcesDirectory)/pr/$(System.PullRequest.PullRequestId)-$(short_hash)
+             azcopy copy '$(Build.SourcesDirectory)/pr/' 'https://dls2deveastus2cxi.blob.core.windows.net/azdevops?$(dls2deveastus2cxi)' --recursive
+           workingDirectory: '$(Build.SourcesDirectory)'
+           failOnStderr: true
+
+       - task: AzureCLI@2
+         displayName: closing firewall
+         condition: always()
+         inputs:
+           azureSubscription: 'cxi-devops'
+           scriptType: 'bash'
+           scriptLocation: 'inlineScript'
+           inlineScript: |
+                       IPADDR=$(dig +short "myip.opendns.com" "@resolver1.opendns.com")
+                       echo "Closing firewall: $IPADDR"
+                       az storage account network-rule remove --account-name dls2deveastus2cxi --ip-address $IPADDR --resource-group rg-dev-eastus2-dataplatform
+                       az keyvault network-rule remove --name kv-dev-eastus2-cdp --ip-address $IPADDR
+
+           failOnStandardError: true
+
+
+
+- stage: deploy
+  pool:
+   vmimage: windows-latest
+  dependsOn: PR_checks
+  jobs:
+    - job: deploy
+      variables:
+       short_hash: $[ stageDependencies.PR_checks.run_tests_and_build.outputs['hash.short_hash_out'] ]
+       workspaceToken: $[ stageDependencies.PR_checks.run_tests_and_build.outputs['dbws.cxi-int-dbws-workspaceToken-out'] ]
+      steps:
+       - checkout: none
+       - task: AzureCLI@2
+         displayName: opening firewall
+         inputs:
+           azureSubscription: 'cxi-devops'
+           scriptType: 'ps'
+           scriptLocation: 'inlineScript'
+           inlineScript: |
+             $IPADDR=(Invoke-WebRequest ifconfig.me/ip).Content.Trim()
+             echo "Opening firewall: $IPADDR"
+             az storage account network-rule add -g rg-dev-eastus2-dataplatform --account-name dls2deveastus2cxi --ip-address $IPADDR
+             sleep 40
+           failOnStandardError: true
+
+       - task: Bash@3
+         displayName: download pr artifact
+         retryCountOnTaskFailure: 2
+         inputs:
+           targetType: 'inline'
+           script: |
+             mkdir -p $(System.ArtifactsDirectory)/PR/$(System.PullRequest.PullRequestId)-$(short_hash)/cxi_cdp_data_processing_assembly/
+             azcopy copy  'https://dls2deveastus2cxi.blob.core.windows.net/azdevops/pr/$(System.PullRequest.PullRequestId)-$(short_hash)/*?$(dls2deveastus2cxi)' '$(System.ArtifactsDirectory)/PR/$(System.PullRequest.PullRequestId)-$(short_hash)/cxi_cdp_data_processing_assembly/'
+
+       - task: AzureCLI@2
+         displayName: closing firewall
+         condition: always()
+         retryCountOnTaskFailure: 2
+         inputs:
+           azureSubscription: 'cxi-devops'
+           scriptType: 'ps'
+           scriptLocation: 'inlineScript'
+           inlineScript: |
+             $IPADDR=(Invoke-WebRequest ifconfig.me/ip).Content.Trim()
+             echo "Removing: $IPADDR"
+             az storage account network-rule remove --account-name dls2deveastus2cxi --ip-address $IPADDR --resource-group rg-dev-eastus2-dataplatform
+           failOnStandardError: true
+
+       - task: databricksDeployDBFSFilesTask@0
+         inputs:
+            authMethod: 'bearer'
+            bearerToken: $(workspaceToken)
+            region: 'eastus2'
+            LocalRootFolder: '$(System.ArtifactsDirectory)/PR/$(System.PullRequest.PullRequestId)-$(short_hash)/cxi_cdp_data_processing_assembly/'
+            FilePattern: '*.jar'
+            TargetLocation: '/FileStore/cxi/artifacts/cxi_cdp_data_processing/$(BranchName)/'
+
+
