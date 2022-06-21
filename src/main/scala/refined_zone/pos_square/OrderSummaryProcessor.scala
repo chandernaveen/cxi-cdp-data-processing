@@ -3,12 +3,13 @@ package refined_zone.pos_square
 
 import raw_zone.pos_square.model.{Fulfillment, LineItem, Tender}
 import refined_zone.hub.model.ChannelType
+import refined_zone.pos_square.RawRefinedSquarePartnerJob.{getSchemaRefinedPath, parsePosSquareDate}
 import refined_zone.pos_square.config.ProcessorConfig
-import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
+import support.normalization.MoneyNormalizationUdfs.convertCentsToMoney
 
-import org.apache.spark.sql.{Column, DataFrame, Encoders, SparkSession}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{DataTypes, DoubleType}
+import org.apache.spark.sql.types.DataTypes
+import org.apache.spark.sql.{Column, DataFrame, Encoders, SparkSession}
 
 object OrderSummaryProcessor {
     def process(
@@ -61,9 +62,9 @@ object OrderSummaryProcessor {
         orderSummary
             .withColumn("cxi_partner_id", lit(cxiPartnerId))
             .withColumn("ord_desc", lit(null))
-            .withColumn("ord_total", col("ord_total").cast(DoubleType) / 100)
+            .withColumn("ord_total", convertCentsToMoney("ord_total"))
             .withColumn("ord_pay_total", col("ord_total"))
-            .withColumn("discount_amount", col("discount_amount").cast(DoubleType) / 100)
+            .withColumn("discount_amount", convertCentsToMoney("discount_amount"))
             .withColumn("ord_type", lit(null))
             .withColumn(
                 "fulfillments",
@@ -87,13 +88,13 @@ object OrderSummaryProcessor {
             .withColumn("item_id", col("line_item.catalog_object_id"))
             .withColumn("item_quantity", col("line_item.quantity"))
             .withColumn("item_price_id", lit(null)) // TODO: Could use help on item/price overall
-            .withColumn("item_total", col("line_item.total_money.amount").cast(DoubleType) / 100)
+            .withColumn("item_total", convertCentsToMoney("line_item.total_money.amount"))
             .withColumn("guest_check_line_item_id", col("line_item.uid"))
             .withColumn("taxes_id", col("line_item.applied_taxes.tax_uid"))
-            .withColumn("taxes_amount", col("line_item.total_tax_money.amount").cast(DoubleType) / 100)
-            .withColumn("service_charge_amount", col("service_charge_amount").cast(DoubleType) / 100)
-            .withColumn("total_taxes_amount", col("total_taxes_amount").cast(DoubleType) / 100)
-            .withColumn("total_tip_amount", col("total_tip_amount").cast(DoubleType) / 100)
+            .withColumn("taxes_amount", convertCentsToMoney("line_item.total_tax_money.amount"))
+            .withColumn("service_charge_amount", convertCentsToMoney("service_charge_amount"))
+            .withColumn("total_taxes_amount", convertCentsToMoney("total_taxes_amount"))
+            .withColumn("total_tip_amount", convertCentsToMoney("total_tip_amount"))
             .withColumn(
                 "ord_sub_total",
                 col("ord_total") - (col("total_taxes_amount") + col("total_tip_amount") + col("service_charge_amount"))
@@ -103,7 +104,7 @@ object OrderSummaryProcessor {
                 from_json(col("tender_array"), DataTypes.createArrayType(Encoders.product[Tender].schema))
             )
             .withColumn("tender_ids", col("tender_array.id"))
-            .withColumn("feed_date", lit(date))
+            .withColumn("feed_date", parsePosSquareDate(lit(date)))
             .select(
                 "ord_id",
                 "ord_desc",

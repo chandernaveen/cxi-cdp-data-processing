@@ -2,18 +2,15 @@ package com.cxi.cdp.data_processing
 package support.crypto_shredding.hashing.transform
 
 import support.exceptions.CryptoShreddingException
-
-import com.google.i18n.phonenumbers.{NumberParseException, PhoneNumberUtil}
-import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat
-import org.apache.commons.validator.routines.EmailValidator
+import support.normalization.AdvertiserIdNormalization.normalizeAdvertiserId
+import support.normalization.EmailNormalization.normalizeEmail
+import support.normalization.PhoneNumberNormalization.normalizePhoneNumber
 
 object TransformFunctions {
 
     final val NormalizeEmailTransformationName = "normalizeEmail"
     final val NormalizePhoneNumberTransformationName = "normalizePhoneNumber"
-
-    private final val EmailValidatorInstance = EmailValidator.getInstance()
-    private final val PhoneNumberUtilInstance = PhoneNumberUtil.getInstance()
+    final val NormalizeAdvertiserIdTransformationName = "normalizeAdvertiserId"
 
     def get(key: String): Option[String => String] = {
         transformFunctions.get(key)
@@ -36,35 +33,21 @@ object TransformFunctions {
     }
 
     private val transformFunctions: Map[String, String => String] = Map(
-        NormalizeEmailTransformationName -> normalizeEmail,
-        NormalizePhoneNumberTransformationName -> normalizePhoneNumber
+        NormalizeEmailTransformationName -> transformEmail,
+        NormalizePhoneNumberTransformationName -> transformPhoneNumber,
+        NormalizeAdvertiserIdTransformationName -> transformAdvertiserId
     )
 
-    def normalizeEmail(value: String): String = {
-        Some(value)
-            .filter(_ != null)
-            .map(_.trim)
-            .filter(_.nonEmpty)
-            .filter(email => EmailValidatorInstance.isValid(email))
-            .map(_.toLowerCase)
-            .orNull
+    private def transformAdvertiserId(value: String): String = {
+        normalizeAdvertiserId(value).orNull
     }
 
-    def normalizePhoneNumber(value: String): String = {
-        try {
-            Some(value)
-                .filter(_ != null)
-                .map(_.trim)
-                .filter(_.nonEmpty)
-                .map(value => PhoneNumberUtilInstance.parse(value, "US"))
-                .filter(phoneNumber => PhoneNumberUtilInstance.isValidNumber(phoneNumber))
-                .map(phoneNumber => PhoneNumberUtilInstance.format(phoneNumber, PhoneNumberFormat.E164))
-                // remove leading '+'
-                .map(_.substring(1))
-                .orNull
-        } catch {
-            case _: NumberParseException => null
-        }
+    private def transformPhoneNumber(value: String): String = {
+        normalizePhoneNumber(value).orNull
+    }
+
+    private def transformEmail(value: String): String = {
+        normalizeEmail(value).orNull
     }
 
 }

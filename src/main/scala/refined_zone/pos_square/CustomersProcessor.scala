@@ -1,11 +1,11 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
+import refined_zone.pos_square.RawRefinedSquarePartnerJob.{getSchemaRefinedPath, parsePosSquareTimestamp}
 import refined_zone.pos_square.config.ProcessorConfig
-import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
 
-import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object CustomersProcessor {
     def process(spark: SparkSession, config: ProcessorConfig, destDbName: String): Unit = {
@@ -38,6 +38,7 @@ object CustomersProcessor {
         val transformedCustomers = customers
             .withColumn("cxi_partner_id", lit(cxiPartnerId))
             .dropDuplicates("cxi_partner_id", "customer_id")
+            .withColumn("created_at", parsePosSquareTimestamp(col("created_at")))
         transformedCustomers
     }
 

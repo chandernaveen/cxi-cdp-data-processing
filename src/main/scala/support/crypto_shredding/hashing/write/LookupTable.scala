@@ -2,9 +2,10 @@ package com.cxi.cdp.data_processing
 package support.crypto_shredding.hashing.write
 
 import support.crypto_shredding.hashing.function_types.CryptoHashingResult
+import support.normalization.DateNormalizationUdfs.parseToSqlDateIsoFormat
 
-import org.apache.spark.sql.{Dataset, SparkSession}
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{Dataset, SparkSession}
 
 class LookupTable(spark: SparkSession, val dbName: String, val tableName: String) extends Serializable {
 
@@ -12,7 +13,7 @@ class LookupTable(spark: SparkSession, val dbName: String, val tableName: String
 
         val dfToWrite = df
             .dropDuplicates("hashed_value", "identity_type")
-            .withColumn("feed_date", lit(dateRaw))
+            .withColumn("feed_date", parseToSqlDateIsoFormat(lit(dateRaw)))
             .withColumn("run_id", lit(runId))
             .withColumn("cxi_source", lit(cxiSource))
 
