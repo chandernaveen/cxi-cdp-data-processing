@@ -7,54 +7,6 @@ import org.scalatest.{FunSuite, Matchers}
 
 class TransformFunctionsTest extends FunSuite with Matchers {
 
-    test("Normalize phone number") {
-        val phone_numbers = Seq(
-            "2124567890",
-            "212-456-7890",
-            "(212)456-7890",
-            "(212)-456-7890",
-            "212.456.7890",
-            "212 456 7890",
-            "+12124567890",
-            "+12124567890",
-            "+1 212.456.7890",
-            "1-212-456-7890",
-            "12124567890",
-            "  12124567890  "
-        )
-        for (phone_number <- phone_numbers) {
-            TransformFunctions.normalizePhoneNumber(phone_number) shouldBe "12124567890"
-        }
-    }
-
-    test("Invalid phone number - normalization should return null") {
-        val phone_numbers =
-            Seq(null, "", " ", "123456789", "!@!$#", "123--123--1234", "+212-456-7890", "1ABC2124567890")
-        for (phone_number <- phone_numbers) {
-            TransformFunctions.normalizePhoneNumber(phone_number) shouldBe null
-        }
-    }
-
-    test("Normalize email") {
-        val emails = Seq(
-            "paul123@mailbox.com",
-            "PAUL123@mailbox.com",
-            "Paul123@mailBoX.com",
-            "Paul123@Mailbox.Com",
-            " Paul123@Mailbox.Com "
-        )
-        for (email <- emails) {
-            TransformFunctions.normalizeEmail(email) shouldBe "paul123@mailbox.com"
-        }
-    }
-
-    test("Invalid email - normalization should return null") {
-        val emails = Seq(null, "some@host", "", "@domain.com", " ", "123@123.123")
-        for (email <- emails) {
-            TransformFunctions.normalizeEmail(email) shouldBe null
-        }
-    }
-
     test("Parse transform config - exception if 'transformationName' key is absent") {
         // given
         val config = Map("transform" -> Map("not_transformation_name_key" -> "something"))
@@ -98,6 +50,15 @@ class TransformFunctionsTest extends FunSuite with Matchers {
         val function = TransformFunctions.parseTransformFunction(config)
         // then
         function("+1 212.456.7890") shouldBe "12124567890"
+    }
+
+    test("Parse transform config - normalizeAdvertiserId function") {
+        // given
+        val config = Map("transform" -> Map("transformationName" -> "normalizeAdvertiserId"))
+        // when
+        val function = TransformFunctions.parseTransformFunction(config)
+        // then
+        function("Abcd1234-Ef56-Gh78-iJ90-klmO1234pqrS") shouldBe "ABCD1234-EF56-GH78-IJ90-KLMO1234PQRS"
     }
 
 }

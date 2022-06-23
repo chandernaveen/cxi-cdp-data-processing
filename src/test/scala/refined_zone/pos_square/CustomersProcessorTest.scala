@@ -5,6 +5,10 @@ import support.BaseSparkBatchJobTest
 
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal}
 
+import java.sql.Timestamp.from
+import java.time.LocalDateTime.of
+import java.time.ZoneOffset.UTC
+
 class CustomersProcessorTest extends BaseSparkBatchJobTest {
 
     test("test square partner customer read") {
@@ -80,8 +84,8 @@ class CustomersProcessorTest extends BaseSparkBatchJobTest {
         import spark.implicits._
         val cxiPartnerId = "some-partner-id"
         val customers = List(
-            ("L0P0DJ340FXF0", null, null, null, null, null, null),
-            ("L0P0DJ340FXF0", null, null, null, null, null, null) // duplicate
+            ("L0P0DJ340FXF0", null, null, null, null, "2021-05-13T21:50:55.123Z", null),
+            ("L0P0DJ340FXF0", null, null, null, null, "2021-05-13T21:50:55.123Z", null) // duplicate
         ).toDF("customer_id", "email_address", "phone_number", "first_name", "last_name", "created_at", "version")
 
         // when
@@ -104,7 +108,16 @@ class CustomersProcessorTest extends BaseSparkBatchJobTest {
         val actualSquareCustomersData = actual.collect()
         withClue("POS Square refined customers data do not match") {
             val expected = List(
-                ("L0P0DJ340FXF0", null, null, null, null, null, null, cxiPartnerId)
+                (
+                    "L0P0DJ340FXF0",
+                    null,
+                    null,
+                    null,
+                    null,
+                    from(of(2021, 5, 13, 21, 50, 55, 123000000).toInstant(UTC)),
+                    null,
+                    cxiPartnerId
+                )
             ).toDF(
                 "customer_id",
                 "email_address",

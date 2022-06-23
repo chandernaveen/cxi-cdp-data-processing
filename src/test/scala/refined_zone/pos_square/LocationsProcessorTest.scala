@@ -5,6 +5,10 @@ import support.BaseSparkBatchJobTest
 
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal}
 
+import java.sql.Timestamp.from
+import java.time.LocalDateTime.of
+import java.time.ZoneOffset.UTC
+
 class LocationsProcessorTest extends BaseSparkBatchJobTest {
 
     test("test square partner location read") {
@@ -119,7 +123,22 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
         import spark.implicits._
         val cxiPartnerId = "some-partner-id"
         val locations = List(
-            ("L0P0DJ340FXF0", "PHYSICAL", "ACTIVE", null, null, null, null, null, null, null, null, null, null, null),
+            (
+                "L0P0DJ340FXF0",
+                "PHYSICAL",
+                "ACTIVE",
+                null,
+                null,
+                "98765-4321",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "2021-05-13T21:50:55.123Z",
+                null
+            ),
             (
                 "L0P0DJ340FXF0",
                 "PHYSICAL",
@@ -133,10 +152,25 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
                 null,
                 null,
                 null,
-                null,
+                "2021-05-13T21:50:55.123Z",
                 null
             ), // duplicate
-            ("ACA0DJ910FPO1", "MOBILE", "INACTIVE", null, null, null, null, null, null, null, null, null, null, null),
+            (
+                "ACA0DJ910FPO1",
+                "MOBILE",
+                "INACTIVE",
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                "2022-02-24T04:30:00.000Z",
+                null
+            ),
             (
                 "PQW0DJ340ALS0",
                 "some_other_loc_type",
@@ -170,23 +204,23 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
             "location_website"
         )
 
+        val postalCodes = Seq(
+            ("98765", "US", "NY", "Central")
+        ).toDF("zip_code", "state", "city", "region")
+
         // when
-        val actual = LocationsProcessor.transformLocations(
-            locations,
-            Seq.empty[(String, String, String, String)].toDF("zip_code", "state", "city", "region"),
-            cxiPartnerId
-        )
+        val actual = LocationsProcessor.transformLocations(locations, postalCodes, cxiPartnerId)
 
         // then
         val actualFieldsReturned = actual.schema.fields.map(f => f.name)
         withClue("Actual fields returned:\n" + actual.schema.treeString) {
             actualFieldsReturned shouldEqual Array(
+                "zip_code",
                 "location_id",
                 "location_type",
                 "active_flg",
                 "location_nm",
                 "address_1",
-                "zip_code",
                 "lat",
                 "long",
                 "phone",
@@ -209,6 +243,7 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
         withClue("POS Square refined locations data do not match") {
             val expected = List(
                 (
+                    "98765",
                     "L0P0DJ340FXF0",
                     1,
                     1,
@@ -220,19 +255,19 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
                     null,
                     null,
                     null,
-                    null,
-                    null,
+                    from(of(2021, 5, 13, 21, 50, 55, 123000000).toInstant(UTC)),
                     null,
                     cxiPartnerId,
                     null,
                     null,
                     null,
                     null,
-                    null,
-                    null,
-                    null
+                    "US",
+                    "NY",
+                    "Central"
                 ),
                 (
+                    null,
                     "ACA0DJ910FPO1",
                     6,
                     0,
@@ -244,8 +279,7 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
                     null,
                     null,
                     null,
-                    null,
-                    null,
+                    from(of(2022, 2, 24, 4, 30, 0, 0).toInstant(UTC)),
                     null,
                     cxiPartnerId,
                     null,
@@ -257,10 +291,10 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
                     null
                 ),
                 (
+                    null,
                     "PQW0DJ340ALS0",
                     0,
                     1,
-                    null,
                     null,
                     null,
                     null,
@@ -281,12 +315,12 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
                     null
                 )
             ).toDF(
+                "zip_code",
                 "location_id",
                 "location_type",
                 "active_flg",
                 "location_nm",
                 "address_1",
-                "zip_code",
                 "lat",
                 "long",
                 "phone",

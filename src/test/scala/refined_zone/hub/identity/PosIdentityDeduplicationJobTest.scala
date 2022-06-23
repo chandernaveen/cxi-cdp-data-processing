@@ -51,7 +51,9 @@ class PosIdentityDeduplicationJobTest extends BaseSparkBatchJobTest {
                 None
             ),
             IdentityIntermediateDiff(
-                Some(IdentityIntermediate("hash_3", IPv4.value, "1", null, "2022-02-24", "run-id-3")), // duplicate of deleted record
+                Some(
+                    IdentityIntermediate("hash_3", IPv4.value, "1", null, "2022-02-24", "run-id-3")
+                ), // duplicate of deleted record
                 None
             )
         ).toDF()

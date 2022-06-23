@@ -1,12 +1,12 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
+import refined_zone.pos_square.RawRefinedSquarePartnerJob.{getSchemaRefinedHubPath, getSchemaRefinedPath, parsePosSquareTimestamp}
 import refined_zone.pos_square.config.ProcessorConfig
-import refined_zone.pos_square.RawRefinedSquarePartnerJob.{getSchemaRefinedHubPath, getSchemaRefinedPath}
-import support.cleansing.LocationCleansing
+import support.normalization.LocationNormalizationUdfs.normalizeZipCode
 
-import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{DataFrame, SparkSession}
 
 object LocationsProcessor {
     def process(spark: SparkSession, config: ProcessorConfig, destDbName: String): Unit = {
@@ -25,7 +25,6 @@ object LocationsProcessor {
 
     def readLocations(spark: SparkSession, date: String, table: String): DataFrame = {
         import spark.implicits._
-        val cleanseZipCode = udf(LocationCleansing.cleanseZipCode _)
 
         spark
             .table(table)
@@ -36,7 +35,7 @@ object LocationsProcessor {
                 get_json_object($"record_value", "$.type").as("location_type"),
                 get_json_object($"record_value", "$.status").as("active_flg"),
                 get_json_object($"record_value", "$.address.address_line_1").as("address_1"),
-                cleanseZipCode(get_json_object($"record_value", "$.address.postal_code")).as("zip_code"),
+                get_json_object($"record_value", "$.address.postal_code").as("zip_code"),
                 get_json_object($"record_value", "$.coordinates.latitude").as("lat"),
                 get_json_object($"record_value", "$.coordinates.longitude").as("long"),
                 get_json_object($"record_value", "$.phone_number").as("phone"),
@@ -76,12 +75,10 @@ object LocationsProcessor {
             .withColumn("fax", lit(null))
             .withColumn("parent_location_id", lit(null))
             .withColumn("extended_attr", lit(null))
+            .withColumn("zip_code", normalizeZipCode(col("zip_code")))
+            .withColumn("open_dt", parsePosSquareTimestamp(col("open_dt")))
             .dropDuplicates("cxi_partner_id", "location_id")
-            .join(
-                postalCodes,
-                locations("zip_code") === postalCodes("zip_code"),
-                "left"
-            ) // adds city, state_code, region
+            .join(postalCodes, Seq("zip_code"), "left") // adds city, state_code, region
             .drop(postalCodes("zip_code"))
     }
 

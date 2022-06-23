@@ -2,9 +2,11 @@ package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
 import refined_zone.pos_square.config.ProcessorConfig
-import support.normalization.DateNormalization
-import support.utils.ContractUtils
 import support.SparkSessionFactory
+import support.normalization.DateNormalization
+import support.normalization.DateNormalizationUdfs.parseToSqlDateIsoFormat
+import support.normalization.TimestampNormalizationUdfs.parseToTimestampIsoDateTime
+import support.utils.ContractUtils
 
 import org.apache.log4j.Logger
 import org.apache.spark.sql.SparkSession
@@ -12,7 +14,20 @@ import org.apache.spark.sql.SparkSession
 import java.nio.file.Paths
 
 object RawRefinedSquarePartnerJob {
+
     private val logger = Logger.getLogger(this.getClass.getName)
+
+    /**
+      * Utilize IsoDateTimeConverter as POS Square uses RFC 3339 format for timestamps
+      * https://developer.squareup.com/docs/build-basics/common-data-types/working-with-dates
+      */
+    private[pos_square] final val parsePosSquareTimestamp = parseToTimestampIsoDateTime
+
+    /**
+      * Utilize standard ISO date formatter as POS Square uses ISO 8601 format (YYYY-MM-DD) for dates
+      * https://developer.squareup.com/docs/build-basics/common-data-types/working-with-dates
+      */
+    private[pos_square] final val parsePosSquareDate = parseToSqlDateIsoFormat
 
     def main(args: Array[String]): Unit = {
         logger.info(s"""Received following args: ${args.mkString(",")}""")

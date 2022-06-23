@@ -37,9 +37,9 @@ class FileIngestionFrameworkVerasetTransformationsTest extends BaseSparkBatchJob
         import spark.implicits._
         withClue("Actual veraset data frame data do not match") {
             val expected = List(
-                ("AAID", "UUID1", null, null, "172.58.225.114", null),
-                ("IDFA", null, "UUID1", null, null, "2600:6c56:7e08::"),
-                ("FRFR", null, null, "UUID1", null, null)
+                ("AAID", "uuid1", null, null, "172.58.225.114", null),
+                ("IDFA", null, "uuid1", null, null, "2600:6c56:7e08::"),
+                ("FRFR", null, null, "uuid1", null, null)
             ).toDF("id_type", "advertiser_id_AAID", "advertiser_id_IDFA", "advertiser_id_UNKNOWN", "ipv_4", "ipv_6")
                 .collect()
             actual.collect() should contain theSameElementsAs expected
