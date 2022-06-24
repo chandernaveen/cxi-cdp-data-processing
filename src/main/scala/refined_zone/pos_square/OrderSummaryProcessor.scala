@@ -35,8 +35,10 @@ object OrderSummaryProcessor {
                |get_json_object(record_value, "$$.id") as ord_id,
                |get_json_object(record_value, "$$.total_money.amount") as ord_total,
                |get_json_object(record_value, "$$.total_discount_money.amount") as discount_amount,
-               |get_json_object(record_value, "$$.closed_at") as ord_date,
-               |get_json_object(record_value, "$$.closed_at") as ord_timestamp,
+               |coalesce(
+               |get_json_object(record_value, "$$.closed_at"), get_json_object(record_value, "$$.opened_at")) as ord_date,
+               |coalesce(
+               |get_json_object(record_value, "$$.closed_at"), get_json_object(record_value, "$$.opened_at")) as ord_timestamp,
                |get_json_object(record_value, "$$.location_id") as location_id,
                |get_json_object(record_value, "$$.state") as ord_state,
                |get_json_object(record_value, "$$.fulfillments") as fulfillments,
