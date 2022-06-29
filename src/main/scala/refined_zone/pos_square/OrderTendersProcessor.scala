@@ -3,25 +3,27 @@ package refined_zone.pos_square
 
 import raw_zone.pos_square.model.Tender
 import refined_zone.pos_square.config.ProcessorConfig
+import refined_zone.pos_square.model.PosSquareOrderTenderTypes.PosSquareToCxiTenderType
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.getSchemaRefinedPath
+import support.normalization.udf.OrderTenderTypeNormalizationUdfs.normalizeOrderTenderType
 
 import org.apache.spark.sql.{DataFrame, Encoders, SparkSession}
 import org.apache.spark.sql.functions.{col, explode, from_json, lit}
 import org.apache.spark.sql.types.DataTypes
 
-object OrderTenderTypesProcessor {
+object OrderTendersProcessor {
     def process(spark: SparkSession, config: ProcessorConfig, destDbName: String): Unit = {
 
-        val orderTenderTypeTable = config.contract.prop[String](getSchemaRefinedPath("order_tender_type_table"))
+        val orderTenderTable = config.contract.prop[String](getSchemaRefinedPath("order_tender_table"))
 
-        val orderTenderTypes = readOrderTenderTypes(spark, config.dateRaw, config.srcDbName, config.srcTable)
+        val orderTenders = readOrderTenders(spark, config.dateRaw, config.srcDbName, config.srcTable)
 
-        val processedOrderTenderTypes = transformOrderTenderTypes(orderTenderTypes, config.cxiPartnerId)
+        val processedOrderTenders = transformOrderTenders(orderTenders, config.cxiPartnerId)
 
-        writeOrderTenderTypes(processedOrderTenderTypes, config.cxiPartnerId, s"$destDbName.$orderTenderTypeTable")
+        writeOrderTenders(processedOrderTenders, config.cxiPartnerId, s"$destDbName.$orderTenderTable")
     }
 
-    def readOrderTenderTypes(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
+    def readOrderTenders(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
         spark.sql(s"""
                |SELECT
                |get_json_object(record_value, "$$.tenders") as tenders,
@@ -31,7 +33,7 @@ object OrderTenderTypesProcessor {
                |""".stripMargin)
     }
 
-    def transformOrderTenderTypes(orderTenderTypes: DataFrame, cxiPartnerId: String): DataFrame = {
+    def transformOrderTenders(orderTenderTypes: DataFrame, cxiPartnerId: String): DataFrame = {
         orderTenderTypes
             .withColumn("cxi_partner_id", lit(cxiPartnerId))
             .withColumn(
@@ -41,7 +43,7 @@ object OrderTenderTypesProcessor {
             .withColumn("tender", explode(col("tenders")))
             .withColumn("tender_id", col("tender.id"))
             .withColumn("tender_nm", lit(null))
-            .withColumn("tender_type", col("tender.type"))
+            .withColumn("tender_type", normalizeOrderTenderType(PosSquareToCxiTenderType)(col("tender.type")))
             .drop("tenders", "tender")
             .dropDuplicates(
                 "cxi_partner_id",
@@ -50,8 +52,8 @@ object OrderTenderTypesProcessor {
             ) // TODO: consider removing tender id, and using tender type as key instead ?
     }
 
-    def writeOrderTenderTypes(df: DataFrame, cxiPartnerId: String, destTable: String): Unit = {
-        val srcTable = "newOrderTenderTypes"
+    def writeOrderTenders(df: DataFrame, cxiPartnerId: String, destTable: String): Unit = {
+        val srcTable = "newOrderTenders"
 
         df.createOrReplaceTempView(srcTable)
         df.sqlContext.sql(s"""

@@ -55,7 +55,7 @@ object PreAggrTransactionalInsightsJob {
 
     private case class ProcessingContext(
         orderSummary: DataFrame,
-        orderTenderType: DataFrame,
+        orderTenders: DataFrame,
         customer360: DataFrame,
         destTable: String,
         maybeOrderDates: Option[Set[String]],
@@ -73,7 +73,7 @@ object PreAggrTransactionalInsightsJob {
         spark: SparkSession
     ): Option[ProcessingContext] = {
         val orderSummaryCdf = getOrderSummaryCdf(contract)
-        val orderTenderType = spark.table(getOrderTenderTypeTable(contract))
+        val orderTenders = spark.table(getOrderTenderTable(contract))
         val customer360 = spark.table(getCustomer360Table(contract))
         val destTable = getDestTable(contract)
 
@@ -82,7 +82,7 @@ object PreAggrTransactionalInsightsJob {
             cdfResult.data.map(orderSummary => {
                 ProcessingContext(
                     orderSummary = getOrderSummaryWithNonNullKeyFields(orderSummary),
-                    orderTenderType = orderTenderType,
+                    orderTenders = orderTenders,
                     customer360 = customer360,
                     destTable = destTable,
                     maybeOrderDates = None,
@@ -101,7 +101,7 @@ object PreAggrTransactionalInsightsJob {
                 val orderSummaryForDates = orderSummaryFull.filter(ordDateColumn.isInCollection(orderDates))
                 ProcessingContext(
                     orderSummary = getOrderSummaryWithNonNullKeyFields(orderSummaryForDates),
-                    orderTenderType = orderTenderType,
+                    orderTenders = orderTenders,
                     customer360 = customer360,
                     destTable = destTable,
                     maybeOrderDates = Some(orderDates),
@@ -135,7 +135,7 @@ object PreAggrTransactionalInsightsJob {
         import PreAggrTransactionalInsightsService._
 
         val orderSummaryWithMetrics =
-            getOrderSummaryWithMetrics(processingContext.orderSummary, processingContext.orderTenderType)
+            getOrderSummaryWithMetrics(processingContext.orderSummary, processingContext.orderTenders)
         val customer360IdToQualifiedIdentity = getCustomer360IdToQualifiedIdentity(processingContext.customer360)
         val customer360IdWithMetrics =
             getCustomer360IdWithMetrics(orderSummaryWithMetrics, customer360IdToQualifiedIdentity)
@@ -158,9 +158,9 @@ object PreAggrTransactionalInsightsJob {
         s"$db.$table"
     }
 
-    private def getOrderTenderTypeTable(contract: ContractUtils): String = {
+    private def getOrderTenderTable(contract: ContractUtils): String = {
         val db = contract.prop[String]("datalake.refined_hub.db_name")
-        val table = contract.prop[String]("datalake.refined_hub.order_tender_type_table")
+        val table = contract.prop[String]("datalake.refined_hub.order_tender_table")
         s"$db.$table"
     }
 

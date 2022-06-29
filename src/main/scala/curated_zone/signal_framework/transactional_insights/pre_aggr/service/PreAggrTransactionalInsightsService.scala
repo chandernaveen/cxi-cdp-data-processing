@@ -52,9 +52,9 @@ private[pre_aggr] object PreAggrTransactionalInsightsService {
             """)
     }
 
-    def getOrderSummaryWithMetrics(orderSummary: DataFrame, orderTenderType: DataFrame): DataFrame = {
+    def getOrderSummaryWithMetrics(orderSummary: DataFrame, orderTenders: DataFrame): DataFrame = {
         val transformations: Seq[DataFrame => DataFrame] = Seq(
-            addTenderTypeMetrics(_, orderTenderType),
+            addTenderTypeMetrics(_, orderTenders),
             addOrderMetrics _,
             addTimeOfDayMetrics _,
             addChannelMetrics _

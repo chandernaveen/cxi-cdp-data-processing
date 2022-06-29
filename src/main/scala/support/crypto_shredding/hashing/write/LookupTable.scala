@@ -2,7 +2,7 @@ package com.cxi.cdp.data_processing
 package support.crypto_shredding.hashing.write
 
 import support.crypto_shredding.hashing.function_types.CryptoHashingResult
-import support.normalization.DateNormalizationUdfs.parseToSqlDateIsoFormat
+import support.normalization.udf.DateNormalizationUdfs.parseToSqlDateIsoFormat
 
 import org.apache.spark.sql.{Dataset, SparkSession}
 import org.apache.spark.sql.functions._

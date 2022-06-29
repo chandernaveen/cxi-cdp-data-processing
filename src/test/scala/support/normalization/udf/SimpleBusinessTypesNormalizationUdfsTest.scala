@@ -1,10 +1,10 @@
 package com.cxi.cdp.data_processing
-package support.normalization
+package support.normalization.udf
 
-import support.normalization.DateNormalizationUdfs.{parseToSqlDateIsoFormat, parseToSqlDateWithPattern}
-import support.normalization.LocationNormalizationUdfs.normalizeZipCode
-import support.normalization.MoneyNormalizationUdfs.convertCentsToMoney
-import support.normalization.TimestampNormalizationUdfs.{parseToTimestampIsoDateTime, parseToTimestampWithPattern}
+import support.normalization.udf.DateNormalizationUdfs.{parseToSqlDateIsoFormat, parseToSqlDateWithPattern}
+import support.normalization.udf.LocationNormalizationUdfs.normalizeZipCode
+import support.normalization.udf.MoneyNormalizationUdfs.convertCentsToMoney
+import support.normalization.udf.TimestampNormalizationUdfs.{parseToTimestampIsoDateTime, parseToTimestampWithPattern}
 import support.BaseSparkBatchJobTest
 
 import org.apache.spark.sql.functions.{col, lit}
@@ -16,7 +16,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime.of
 import java.time.ZoneOffset.UTC
 
-class UdfsTest extends BaseSparkBatchJobTest {
+class SimpleBusinessTypesNormalizationUdfsTest extends BaseSparkBatchJobTest {
 
     import spark.implicits._
 

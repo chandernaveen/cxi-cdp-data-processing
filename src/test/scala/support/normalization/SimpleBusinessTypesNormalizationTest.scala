@@ -4,7 +4,6 @@ package support.normalization
 import support.normalization.AdvertiserIdNormalization.normalizeAdvertiserId
 import support.normalization.DateNormalization.STANDARD_DATE_FORMAT
 import support.normalization.EmailNormalization.normalizeEmail
-import support.normalization.LocationNormalization.MoneyNormalization
 import support.normalization.PhoneNumberNormalization.normalizePhoneNumber
 
 import org.scalatest.FunSuite
@@ -16,7 +15,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime.of
 import java.time.ZoneOffset.UTC
 
-class NormalizationTest extends FunSuite {
+class SimpleBusinessTypesNormalizationTest extends FunSuite {
 
     test("Normalize phone number") {
         val phone_numbers = Seq(

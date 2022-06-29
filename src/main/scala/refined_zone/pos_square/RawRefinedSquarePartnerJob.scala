@@ -2,9 +2,9 @@ package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
 import refined_zone.pos_square.config.ProcessorConfig
+import support.normalization.udf.DateNormalizationUdfs.parseToSqlDateIsoFormat
+import support.normalization.udf.TimestampNormalizationUdfs.parseToTimestampIsoDateTime
 import support.normalization.DateNormalization
-import support.normalization.DateNormalizationUdfs.parseToSqlDateIsoFormat
-import support.normalization.TimestampNormalizationUdfs.parseToTimestampIsoDateTime
 import support.utils.ContractUtils
 import support.SparkSessionFactory
 
@@ -63,7 +63,7 @@ object RawRefinedSquarePartnerJob {
         val cxiIdentityIdsByOrder = CxiIdentityProcessor.process(spark, processorCommonConfig, payments)
 
         OrderTaxesProcessor.process(spark, processorCommonConfig, destDbName)
-        OrderTenderTypesProcessor.process(spark, processorCommonConfig, destDbName)
+        OrderTendersProcessor.process(spark, processorCommonConfig, destDbName)
         OrderSummaryProcessor.process(spark, processorCommonConfig, destDbName, cxiIdentityIdsByOrder)
     }
 

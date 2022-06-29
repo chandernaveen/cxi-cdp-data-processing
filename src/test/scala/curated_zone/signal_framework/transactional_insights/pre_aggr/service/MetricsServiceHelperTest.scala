@@ -1,8 +1,9 @@
 package com.cxi.cdp.data_processing
 package curated_zone.signal_framework.transactional_insights.pre_aggr.service
 
-import com.cxi.cdp.data_processing.curated_zone.model.signal.transactional_insights.TenderTypeMetric
-import com.cxi.cdp.data_processing.support.BaseSparkBatchJobTest
+import curated_zone.model.signal.transactional_insights.TenderTypeMetric
+import refined_zone.hub.model.OrderTenderType
+import support.BaseSparkBatchJobTest
 
 import org.apache.spark.sql.functions.col
 import org.scalatest.Matchers
@@ -33,12 +34,13 @@ class MetricsServiceHelperTest extends BaseSparkBatchJobTest with Matchers {
 
     test("extractTenderTypeMetric") {
         val testCases = Seq(
-            "GIFT_CARD" -> Some(TenderTypeMetric.GiftCard),
-            "SQUARE_GIFT_CARD" -> Some(TenderTypeMetric.GiftCard),
-            "CARD" -> Some(TenderTypeMetric.Card),
-            "CASH" -> Some(TenderTypeMetric.Cash),
-            "WALLET" -> Some(TenderTypeMetric.Wallet),
-            "BOTTLE_CAPS" -> None
+            OrderTenderType.GiftCard.code -> Some(TenderTypeMetric.GiftCard),
+            OrderTenderType.CreditCard.code -> Some(TenderTypeMetric.Card),
+            OrderTenderType.Cash.code -> Some(TenderTypeMetric.Cash),
+            OrderTenderType.Wallet.code -> Some(TenderTypeMetric.Wallet),
+            OrderTenderType.Other.code -> None,
+            OrderTenderType.Unknown.code -> None,
+            12345 -> None // this should never happen as all tender types are stored in normalized form
         )
 
         testCases.foreach { case (tenderType, expectedResult) =>
