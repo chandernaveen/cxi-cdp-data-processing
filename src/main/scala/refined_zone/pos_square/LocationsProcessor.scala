@@ -1,12 +1,16 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
-import refined_zone.pos_square.RawRefinedSquarePartnerJob.{getSchemaRefinedHubPath, getSchemaRefinedPath, parsePosSquareTimestamp}
 import refined_zone.pos_square.config.ProcessorConfig
+import refined_zone.pos_square.RawRefinedSquarePartnerJob.{
+    getSchemaRefinedHubPath,
+    getSchemaRefinedPath,
+    parsePosSquareTimestamp
+}
 import support.normalization.LocationNormalizationUdfs.normalizeZipCode
 
-import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.functions._
 
 object LocationsProcessor {
     def process(spark: SparkSession, config: ProcessorConfig, destDbName: String): Unit = {

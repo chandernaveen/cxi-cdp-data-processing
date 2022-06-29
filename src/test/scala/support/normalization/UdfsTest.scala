@@ -1,11 +1,11 @@
 package com.cxi.cdp.data_processing
 package support.normalization
 
-import support.BaseSparkBatchJobTest
 import support.normalization.DateNormalizationUdfs.{parseToSqlDateIsoFormat, parseToSqlDateWithPattern}
+import support.normalization.LocationNormalizationUdfs.normalizeZipCode
 import support.normalization.MoneyNormalizationUdfs.convertCentsToMoney
 import support.normalization.TimestampNormalizationUdfs.{parseToTimestampIsoDateTime, parseToTimestampWithPattern}
-import support.normalization.LocationNormalizationUdfs.normalizeZipCode
+import support.BaseSparkBatchJobTest
 
 import org.apache.spark.sql.functions.{col, lit}
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper}
@@ -58,8 +58,10 @@ class UdfsTest extends BaseSparkBatchJobTest {
         ).toDF("id", "timestamp")
 
         // when
-        val actual = df.select(col("id"),
-            parseToTimestampWithPattern(col("timestamp"), lit("yyyy.MM.dd'T'HH.mm.ssZ")).as("timestamp"))
+        val actual = df.select(
+            col("id"),
+            parseToTimestampWithPattern(col("timestamp"), lit("yyyy.MM.dd'T'HH.mm.ssZ")).as("timestamp")
+        )
 
         // then
         withClue("timestamp is not correctly parsed from string") {
@@ -114,8 +116,7 @@ class UdfsTest extends BaseSparkBatchJobTest {
         ).toDF("id", "date")
 
         // when
-        val actual = df.select(col("id"),
-            parseToSqlDateWithPattern(col("date"), lit("yyyy.MM.dd")).as("date"))
+        val actual = df.select(col("id"), parseToSqlDateWithPattern(col("date"), lit("yyyy.MM.dd")).as("date"))
 
         // then
         withClue("sql date is not correctly parsed from string") {

@@ -1,14 +1,14 @@
 package com.cxi.cdp.data_processing
 package support.normalization
 
-import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat
 import com.google.i18n.phonenumbers.{NumberParseException, PhoneNumberUtil}
+import com.google.i18n.phonenumbers.PhoneNumberUtil.PhoneNumberFormat
 import org.apache.commons.validator.routines.EmailValidator
 import org.apache.log4j.Logger
 
 import java.sql.Timestamp
-import java.time.format.DateTimeFormatter
 import java.time.{Instant, LocalDate}
+import java.time.format.DateTimeFormatter
 
 sealed trait Normalization
 
@@ -26,8 +26,7 @@ case object DateNormalization extends Normalization {
         Some(date).map(_.format(DateTimeFormatter.ofPattern(STANDARD_DATE_FORMAT)))
     }
 
-    /**
-      * If custom pattern is not provided, uses ISO-like date format: 'yyyy-MM-dd'
+    /** If custom pattern is not provided, uses ISO-like date format: 'yyyy-MM-dd'
       */
     def parseToSqlDate(date: String, pattern: String = STANDARD_DATE_FORMAT): Option[java.sql.Date] = {
         try {
@@ -44,8 +43,7 @@ case object TimestampNormalization extends Normalization {
 
     private val logger = Logger.getLogger(this.getClass.getName)
 
-    /**
-      * If custom pattern is not provided, uses ISO-like date-time formatter that formats or parses a date-time
+    /** If custom pattern is not provided, uses ISO-like date-time formatter that formats or parses a date-time
       * with the offset and zone if available, such as '2011-12-03T10:15:30', '2011-12-03T10:15:30+01:00'
       * or '2011-12-03T10:15:30+01:00[Europe/Paris]'.
       */
@@ -127,31 +125,30 @@ case object LocationNormalization extends Normalization {
         }
     }
 
-case object MoneyNormalization extends Normalization {
+    case object MoneyNormalization extends Normalization {
 
-    private val logger = Logger.getLogger(this.getClass.getName)
+        private val logger = Logger.getLogger(this.getClass.getName)
 
-    private final val CentsPerDollar = 100
+        private final val CentsPerDollar = 100
 
-    /**
-      * Converts cents to dollars, e.g. "12345" -> 213.45, "500" -> 5.00
-      * @param cents integer value in string format, e.g. "12345", "500" etc.
-      * @return floating point (BigDecimal) dollars amount
-      */
-    def convertCentsToMoney(cents: String): Option[java.math.BigDecimal] = {
-        try {
-            Option(cents)
-                .map(_.trim)
-                .filter(_.nonEmpty)
-                .map(v => new java.math.BigDecimal(v))
-                .map(v => v.divide(new java.math.BigDecimal(CentsPerDollar)))
-        } catch {
-            case _: NumberFormatException =>
-                logger.warn(s"Cannot convert cents value to money format: '$cents'")
-                None
+        /** Converts cents to dollars, e.g. "12345" -> 213.45, "500" -> 5.00
+          * @param cents integer value in string format, e.g. "12345", "500" etc.
+          * @return floating point (BigDecimal) dollars amount
+          */
+        def convertCentsToMoney(cents: String): Option[java.math.BigDecimal] = {
+            try {
+                Option(cents)
+                    .map(_.trim)
+                    .filter(_.nonEmpty)
+                    .map(v => new java.math.BigDecimal(v))
+                    .map(v => v.divide(new java.math.BigDecimal(CentsPerDollar)))
+            } catch {
+                case _: NumberFormatException =>
+                    logger.warn(s"Cannot convert cents value to money format: '$cents'")
+                    None
+            }
         }
-    }
 
-}
+    }
 
 }

@@ -89,23 +89,28 @@ class NormalizationTest extends FunSuite {
     test("Normalize timestamp") {
         val testCases = Seq(
             TimestampNormalizationTestCase(
-                "2021-11-02T23:59:16Z", None,
+                "2021-11-02T23:59:16Z",
+                None,
                 Some(from(of(2021, 11, 2, 23, 59, 16).toInstant(UTC)))
             ),
             TimestampNormalizationTestCase(
-                "2022-02-24T04:30:00.000Z", None,
+                "2022-02-24T04:30:00.000Z",
+                None,
                 Some(from(of(2022, 2, 24, 4, 30, 0, 0).toInstant(UTC)))
             ),
             TimestampNormalizationTestCase(
-                "2021-05-13T21:50:55.435Z", None,
+                "2021-05-13T21:50:55.435Z",
+                None,
                 Some(from(of(2021, 5, 13, 21, 50, 55, 435000000).toInstant(UTC)))
             ),
             TimestampNormalizationTestCase(
-                "2022-12-03T10:15:30+02:00", None, // +02:00 timezone
+                "2022-12-03T10:15:30+02:00",
+                None, // +02:00 timezone
                 Some(from(of(2022, 12, 3, 8, 15, 30).toInstant(UTC)))
             ),
             TimestampNormalizationTestCase(
-                "20220224T07.15.00+0200", Some("yyyyMMdd'T'HH.mm.ssZ"), // custom pattern with +02:00 timezone
+                "20220224T07.15.00+0200",
+                Some("yyyyMMdd'T'HH.mm.ssZ"), // custom pattern with +02:00 timezone
                 Some(from(of(2022, 2, 24, 5, 15, 0).toInstant(UTC)))
             ),
             TimestampNormalizationTestCase("some invalid string", None, None),
@@ -119,8 +124,16 @@ class NormalizationTest extends FunSuite {
 
     test("Normalize sql date") {
         val testCases = Seq(
-            SqlDateNormalizationTestCase("2022-02-24", STANDARD_DATE_FORMAT, Some(java.sql.Date.valueOf(LocalDate.of(2022, 2, 24)))),
-            SqlDateNormalizationTestCase("2022.02.24", "yyyy.MM.dd", Some(java.sql.Date.valueOf(LocalDate.of(2022, 2, 24)))), // custom pattern
+            SqlDateNormalizationTestCase(
+                "2022-02-24",
+                STANDARD_DATE_FORMAT,
+                Some(java.sql.Date.valueOf(LocalDate.of(2022, 2, 24)))
+            ),
+            SqlDateNormalizationTestCase(
+                "2022.02.24",
+                "yyyy.MM.dd",
+                Some(java.sql.Date.valueOf(LocalDate.of(2022, 2, 24)))
+            ), // custom pattern
             SqlDateNormalizationTestCase("some invalid string", STANDARD_DATE_FORMAT, None),
             SqlDateNormalizationTestCase("", STANDARD_DATE_FORMAT, None),
             SqlDateNormalizationTestCase(null, STANDARD_DATE_FORMAT, None)
