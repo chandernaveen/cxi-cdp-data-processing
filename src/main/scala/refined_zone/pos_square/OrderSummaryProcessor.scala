@@ -12,6 +12,22 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DataTypes
 
 object OrderSummaryProcessor {
+    val getOrdTargetChannelId = udf((fulfillments: Option[Seq[Fulfillment]]) => {
+        val (completedFulfillments, otherFulfillments) = fulfillments
+            .getOrElse(Seq.empty[Fulfillment])
+            .partition(_.state == Fulfillment.State.Completed)
+
+        // prefer (non-null) type from COMPLETED fulfillments
+        val fulfillmentType = (completedFulfillments ++ otherFulfillments)
+            .flatMap(fulfillment => Option(fulfillment.`type`))
+            .headOption
+
+        fulfillmentType match {
+            case Some(Fulfillment.Type.Pickup) => ChannelType.PhysicalPickup.code
+            case _ => ChannelType.Unknown.code
+        }
+    })
+
     def process(
         spark: SparkSession,
         config: ProcessorConfig,
@@ -106,8 +122,8 @@ object OrderSummaryProcessor {
             )
             .withColumn("tender_ids", col("tender_array.id"))
             .withColumn("feed_date", parsePosSquareDate(lit(date)))
-            .withColumn( "ord_date", coalesce(col("ord_date"), col("opened_at")))
-            .withColumn( "ord_timestamp", coalesce(col("ord_timestamp"), col("opened_at")))
+            .withColumn("ord_date", coalesce(col("ord_date"), col("opened_at")))
+            .withColumn("ord_timestamp", coalesce(col("ord_timestamp"), col("opened_at")))
             .select(
                 "ord_id",
                 "ord_desc",
@@ -151,22 +167,6 @@ object OrderSummaryProcessor {
             .drop(cxiIdentityIdsByOrder("ord_id"))
             .dropDuplicates("cxi_partner_id", "location_id", "ord_id", "ord_date", "item_id")
     }
-
-    val getOrdTargetChannelId = udf((fulfillments: Option[Seq[Fulfillment]]) => {
-        val (completedFulfillments, otherFulfillments) = fulfillments
-            .getOrElse(Seq.empty[Fulfillment])
-            .partition(_.state == Fulfillment.State.Completed)
-
-        // prefer (non-null) type from COMPLETED fulfillments
-        val fulfillmentType = (completedFulfillments ++ otherFulfillments)
-            .flatMap(fulfillment => Option(fulfillment.`type`))
-            .headOption
-
-        fulfillmentType match {
-            case Some(Fulfillment.Type.Pickup) => ChannelType.PhysicalPickup.code
-            case _ => ChannelType.Unknown.code
-        }
-    })
 
     def getOrdOriginateChannelId(): Column = {
         lit(ChannelType.PhysicalLane.code)

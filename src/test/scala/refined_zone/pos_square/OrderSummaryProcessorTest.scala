@@ -6,7 +6,6 @@ import refined_zone.hub.model.ChannelType
 import support.BaseSparkBatchJobTest
 
 import org.apache.log4j.Logger
-
 import org.apache.spark.sql.functions.col
 import org.json4s.jackson.Serialization
 import org.json4s.DefaultFormats
@@ -20,7 +19,6 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
     private val logger = Logger.getLogger(classOf[OrderSummaryProcessorTest].getName)
 
     import OrderSummaryProcessorTest._
-
 
     test("getOrdTargetChannelId") {
         import Fulfillment.{State, Type}
@@ -132,12 +130,12 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
         val renamedFieldsMap = Map[String, String](
             "id" -> "ord_id",
             "state" -> "ord_state",
-            "tenders"->"tender_array"
+            "tenders" -> "tender_array"
         )
         orderSummary.collect
             .zip(rawData)
-            .foreach {
-                case (result, origin) => ccToMap(origin)
+            .foreach { case (result, origin) =>
+                ccToMap(origin)
                     .foreach {
                         case (k, v) if result.schema.fieldNames.contains(k) =>
                             val a = result.getAs[AnyVal](k)
@@ -283,7 +281,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
                                 result.getAs[String]("discount_id") shouldBe uid
                             }
                         }
-                        case (k, _) if List("fulfillments", "line_items", "customer_id", "opened_at").contains(k) =>{
+                        case (k, _) if List("fulfillments", "line_items", "customer_id", "opened_at").contains(k) => {
                             logger.debug(s"Omitting field check for $k")
                         }
                         case other =>
@@ -296,17 +294,35 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
 
 object OrderSummaryProcessorTest {
     val _rnd = new Random()
+
+    /** Helper mapper convert case class to pair with field name
+      * @param cc case class to create map
+      * @return Map of pair field_name -> value
+      */
+    def ccToMap(cc: Any): Map[String, AnyRef] = {
+
+        cc.getClass.getDeclaredFields
+            .map(f => {
+                f.setAccessible(true)
+                f.getName -> f.get(cc)
+            })
+            .toMap
+    }
+
     case class OrdTargetChannelIdTestCase(fulfillments: Seq[Fulfillment], expectedOrdTargetChannelId: Int)
+
     case class Money(amount: Int)
+
     case class Discount(uid: String)
+
     case class OrderSummaryFromRaw(
         id: String,
         opened_at: String,
         closed_at: String,
-        total_money: Money = Money(amount = _rnd.nextInt(1000)+1),
+        total_money: Money = Money(amount = _rnd.nextInt(1000) + 1),
         fulfillments: String = "[{'pickup_details':{'note':'abc'}, 'state':'FL'}]",
         line_items: String = "[{'catalog_object_id':1, 'quantity':2}]",
-        total_service_charge_money: Money = Money(amount = _rnd.nextInt(1000)+1),
+        total_service_charge_money: Money = Money(amount = _rnd.nextInt(1000) + 1),
         total_tax_money: Money = Money(10),
         total_tip_money: Money = Money(5),
         total_discount_money: Money = Money(1),
@@ -323,21 +339,8 @@ object OrderSummaryProcessorTest {
             tenders = s"{'id':$tender_id}"
         )
     }
+
     case class RawDataEmulator(feed_date: String, record_value: String, record_type: String = "orders")
+
     case class IdentityTestData(ord_id: String)
-
-    /**
-      * Helper mapper convert case class to pair with field name
-      * @param cc case class to create map
-      * @return Map of pair field_name -> value
-      */
-    def ccToMap(cc: Any): Map[String, AnyRef] = {
-
-        cc.getClass.getDeclaredFields
-            .map(f => {
-                f.setAccessible(true)
-                f.getName -> f.get(cc)
-            })
-            .toMap
-    }
 }
