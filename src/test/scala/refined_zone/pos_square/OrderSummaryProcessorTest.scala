@@ -89,19 +89,18 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
         val dtFormatLong = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm'Z'").withZone(defaultTimeZone)
         val dateNow = dtFormatShort.format(baseDate)
 
-        val past15 = dtFormatLong.format(baseDate.minusSeconds(15))
-        val past20 = dtFormatLong.format(baseDate.minusSeconds(20))
+        val past15sec = dtFormatLong.format(baseDate.minusSeconds(15))
+        val past20sec = dtFormatLong.format(baseDate.minusSeconds(20))
 
-        val sharedId1 = 42
-        val sharedId2 = 75
-        val testPartnerId = "AABBCC"
-        val identityIndex = List[IdentityTestData](IdentityTestData(sharedId1), IdentityTestData(sharedId2)).toDF
+        val orderId1 = "dummyStr1"
+        val orderId2 = "dummyStr2"
+
         val tableName = "raw_orders"
         val rawData = List[OrderSummaryFromRaw](
             // case for normal flow
-            new OrderSummaryFromRaw(ord_id = sharedId1, opened_at = past15, closed_at = past20, 42),
+            new OrderSummaryFromRaw(id = orderId1, opened_at = past15sec, closed_at = past20sec, 42),
             // case for BUG check
-            new OrderSummaryFromRaw(ord_id = sharedId2, opened_at = past20, closed_at = null, tender_id = 17)
+            new OrderSummaryFromRaw(id = orderId2, opened_at = past20sec, closed_at = null, tender_id = 17)
         )
 
         implicit val formats: DefaultFormats = DefaultFormats
@@ -140,20 +139,18 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
             .foreach {
                 case (result, origin) => ccToMap(origin)
                     .foreach {
-                        case (k, v) if result.schema.fieldNames.contains(k) => {
+                        case (k, v) if result.schema.fieldNames.contains(k) =>
                             val a = result.getAs[AnyVal](k)
                             logger.debug(s"test '$k': $a <vs> $v")
                             withClue(s"Auto field comparison: $k") {
                                 a shouldBe v
                             }
-                        }
-                        case (k, v) if renamedFieldsMap.keySet.contains(k) => {
+                        case (k, v) if renamedFieldsMap.keySet.contains(k) =>
                             // some fields are renamed
                             withClue(s"Auto field comparison: $k") {
                                 result.getAs[String](renamedFieldsMap.apply(k)) shouldBe v.toString
                             }
-                        }
-                        case (k, v) if k == "closed_at" => {
+                        case (k, v) if k == "closed_at" =>
                             // closed_at used multiple times in other fields
                             withClue(s"closed_at equality to ord_date") {
                                 result.getAs[String]("ord_date") shouldBe v
@@ -161,7 +158,6 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
                             withClue(s"ord_timestamp equality to ord_date") {
                                 result.getAs[String]("ord_timestamp") shouldBe v
                             }
-                        }
                         case (k, Money(amount)) if moneyFieldsMap.keySet.contains(k) => {
                             // check all money related fields
                             withClue(s"Money field comparison error") {
@@ -188,20 +184,20 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
         val dtFormatLong = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm'Z'").withZone(defaultTimeZone)
         val dateNow = dtFormatShort.format(baseDate)
 
-        val past15 = dtFormatLong.format(baseDate.minusSeconds(15))
-        val past20 = dtFormatLong.format(baseDate.minusSeconds(20))
+        val past15sec = dtFormatLong.format(baseDate.minusSeconds(15))
+        val past20sec = dtFormatLong.format(baseDate.minusSeconds(20))
 
-        val sharedId1 = 42
-        val sharedId2 = 75
+        val orderId1 = "dummyStr1"
+        val orderId2 = "dummyStr2"
         val testPartnerId = "AABBCC"
-        val identityIndex = List[IdentityTestData](IdentityTestData(sharedId1), IdentityTestData(sharedId2)).toDF
+        val identityIndex = List[IdentityTestData](IdentityTestData(orderId1), IdentityTestData(orderId2)).toDF
         val tableName = "raw_orders"
         val tendersId = 31;
         val rawData = List[OrderSummaryFromRaw](
             // case for normal flow
-            new OrderSummaryFromRaw(ord_id = sharedId1, opened_at = past15, closed_at = past20, tender_id = tendersId),
+            new OrderSummaryFromRaw(id = orderId1, opened_at = past15sec, closed_at = past20sec, tender_id = tendersId),
             // case for BUG check
-            new OrderSummaryFromRaw(ord_id = sharedId2, opened_at = past20, closed_at = null, tender_id = tendersId)
+            new OrderSummaryFromRaw(id = orderId2, opened_at = past20sec, closed_at = null, tender_id = tendersId)
         )
 
         implicit val formats: DefaultFormats = DefaultFormats
@@ -301,51 +297,34 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
 object OrderSummaryProcessorTest {
     val _rnd = new Random()
     case class OrdTargetChannelIdTestCase(fulfillments: Seq[Fulfillment], expectedOrdTargetChannelId: Int)
-    case class Money(amount: Double)
+    case class Money(amount: Int)
     case class Discount(uid: String)
     case class OrderSummaryFromRaw(
-        id: Int,
-        ord_id: String,
+        id: String,
         opened_at: String,
         closed_at: String,
-//        ord_date: String,
-//        ord_timestamp: String,
-        total_money: Money,
-        fulfillments: String,
-        line_items: String,
-        total_service_charge_money: Money,
-        total_tax_money: Money,
-        total_tip_money: Money,
-        total_discount_money: Money,
-        customer_id: String,
+        total_money: Money = Money(amount = _rnd.nextInt(1000)+1),
+        fulfillments: String = "[{'pickup_details':{'note':'abc'}, 'state':'FL'}]",
+        line_items: String = "[{'catalog_object_id':1, 'quantity':2}]",
+        total_service_charge_money: Money = Money(amount = _rnd.nextInt(1000)+1),
+        total_tax_money: Money = Money(10),
+        total_tip_money: Money = Money(5),
+        total_discount_money: Money = Money(1),
+        customer_id: String = _rnd.nextString(12),
         tenders: String,
-        location_id: String,
-        state: String,
-        discounts: Discount
+        location_id: String = "dsdsd",
+        state: String = "COMPLETED",
+        discounts: Discount = Discount(uid = _rnd.nextString(5))
     ) {
-        def this(ord_id: Int, opened_at: String, closed_at: String, tender_id: Int) = this(
-            id = ord_id,
-            ord_id = ord_id.toString,
+        def this(id: String, opened_at: String, closed_at: String, tender_id: Int) = this(
+            id = id,
             opened_at = opened_at,
             closed_at = closed_at,
-//            ord_date = opened_at,
-//            ord_timestamp = opened_at,
-            total_money = Money(amount = _rnd.nextDouble()),
-            fulfillments = "[{'pickup_details':{'note':'abc'}, 'state':'FL'}]",
-            line_items = "[{'catalog_object_id':1, 'quantity':2}]",
-            total_service_charge_money = Money(amount = _rnd.nextDouble()),
-            total_tax_money = Money(10),
-            total_tip_money = Money(5),
-            total_discount_money = Money(1),
-            customer_id = _rnd.nextString(12),
-            tenders = s"{'id':$tender_id}",
-            location_id = "dsdsd",
-            state = "COMPLETED",
-            discounts = Discount(uid = _rnd.nextString(5))
+            tenders = s"{'id':$tender_id}"
         )
     }
     case class RawDataEmulator(feed_date: String, record_value: String, record_type: String = "orders")
-    case class IdentityTestData(ord_id: Int)
+    case class IdentityTestData(ord_id: String)
 
     /**
       * Helper mapper convert case class to pair with field name
