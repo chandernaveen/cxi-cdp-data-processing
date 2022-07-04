@@ -287,6 +287,9 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
                                 result.getAs[String]("discount_id") shouldBe uid
                             }
                         }
+                        case (k, _) if List("fulfillments", "line_items", "customer_id", "opened_at").contains(k) =>{
+                            logger.debug(s"Omitting field check for $k")
+                        }
                         case other =>
                             logger.warn(s"Don't know how to test select-field $other")
                     }
