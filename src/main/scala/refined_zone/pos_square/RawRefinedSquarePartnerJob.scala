@@ -2,11 +2,11 @@ package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
 import refined_zone.pos_square.config.ProcessorConfig
-import support.SparkSessionFactory
+import support.normalization.udf.DateNormalizationUdfs.parseToSqlDateIsoFormat
+import support.normalization.udf.TimestampNormalizationUdfs.parseToTimestampIsoDateTime
 import support.normalization.DateNormalization
-import support.normalization.DateNormalizationUdfs.parseToSqlDateIsoFormat
-import support.normalization.TimestampNormalizationUdfs.parseToTimestampIsoDateTime
 import support.utils.ContractUtils
+import support.SparkSessionFactory
 
 import org.apache.log4j.Logger
 import org.apache.spark.sql.SparkSession
@@ -17,14 +17,12 @@ object RawRefinedSquarePartnerJob {
 
     private val logger = Logger.getLogger(this.getClass.getName)
 
-    /**
-      * Utilize IsoDateTimeConverter as POS Square uses RFC 3339 format for timestamps
+    /** Utilize IsoDateTimeConverter as POS Square uses RFC 3339 format for timestamps
       * https://developer.squareup.com/docs/build-basics/common-data-types/working-with-dates
       */
     private[pos_square] final val parsePosSquareTimestamp = parseToTimestampIsoDateTime
 
-    /**
-      * Utilize standard ISO date formatter as POS Square uses ISO 8601 format (YYYY-MM-DD) for dates
+    /** Utilize standard ISO date formatter as POS Square uses ISO 8601 format (YYYY-MM-DD) for dates
       * https://developer.squareup.com/docs/build-basics/common-data-types/working-with-dates
       */
     private[pos_square] final val parsePosSquareDate = parseToSqlDateIsoFormat
@@ -65,7 +63,7 @@ object RawRefinedSquarePartnerJob {
         val cxiIdentityIdsByOrder = CxiIdentityProcessor.process(spark, processorCommonConfig, payments)
 
         OrderTaxesProcessor.process(spark, processorCommonConfig, destDbName)
-        OrderTenderTypesProcessor.process(spark, processorCommonConfig, destDbName)
+        OrderTendersProcessor.process(spark, processorCommonConfig, destDbName)
         OrderSummaryProcessor.process(spark, processorCommonConfig, destDbName, cxiIdentityIdsByOrder)
     }
 

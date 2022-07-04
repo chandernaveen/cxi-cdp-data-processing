@@ -1,7 +1,8 @@
 package com.cxi.cdp.data_processing
 package curated_zone.signal_framework.transactional_insights.pre_aggr.service
 
-import com.cxi.cdp.data_processing.support.BaseSparkBatchJobTest
+import refined_zone.hub.model.OrderTenderType
+import support.BaseSparkBatchJobTest
 
 import org.scalatest.Matchers
 
@@ -141,14 +142,14 @@ class MetricsServiceTest extends BaseSparkBatchJobTest with Matchers {
         val orderSummary = expected.select("ord_id", "tender_ids")
 
         val orderTenderType = List(
-            ("t1", "CARD"),
-            ("t2", "CASH"),
-            ("t3", "SQUARE_GIFT_CARD"),
-            ("t4", "CARD"),
-            ("t5", "CASH"),
-            ("t6", "CARD"),
-            ("t7", "WALLET"),
-            ("t8", "SOME_UNKNOWN_TENDER_TYPE")
+            ("t1", OrderTenderType.CreditCard.code),
+            ("t2", OrderTenderType.Cash.code),
+            ("t3", OrderTenderType.GiftCard.code),
+            ("t4", OrderTenderType.CreditCard.code),
+            ("t5", OrderTenderType.Cash.code),
+            ("t6", OrderTenderType.CreditCard.code),
+            ("t7", OrderTenderType.Wallet.code),
+            ("t8", 12345) // some unknown tender type
         ).toDF("tender_id", "tender_type")
 
         // when

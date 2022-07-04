@@ -19,7 +19,7 @@ stages:
            architecture: 'x64'
 
        - task: AzureCLI@2
-         displayName: opening firewall 
+         displayName: opening firewall
          inputs:
            azureSubscription: 'cxi-devops'
            scriptType: 'bash'
@@ -73,7 +73,7 @@ stages:
          displayName: Check formatting
          inputs:
            targetType: 'inline'
-           script: 'sbt scalafmtCheckAll || >&2 echo "Code is not properly formatted. Run \"sbt scalafmtAll\" to reformat."'
+           script: 'sbt scalafmtCheckAll || { >&2 echo "Code is not properly formatted. Run \"sbt scalafmtAll\" to reformat."; false; }'
 
        - task: Bash@3
          displayName: Execute tests
@@ -118,18 +118,18 @@ stages:
          workingDirectory: $(Build.SourcesDirectory)
          name: hash
          displayName: get short git hash
-        
+
        - bash : echo "##vso[task.setvariable variable=cxi-int-dbws-workspaceToken-out;issecret=true;isOutput=true]$(cxi-int-dbws-workspaceToken)"
-         name: dbws 
+         name: dbws
          displayName: cxi-int-dbws-workspaceToken
-       
+
 
        - script: echo "##vso[build.updatebuildnumber]PR-$(System.PullRequest.PullRequestId)-$(short_hash)"
          displayName: update build number
          condition: and(succeeded(), eq(variables['Build.Reason'],'PullRequest'))
 
        - script: echo ##vso[build.addbuildtag]PR-$(System.PullRequest.PullRequestId)-$(short_hash)
-         displayName: add tag 
+         displayName: add tag
          condition: and(succeeded(), eq(variables['Build.Reason'],'PullRequest'))
 
 

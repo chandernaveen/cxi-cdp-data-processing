@@ -39,8 +39,8 @@ private[pre_aggr] object MetricsService {
         )
     }
 
-    def addTenderTypeMetrics(orderSummary: DataFrame, orderTenderType: DataFrame): DataFrame = {
-        val orderTenderTypeWithMetrics = orderTenderType
+    def addTenderTypeMetrics(orderSummary: DataFrame, orderTenders: DataFrame): DataFrame = {
+        val orderTenderTypeWithMetrics = orderTenders
             .filter(col("tender_type").isNotNull)
             .convertSignalValuesToMetrics(
                 signalColumn = MetricsServiceHelper.extractTenderTypeMetricUdf(col("tender_type")),
