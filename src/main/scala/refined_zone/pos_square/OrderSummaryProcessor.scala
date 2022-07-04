@@ -35,10 +35,9 @@ object OrderSummaryProcessor {
                |get_json_object(record_value, "$$.id") as ord_id,
                |get_json_object(record_value, "$$.total_money.amount") as ord_total,
                |get_json_object(record_value, "$$.total_discount_money.amount") as discount_amount,
-               |coalesce(
-               |get_json_object(record_value, "$$.closed_at"), get_json_object(record_value, "$$.opened_at")) as ord_date,
-               |coalesce(
-               |get_json_object(record_value, "$$.closed_at"), get_json_object(record_value, "$$.opened_at")) as ord_timestamp,
+               |get_json_object(record_value, "$$.opened_at") as opened_at,
+               |get_json_object(record_value, "$$.closed_at") as ord_date,
+               |get_json_object(record_value, "$$.closed_at") as ord_timestamp,
                |get_json_object(record_value, "$$.location_id") as location_id,
                |get_json_object(record_value, "$$.state") as ord_state,
                |get_json_object(record_value, "$$.fulfillments") as fulfillments,
@@ -107,6 +106,8 @@ object OrderSummaryProcessor {
             )
             .withColumn("tender_ids", col("tender_array.id"))
             .withColumn("feed_date", parsePosSquareDate(lit(date)))
+            .withColumn( "ord_date", coalesce(col("ord_date"), col("opened_at")))
+            .withColumn( "ord_timestamp", coalesce(col("ord_timestamp"), col("opened_at")))
             .select(
                 "ord_id",
                 "ord_desc",
