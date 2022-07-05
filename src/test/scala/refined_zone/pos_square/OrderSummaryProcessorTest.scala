@@ -96,9 +96,9 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
         val tableName = "raw_orders"
         val rawData = List[OrderSummaryFromRaw](
             // case for normal flow
-            new OrderSummaryFromRaw(id = orderId1, opened_at = past15sec, closed_at = past20sec, 42),
+            new OrderSummaryFromRaw(id = orderId1, created_at = past15sec, closed_at = past20sec, 42),
             // case for BUG check
-            new OrderSummaryFromRaw(id = orderId2, opened_at = past20sec, closed_at = null, tender_id = 17)
+            new OrderSummaryFromRaw(id = orderId2, created_at = past20sec, closed_at = null, tender_id = 17)
         )
 
         implicit val formats: DefaultFormats = DefaultFormats
@@ -192,9 +192,9 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
         val tendersId = 31;
         val rawData = List[OrderSummaryFromRaw](
             // case for normal flow
-            new OrderSummaryFromRaw(id = orderId1, opened_at = past15sec, closed_at = past20sec, tender_id = tendersId),
+            new OrderSummaryFromRaw(id = orderId1, created_at = past15sec, closed_at = past20sec, tender_id = tendersId),
             // case for BUG check
-            new OrderSummaryFromRaw(id = orderId2, opened_at = past20sec, closed_at = null, tender_id = tendersId)
+            new OrderSummaryFromRaw(id = orderId2, created_at = past20sec, closed_at = null, tender_id = tendersId)
         )
 
         implicit val formats: DefaultFormats = DefaultFormats
@@ -255,8 +255,8 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
                             }
                         }
                         case (k, v) if k == "closed_at" => { // closed_at used multiple times in other fields
-                            // per bug:2842 null on `closed_at` must be treated as `opened_at`
-                            val compareWith = if (v == null) origin.opened_at else v
+                            // per bug:2842 null on `closed_at` must be treated as `created_at`
+                            val compareWith = if (v == null) origin.created_at else v
                             withClue(s"closed_at equality to ord_date") {
                                 result.getAs[String]("ord_date") shouldBe compareWith
                             }
@@ -277,7 +277,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
                                 result.getAs[String]("discount_id") shouldBe uid
                             }
                         }
-                        case (k, _) if List("fulfillments", "line_items", "customer_id", "opened_at").contains(k) => {
+                        case (k, _) if List("fulfillments", "line_items", "customer_id", "created_at").contains(k) => {
                             logger.debug(s"Omitting field check for $k")
                         }
                         case other =>
@@ -313,7 +313,7 @@ object OrderSummaryProcessorTest {
 
     case class OrderSummaryFromRaw(
         id: String,
-        opened_at: String,
+        created_at: String,
         closed_at: String,
         total_money: Money = Money(amount = _rnd.nextInt(1000) + 1),
         fulfillments: String = "[{'pickup_details':{'note':'abc'}, 'state':'FL'}]",
@@ -328,9 +328,9 @@ object OrderSummaryProcessorTest {
         state: String = "COMPLETED",
         discounts: Discount = Discount(uid = _rnd.nextString(5))
     ) {
-        def this(id: String, opened_at: String, closed_at: String, tender_id: Int) = this(
+        def this(id: String, created_at: String, closed_at: String, tender_id: Int) = this(
             id = id,
-            opened_at = opened_at,
+            created_at = created_at,
             closed_at = closed_at,
             tenders = s"{'id':$tender_id}"
         )
