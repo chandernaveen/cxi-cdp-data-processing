@@ -117,7 +117,6 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
 
         val orderSummary = OrderSummaryProcessor.readOrderSummary(spark, dateNow, "global_temp", tableName)
 
-        orderSummary.show()
         // Helper map to distinguish fields with Money
         val moneyFieldsMap = Map[String, String](
             "total_tax_money" -> "total_taxes_amount",
@@ -214,7 +213,6 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
 
         val orderSummary = OrderSummaryProcessor.readOrderSummary(spark, dateNow, "global_temp", tableName)
 
-        // DEBUG:orderSummary.show()
         // Helper map to distinguish fields with Money
         val moneyFieldsMap = Map[String, String](
             "total_tax_money" -> "total_taxes_amount",
@@ -230,8 +228,6 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
         )
         val processedOrderSummary =
             OrderSummaryProcessor.transformOrderSummary(orderSummary, dateNow, testPartnerId, identityIndex)
-
-        processedOrderSummary.show()
 
         processedOrderSummary.collect
             .zip(rawData)
