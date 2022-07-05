@@ -12,7 +12,7 @@ class RawRefinedThrotleTidAttJobIntegrationTest extends BaseSparkBatchJobTest wi
 
     import spark.implicits._
 
-    val destTable = "integration_test_throtle_tid_att_table"
+    val destTable = generateUniqueTableName("integration_test_throtle_tid_att_table")
 
     test("Write final DF to the destination table") {
 

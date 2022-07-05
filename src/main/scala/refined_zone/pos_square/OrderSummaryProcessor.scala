@@ -4,8 +4,10 @@ package refined_zone.pos_square
 import raw_zone.pos_square.model.{Fulfillment, LineItem, Tender}
 import refined_zone.hub.model.ChannelType
 import refined_zone.pos_square.config.ProcessorConfig
+import refined_zone.pos_square.model.PosSquareOrderStateTypes.PosSquareToCxiOrderStateType
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.{getSchemaRefinedPath, parsePosSquareDate}
 import support.normalization.udf.MoneyNormalizationUdfs.convertCentsToMoney
+import support.normalization.udf.OrderStateNormalizationUdfs.normalizeOrderState
 
 import org.apache.spark.sql.{Column, DataFrame, Encoders, SparkSession}
 import org.apache.spark.sql.functions._
@@ -105,6 +107,7 @@ object OrderSummaryProcessor {
             )
             .withColumn("tender_ids", col("tender_array.id"))
             .withColumn("feed_date", parsePosSquareDate(lit(date)))
+            .withColumn("ord_state_id", normalizeOrderState(PosSquareToCxiOrderStateType)(col("ord_state")))
             .select(
                 "ord_id",
                 "ord_desc",
@@ -114,7 +117,7 @@ object OrderSummaryProcessor {
                 "discount_amount",
                 "cxi_partner_id",
                 "location_id",
-                "ord_state",
+                "ord_state_id",
                 "ord_type",
                 "ord_originate_channel_id",
                 "ord_target_channel_id",

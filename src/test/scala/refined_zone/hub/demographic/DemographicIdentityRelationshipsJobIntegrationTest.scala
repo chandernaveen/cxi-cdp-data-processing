@@ -16,7 +16,7 @@ import scala.language.postfixOps
 @RequiresDatabricksRemoteCluster(reason = "uses Delta table so you cannot execute it locally")
 class DemographicIdentityRelationshipsJobIntegrationTest extends BaseSparkBatchJobTest with BeforeAndAfterEach {
     val demographicIdentityTempTable = "demographic_identity_temp"
-    val demographicIdentityRelationshipTempTable = "demographic_identity_relationship_temp"
+    val demographicIdentityRelationshipTempTable = generateUniqueTableName("demographic_identity_relationship_temp")
 
     import spark.implicits._
 
