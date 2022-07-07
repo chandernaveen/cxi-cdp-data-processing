@@ -1,8 +1,7 @@
 package com.cxi.cdp.data_processing
 package support.normalization
 
-import refined_zone.hub.model.OrderTenderType
-import refined_zone.pos_square.model.PosSquareOrderTenderTypes
+import refined_zone.hub.model.{OrderStateType, OrderTenderType}
 
 sealed trait CxiTaxonomyNormalization extends Normalization
 
@@ -21,6 +20,26 @@ case object OrderTenderTypeNormalization extends CxiTaxonomyNormalization {
         maybeValue match {
             case Some(value) => valueToOrderTenderType.getOrElse(value, OrderTenderType.Other)
             case None => OrderTenderType.Unknown
+        }
+    }
+
+}
+
+case object OrderStateNormalization extends CxiTaxonomyNormalization {
+
+    def normalizeOrderState(
+        orderState: String,
+        valueToOrderStateType: Map[String, OrderStateType]
+    ): OrderStateType = {
+
+        val maybeValue = Option(orderState)
+            .map(_.trim)
+            .filter(_.nonEmpty)
+            .map(_.toUpperCase)
+
+        maybeValue match {
+            case Some(value) => valueToOrderStateType.getOrElse(value, OrderStateType.Other)
+            case None => OrderStateType.Unknown
         }
     }
 

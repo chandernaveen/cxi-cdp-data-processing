@@ -1,6 +1,7 @@
 package com.cxi.cdp.data_processing
 package curated_zone.tmi
 
+import refined_zone.hub.model.OrderStateType
 import refined_zone.hub.ChangeDataFeedViews
 import support.utils.mongodb.MongoDbConfigUtils
 import support.utils.mongodb.MongoDbConfigUtils.MongoSparkConnectorClass
@@ -19,8 +20,6 @@ object TotalMarketInsightsJob {
     private val logger = Logger.getLogger(this.getClass.getName)
 
     final val CdfConsumerId = "total_market_insights_job"
-
-    final val CompletedOrderState = "COMPLETED"
 
     def main(args: Array[String]): Unit = {
         logger.info(s"""Received following args: ${args.mkString(",")}""")
@@ -148,7 +147,7 @@ object TotalMarketInsightsJob {
         val getLocationTypeUdf = udf(getLocationType _)
 
         orderSummaryDF
-            .filter($"ord_state" === CompletedOrderState && $"ord_date".isInCollection(orderDates))
+            .filter($"ord_state_id" === OrderStateType.Completed.code && $"ord_date".isInCollection(orderDates))
             .join(locationDF, usingColumns = Seq("cxi_partner_id", "location_id"))
             .select(
                 orderSummaryDF("cxi_partner_id"),

@@ -2,11 +2,13 @@ package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
 import raw_zone.pos_square.model.{Fulfillment, PickupDetails}
-import refined_zone.hub.model.ChannelType
+import refined_zone.hub.model.{ChannelType, OrderStateType}
+import support.normalization.DateNormalization.parseToSqlDate
 import support.BaseSparkBatchJobTest
 
-import org.apache.log4j.Logger
 import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types._
+import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.DecimalType
 import org.json4s.jackson.Serialization
 import org.json4s.DefaultFormats
@@ -16,8 +18,8 @@ import java.time.{Instant, LocalDate, ZoneId}
 import java.time.format.DateTimeFormatter
 
 class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
-    private val logger = Logger.getLogger(classOf[OrderSummaryProcessorTest].getName)
 
+    import spark.implicits._
     import OrderSummaryProcessorTest._
 
     test("getOrdTargetChannelId") {
@@ -193,7 +195,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
 
         }
     }
-    test("testTransform") {
+    test("testTransform With Close Date missed") {
         import spark.implicits._
         val tableName = "raw_orders"
         // given
@@ -281,7 +283,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
                 "discount_amount",
                 "cxi_partner_id",
                 "location_id",
-                "ord_state",
+                "ord_state_id",
                 "ord_type",
                 "ord_originate_channel_id",
                 "ord_target_channel_id",
@@ -320,7 +322,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
                 discount_amount = BigDecimal.valueOf(0.01),
                 cxi_partner_id = "testPartnerId",
                 location_id = "dsdsd",
-                ord_state = "COMPLETED",
+                ord_state_id = OrderStateType.Completed.code,
                 ord_type = null,
                 ord_originate_channel_id = 1,
                 ord_target_channel_id = 0,
@@ -355,7 +357,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
                 discount_amount = BigDecimal.valueOf(0.01),
                 cxi_partner_id = "testPartnerId",
                 location_id = "dsdsd",
-                ord_state = "COMPLETED",
+                ord_state_id = OrderStateType.Completed.code,
                 ord_type = null,
                 ord_originate_channel_id = 1,
                 ord_target_channel_id = 0,
@@ -399,6 +401,241 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
         }
     }
 
+    test("transform order summary") {
+
+        // given
+        val line_items =
+            """
+               [
+                 {
+                   "applied_taxes": [
+                     {
+                       "applied_money": {
+                         "amount": 66,
+                         "currency": "USD"
+                       },
+                       "tax_uid": "tax_uid_1",
+                       "uid": "uid_1"
+                     }
+                   ],
+                   "base_price_money": {
+                     "amount": 945,
+                     "currency": "USD"
+                   },
+                   "catalog_object_id": "obj_1",
+                   "catalog_version": 123,
+                   "gross_sales_money": {
+                     "amount": 1095,
+                     "currency": "USD"
+                   },
+                   "item_type": "ITEM",
+                   "modifiers": [
+                     {
+                       "base_price_money": {
+                         "amount": 150,
+                         "currency": "USD"
+                       },
+                       "catalog_object_id": "obj_1",
+                       "catalog_version": 123,
+                       "name": "Extra Meat",
+                       "total_price_money": {
+                         "amount": 150,
+                         "currency": "USD"
+                       },
+                       "uid": "uid_1"
+                     }
+                   ],
+                   "name": "Combo Bop",
+                   "note": "Ext sloppy",
+                   "quantity": "1",
+                   "total_discount_money": {
+                     "amount": 0,
+                     "currency": "USD"
+                   },
+                   "total_money": {
+                     "amount": 1161,
+                     "currency": "USD"
+                   },
+                   "total_tax_money": {
+                     "amount": 66,
+                     "currency": "USD"
+                   },
+                   "uid": "uid_1",
+                   "variation_name": "Regular",
+                   "variation_total_price_money": {
+                     "amount": 945,
+                     "currency": "USD"
+                   }
+                 }
+               ]
+              """
+
+        val tenders =
+            """
+               [
+                 {
+                   "amount_money": {
+                     "amount": 1161,
+                     "currency": "USD"
+                   },
+                   "card_details": {
+                     "card": {
+                       "card_brand": "MASTERCARD",
+                       "fingerprint": "abc123",
+                       "last_4": "0000"
+                     },
+                     "entry_method": "EMV",
+                     "status": "CAPTURED"
+                   },
+                   "created_at": "2021-12-28T02:24:56Z",
+                   "customer_id": "cust_1",
+                   "id": "t_01",
+                   "location_id": "loc_1",
+                   "processing_fee_money": {
+                     "amount": 34,
+                     "currency": "USD"
+                   },
+                   "transaction_id": "txn_1",
+                   "type": "CARD"
+                 }
+               ]
+              """.stripMargin
+
+        val orderSummary = Seq(
+            (
+                "ord_1",
+                "100",
+                "5",
+                "2021-12-28",
+                "2021-12-28",
+                "2021-12-28T02:25:13Z",
+                "loc_1",
+                "COMPLETED",
+                null,
+                null,
+                line_items,
+                "0",
+                "10",
+                "1",
+                null,
+                tenders
+            )
+        ).toDF(
+            "ord_id",
+            "ord_total",
+            "discount_amount",
+            "ord_date",
+            "created_at",
+            "ord_timestamp",
+            "location_id",
+            "ord_state",
+            "fulfillments",
+            "discount_id",
+            "line_items",
+            "service_charge_amount",
+            "total_taxes_amount",
+            "total_tip_amount",
+            "customer_id",
+            "tender_array"
+        )
+
+        val cxiIdentityIdsByOrder = Seq(
+            ("ord_1", Array(Map("combination-bin" -> "comb-bin-123")))
+        ).toDF("ord_id", "cxi_identity_ids")
+
+        // when
+        val actual =
+            OrderSummaryProcessor.transformOrderSummary(orderSummary, "2022-02-24", "partner-1", cxiIdentityIdsByOrder)
+
+        // then
+        val expectedData = Seq(
+            Row(
+                "ord_1",
+                null,
+                BigDecimal(1.0),
+                "2021-12-28",
+                "2021-12-28",
+                "2021-12-28T02:25:13Z",
+                BigDecimal(0.05),
+                "partner-1",
+                "loc_1",
+                OrderStateType.Completed.code,
+                null,
+                1,
+                0,
+                "1",
+                BigDecimal(11.61),
+                null,
+                null,
+                null,
+                null,
+                "uid_1",
+                null,
+                Array("tax_uid_1"),
+                BigDecimal(0.66),
+                "obj_1",
+                null,
+                null,
+                null,
+                BigDecimal(0.00),
+                BigDecimal(0.10),
+                BigDecimal(0.01),
+                Array("t_01"),
+                BigDecimal(1.00),
+                BigDecimal(0.89),
+                parseToSqlDate("2022-02-24"),
+                Array(Map("combination-bin" -> "comb-bin-123"))
+            )
+        )
+        val orderSummarySchema = DataTypes.createStructType(
+            Array(
+                StructField("ord_id", StringType),
+                StructField("ord_desc", NullType),
+                StructField("ord_total", DecimalType(9, 2)),
+                StructField("ord_date", StringType),
+                StructField("created_at", StringType),
+                StructField("ord_timestamp", StringType),
+                StructField("discount_amount", DecimalType(9, 2)),
+                StructField("cxi_partner_id", StringType, nullable = false),
+                StructField("location_id", StringType),
+                StructField("ord_state_id", IntegerType, nullable = false),
+                StructField("ord_type", NullType),
+                StructField("ord_originate_channel_id", IntegerType, nullable = false),
+                StructField("ord_target_channel_id", IntegerType, nullable = false),
+                StructField("item_quantity", StringType),
+                StructField("item_total", DecimalType(9, 2)),
+                StructField("emp_id", NullType),
+                StructField("discount_id", NullType),
+                StructField("dsp_qty", NullType),
+                StructField("dsp_ttl", NullType),
+                StructField("guest_check_line_item_id", StringType),
+                StructField("line_id", NullType),
+                StructField("taxes_id", DataTypes.createArrayType(StringType)),
+                StructField("taxes_amount", DecimalType(9, 2)),
+                StructField("item_id", StringType),
+                StructField("item_price_id", NullType),
+                StructField("reason_code_id", NullType),
+                StructField("service_charge_id", NullType),
+                StructField("service_charge_amount", DecimalType(9, 2)),
+                StructField("total_taxes_amount", DecimalType(9, 2)),
+                StructField("total_tip_amount", DecimalType(9, 2)),
+                StructField("tender_ids", DataTypes.createArrayType(StringType)),
+                StructField("ord_pay_total", DecimalType(9, 2)),
+                StructField("ord_sub_total", DecimalType(12, 2)),
+                StructField("feed_date", DateType),
+                StructField(
+                    "cxi_identity_ids",
+                    DataTypes.createArrayType(DataTypes.createMapType(StringType, StringType))
+                )
+            )
+        )
+        import collection.JavaConverters._
+        val expected = spark.createDataFrame(expectedData.asJava, orderSummarySchema)
+        withClue("order summary is not correctly transformed") {
+            assertDataFrameEquals(expected, actual)
+        }
+    }
+
 }
 
 object OrderSummaryProcessorTest {
@@ -427,39 +664,39 @@ object OrderSummaryProcessorTest {
         discounts: Discount
     )
     case class OrderSummaryTransformResult(
-        ord_id: String,
-        ord_desc: String,
-        ord_total: BigDecimal,
-        ord_date: String,
-        ord_timestamp: String,
-        discount_amount: BigDecimal,
-        cxi_partner_id: String,
-        location_id: String,
-        ord_state: String,
-        ord_type: String,
-        ord_originate_channel_id: Int,
-        ord_target_channel_id: Int,
-        item_quantity: String,
-        item_total: BigDecimal,
-        emp_id: String,
-        discount_id: String,
-        dsp_qty: String,
-        dsp_ttl: String,
-        guest_check_line_item_id: String,
-        line_id: String,
-        taxes_id: Seq[String],
-        taxes_amount: BigDecimal,
-        item_id: String,
-        item_price_id: String,
-        reason_code_id: String,
-        service_charge_id: String,
-        service_charge_amount: BigDecimal,
-        total_taxes_amount: BigDecimal,
-        total_tip_amount: BigDecimal,
-        tender_ids: Seq[String],
-        ord_pay_total: BigDecimal,
-        ord_sub_total: BigDecimal,
-        feed_date: java.sql.Date
+                                              ord_id: String,
+                                              ord_desc: String,
+                                              ord_total: BigDecimal,
+                                              ord_date: String,
+                                              ord_timestamp: String,
+                                              discount_amount: BigDecimal,
+                                              cxi_partner_id: String,
+                                              location_id: String,
+                                              ord_state_id: Int,
+                                              ord_type: String,
+                                              ord_originate_channel_id: Int,
+                                              ord_target_channel_id: Int,
+                                              item_quantity: String,
+                                              item_total: BigDecimal,
+                                              emp_id: String,
+                                              discount_id: String,
+                                              dsp_qty: String,
+                                              dsp_ttl: String,
+                                              guest_check_line_item_id: String,
+                                              line_id: String,
+                                              taxes_id: Seq[String],
+                                              taxes_amount: BigDecimal,
+                                              item_id: String,
+                                              item_price_id: String,
+                                              reason_code_id: String,
+                                              service_charge_id: String,
+                                              service_charge_amount: BigDecimal,
+                                              total_taxes_amount: BigDecimal,
+                                              total_tip_amount: BigDecimal,
+                                              tender_ids: Seq[String],
+                                              ord_pay_total: BigDecimal,
+                                              ord_sub_total: BigDecimal,
+                                              feed_date: java.sql.Date
     )
 
     case class RawDataEmulator(feed_date: String, record_value: String, record_type: String = "orders")

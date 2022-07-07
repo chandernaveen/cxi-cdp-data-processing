@@ -4,30 +4,16 @@ package refined_zone.pos_square
 import raw_zone.pos_square.model.{Fulfillment, LineItem, Tender}
 import refined_zone.hub.model.ChannelType
 import refined_zone.pos_square.config.ProcessorConfig
+import refined_zone.pos_square.model.PosSquareOrderStateTypes.PosSquareToCxiOrderStateType
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.{getSchemaRefinedPath, parsePosSquareDate}
 import support.normalization.udf.MoneyNormalizationUdfs.convertCentsToMoney
+import support.normalization.udf.OrderStateNormalizationUdfs.normalizeOrderState
 
 import org.apache.spark.sql.{Column, DataFrame, Encoders, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DataTypes
 
 object OrderSummaryProcessor {
-    val getOrdTargetChannelId = udf((fulfillments: Option[Seq[Fulfillment]]) => {
-        val (completedFulfillments, otherFulfillments) = fulfillments
-            .getOrElse(Seq.empty[Fulfillment])
-            .partition(_.state == Fulfillment.State.Completed)
-
-        // prefer (non-null) type from COMPLETED fulfillments
-        val fulfillmentType = (completedFulfillments ++ otherFulfillments)
-            .flatMap(fulfillment => Option(fulfillment.`type`))
-            .headOption
-
-        fulfillmentType match {
-            case Some(Fulfillment.Type.Pickup) => ChannelType.PhysicalPickup.code
-            case _ => ChannelType.Unknown.code
-        }
-    })
-
     def process(
         spark: SparkSession,
         config: ProcessorConfig,
@@ -124,6 +110,7 @@ object OrderSummaryProcessor {
             .withColumn("feed_date", parsePosSquareDate(lit(date)))
             .withColumn("ord_date", coalesce(col("ord_date"), col("created_at")))
             .withColumn("ord_timestamp", coalesce(col("ord_timestamp"), col("created_at")))
+            .withColumn("ord_state_id", normalizeOrderState(PosSquareToCxiOrderStateType)(col("ord_state")))
             .select(
                 "ord_id",
                 "ord_desc",
@@ -133,7 +120,7 @@ object OrderSummaryProcessor {
                 "discount_amount",
                 "cxi_partner_id",
                 "location_id",
-                "ord_state",
+                "ord_state_id",
                 "ord_type",
                 "ord_originate_channel_id",
                 "ord_target_channel_id",
@@ -167,6 +154,22 @@ object OrderSummaryProcessor {
             .drop(cxiIdentityIdsByOrder("ord_id"))
             .dropDuplicates("cxi_partner_id", "location_id", "ord_id", "ord_date", "item_id")
     }
+
+    val getOrdTargetChannelId = udf((fulfillments: Option[Seq[Fulfillment]]) => {
+        val (completedFulfillments, otherFulfillments) = fulfillments
+            .getOrElse(Seq.empty[Fulfillment])
+            .partition(_.state == Fulfillment.State.Completed)
+
+        // prefer (non-null) type from COMPLETED fulfillments
+        val fulfillmentType = (completedFulfillments ++ otherFulfillments)
+            .flatMap(fulfillment => Option(fulfillment.`type`))
+            .headOption
+
+        fulfillmentType match {
+            case Some(Fulfillment.Type.Pickup) => ChannelType.PhysicalPickup.code
+            case _ => ChannelType.Unknown.code
+        }
+    })
 
     def getOrdOriginateChannelId(): Column = {
         lit(ChannelType.PhysicalLane.code)
