@@ -7,13 +7,13 @@ import support.BaseSparkBatchJobTest
 
 import org.apache.log4j.Logger
 import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.DecimalType
 import org.json4s.jackson.Serialization
 import org.json4s.DefaultFormats
 import org.scalatest.Matchers
 
-import java.time.{Instant, ZoneId}
+import java.time.{Instant, LocalDate, ZoneId}
 import java.time.format.DateTimeFormatter
-import scala.util.Random
 
 class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
     private val logger = Logger.getLogger(classOf[OrderSummaryProcessorTest].getName)
@@ -80,230 +80,328 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
     }
     test("testRead") {
         import spark.implicits._
-        val baseDate = Instant.now()
-        val defaultTimeZone = ZoneId.systemDefault()
-
-        val dtFormatShort = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(defaultTimeZone)
-        val dtFormatLong = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm'Z'").withZone(defaultTimeZone)
-        val dateNow = dtFormatShort.format(baseDate)
-
-        val past15sec = dtFormatLong.format(baseDate.minusSeconds(15))
-        val past20sec = dtFormatLong.format(baseDate.minusSeconds(20))
-
-        val orderId1 = "dummyStr1"
-        val orderId2 = "dummyStr2"
-
         val tableName = "raw_orders"
-        val rawData = List[OrderSummaryFromRaw](
-            // case for normal flow
-            new OrderSummaryFromRaw(id = orderId1, created_at = past15sec, closed_at = past20sec, 42),
-            // case for BUG check
-            new OrderSummaryFromRaw(id = orderId2, created_at = past20sec, closed_at = null, tender_id = 17)
-        )
-
-        implicit val formats: DefaultFormats = DefaultFormats
-        val listData = rawData.map(raw =>
-            RawDataEmulator(
+        // given
+        val baseDate = Instant.now()
+        val dtFormatShort = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.systemDefault())
+        val dateNow = "2022-07-05"
+        val rawOrderSummary = List(
+            (
                 dateNow,
-                Serialization.write(raw)
+                """{
+                  "id":"orderId1","created_at":"2022-07-05T12:42Z","closed_at":"2022-07-05T12:42Z","total_money":{"amount":224},"fulfillments":"[{'pickup_details':{'note':'abc'}, 'state':'FL'}]","line_items":"[{'catalog_object_id':1, 'quantity':2}]","total_service_charge_money":{"amount":703},"total_tax_money":{"amount":10},"total_tip_money":{"amount":5},"total_discount_money":{"amount":1},"customer_id":"ABC-123","tenders":"{'id':42}","location_id":"dsdsd","state":"COMPLETED","discounts":{"uid":"uidABC"}
+                  }""",
+                "orders"
+            ),
+            (
+                dateNow,
+                """{
+                   "id":"orderId2","created_at":"2022-07-05T12:42Z","closed_at":null,"total_money":{"amount":45},"fulfillments":"[{'pickup_details':{'note':'abc'}, 'state':'FL'}]","line_items":"[{'catalog_object_id':1, 'quantity':2}]","total_service_charge_money":{"amount":746},"total_tax_money":{"amount":10},"total_tip_money":{"amount":5},"total_discount_money":{"amount":1},"customer_id":"XYZ:789","tenders":"{'id':17}","location_id":"dsdsd","state":"COMPLETED","discounts":{"uid":"uidXYZ"}
+                   }""",
+                "orders"
             )
-        )
-
-        val inputDF = listData.toDF
+        ).toDF("feed_date", "record_value", "record_type")
 
         // GlobalTempView used since it allows place data
         // to context where SQL works as "SELECT * FROM global_temp.tableName"
-        inputDF.createOrReplaceGlobalTempView(tableName)
+        rawOrderSummary.createOrReplaceGlobalTempView(tableName)
 
-        val orderSummary = OrderSummaryProcessor.readOrderSummary(spark, dateNow, "global_temp", tableName)
+        // when
+        val orderSummaryActual = OrderSummaryProcessor.readOrderSummary(spark, dateNow, "global_temp", tableName)
+        // then
+        val actualFieldsReturned = orderSummaryActual.schema.fields.map(f => f.name)
+        withClue("Actual fields returned:\n" + orderSummaryActual.schema.treeString) {
+            actualFieldsReturned shouldEqual Array(
+                "ord_id",
+                "ord_total",
+                "discount_amount",
+                "created_at",
+                "ord_date",
+                "ord_timestamp",
+                "location_id",
+                "ord_state",
+                "fulfillments",
+                "discount_id",
+                "line_items",
+                "service_charge_amount",
+                "total_taxes_amount",
+                "total_tip_amount",
+                "customer_id",
+                "tender_array"
+            )
+        }
+        val actualSquareLocationsData = orderSummaryActual.collect
 
-        // Helper map to distinguish fields with Money
-        val moneyFieldsMap = Map[String, String](
-            "total_tax_money" -> "total_taxes_amount",
-            "total_discount_money" -> "discount_amount",
-            "total_tip_money" -> "total_tip_amount",
-            "total_money" -> "ord_total",
-            "total_service_charge_money" -> "service_charge_amount"
-        )
-        // Helper map to deal with fields were renamed by `read`
-        val renamedFieldsMap = Map[String, String](
-            "id" -> "ord_id",
-            "state" -> "ord_state",
-            "tenders" -> "tender_array"
-        )
-        orderSummary.collect
-            .zip(rawData)
-            .foreach { case (result, origin) =>
-                ccToMap(origin)
-                    .foreach {
-                        case (k, v) if result.schema.fieldNames.contains(k) =>
-                            val a = result.getAs[AnyVal](k)
-                            logger.debug(s"test '$k': $a <vs> $v")
-                            withClue(s"Auto field comparison: $k") {
-                                a shouldBe v
-                            }
-                        case (k, v) if renamedFieldsMap.keySet.contains(k) =>
-                            // some fields are renamed
-                            withClue(s"Auto field comparison: $k") {
-                                result.getAs[String](renamedFieldsMap.apply(k)) shouldBe v.toString
-                            }
-                        case (k, v) if k == "closed_at" =>
-                            // closed_at used multiple times in other fields
-                            withClue(s"closed_at equality to ord_date") {
-                                result.getAs[String]("ord_date") shouldBe v
-                            }
-                            withClue(s"ord_timestamp equality to ord_date") {
-                                result.getAs[String]("ord_timestamp") shouldBe v
-                            }
-                        case (k, Money(amount)) if moneyFieldsMap.keySet.contains(k) => {
-                            // check all money related fields
-                            withClue(s"Money field comparison error") {
-                                result.getAs[String](moneyFieldsMap.apply(k)) shouldBe amount.toString
-                            }
-                        }
-                        case (k, Discount(uid)) => {
-                            withClue(s"Field comparison discount_id") {
-                                result.getAs[String]("discount_id") shouldBe uid
-                            }
-                        }
-                        case other =>
-                            logger.warn(s"Don't know how to test select-field $other")
-                    }
-            }
+        withClue("read JSON order summary does not match") {
+            val expected = List(
+                (
+                    "orderId1",
+                    "224",
+                    "1",
+                    "2022-07-05T12:42Z",
+                    "2022-07-05T12:42Z",
+                    "2022-07-05T12:42Z",
+                    "dsdsd",
+                    "COMPLETED",
+                    "[{'pickup_details':{'note':'abc'}, 'state':'FL'}]",
+                    "uidABC",
+                    "[{'catalog_object_id':1, 'quantity':2}]",
+                    "703",
+                    "10",
+                    "5",
+                    "ABC-123",
+                    "{'id':42}"
+                ),
+                (
+                    "orderId2",
+                    "45",
+                    "1",
+                    "2022-07-05T12:42Z",
+                    null,
+                    null,
+                    "dsdsd",
+                    "COMPLETED",
+                    "[{'pickup_details':{'note':'abc'}, 'state':'FL'}]",
+                    "uidXYZ",
+                    "[{'catalog_object_id':1, 'quantity':2}]",
+                    "746",
+                    "10",
+                    "5",
+                    "XYZ:789",
+                    "{'id':17}"
+                )
+            ).toDF(
+                "ord_id",
+                "ord_total",
+                "discount_amount",
+                "created_at",
+                "ord_date",
+                "ord_timestamp",
+                "location_id",
+                "ord_state",
+                "fulfillments",
+                "discount_id",
+                "line_items",
+                "service_charge_amount",
+                "total_taxes_amount",
+                "total_tip_amount",
+                "customer_id",
+                "tender_array"
+            ).collect()
+            actualSquareLocationsData.length should equal(expected.length)
+            actualSquareLocationsData should contain theSameElementsAs expected
+
+        }
     }
-
     test("testTransform") {
         import spark.implicits._
-        val baseDate = Instant.now()
-        val defaultTimeZone = ZoneId.systemDefault()
-
-        val dtFormatShort = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(defaultTimeZone)
-        val dtFormatLong = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm'Z'").withZone(defaultTimeZone)
-        val dateNow = dtFormatShort.format(baseDate)
-
-        val past15sec = dtFormatLong.format(baseDate.minusSeconds(15))
-        val past20sec = dtFormatLong.format(baseDate.minusSeconds(20))
-
-        val orderId1 = "dummyStr1"
-        val orderId2 = "dummyStr2"
-        val testPartnerId = "AABBCC"
-        val identityIndex = List[IdentityTestData](IdentityTestData(orderId1), IdentityTestData(orderId2)).toDF
         val tableName = "raw_orders"
-        val tendersId = 31;
-        val rawData = List[OrderSummaryFromRaw](
-            // case for normal flow
-            new OrderSummaryFromRaw(id = orderId1, created_at = past15sec, closed_at = past20sec, tender_id = tendersId),
-            // case for BUG check
-            new OrderSummaryFromRaw(id = orderId2, created_at = past20sec, closed_at = null, tender_id = tendersId)
-        )
+        // given
+        val dateNow = "2022-07-05"
+        val orderId1 = "orderId1"
+        val orderId2 = "orderId2"
+        val partnerId = "testPartnerId"
+        val dtFormatShort = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.systemDefault())
+
+        val dateTimeCreatedAt = "2022-07-05T12:42Z"
+        val dateTimeClosedAt = dateTimeCreatedAt // "2022-07-05T12:43Z"
 
         implicit val formats: DefaultFormats = DefaultFormats
-        val listData = rawData.map(raw =>
+        val inputData = List(
+            RawDataEmulator(
+                // case for normal flow
+                dateNow,
+                Serialization.write(
+                    new OrderSummaryFromRaw(
+                        id = orderId1,
+                        created_at = dateTimeCreatedAt,
+                        closed_at = dateTimeClosedAt,
+                        total_money = Money(amount = 224),
+                        fulfillments = "[{'pickup_details':{'note':'abc'}, 'state':'FL'}]",
+                        line_items = "[{'catalog_object_id':1, 'quantity':2}]",
+                        total_service_charge_money = Money(703),
+                        total_tax_money = Money(10),
+                        total_tip_money = Money(5),
+                        total_discount_money = Money(1),
+                        customer_id = "ABC-123",
+                        tenders = "{'id':42}",
+                        location_id = "dsdsd",
+                        state = "COMPLETED",
+                        discounts = Discount(uid = "uidABC")
+                    )
+                )
+            ),
+            // case for NULL date check
             RawDataEmulator(
                 dateNow,
-                Serialization.write(raw)
+                Serialization.write(
+                    new OrderSummaryFromRaw(
+                        id = orderId2,
+                        created_at = dateTimeCreatedAt,
+                        closed_at = null,
+                        total_money = Money(amount = 511),
+                        fulfillments = "[{'pickup_details':{'note':'abc'}, 'state':'FL'}]",
+                        line_items = "[{'catalog_object_id':1, 'quantity':2}]",
+                        total_service_charge_money = Money(128),
+                        total_tax_money = Money(10),
+                        total_tip_money = Money(5),
+                        total_discount_money = Money(1),
+                        customer_id = "XYZ:789",
+                        tenders = "{'id':17}",
+                        location_id = "dsdsd",
+                        state = "COMPLETED",
+                        discounts = Discount(uid = "uidXYZ")
+                    )
+                )
             )
         )
 
-        val inputDF = listData.toDF
+        val rawOrderSummary = inputData.toDF
+
+        val identityIndexes = List(IdentityTestData(orderId1), IdentityTestData(orderId2)).toDF
 
         // GlobalTempView used since it allows place data
         // to context where SQL works as "SELECT * FROM global_temp.tableName"
-        inputDF.createOrReplaceGlobalTempView(tableName)
+        rawOrderSummary.createOrReplaceGlobalTempView(tableName)
 
+        // when
         val orderSummary = OrderSummaryProcessor.readOrderSummary(spark, dateNow, "global_temp", tableName)
-
-        // Helper map to distinguish fields with Money
-        val moneyFieldsMap = Map[String, String](
-            "total_tax_money" -> "total_taxes_amount",
-            "total_discount_money" -> "discount_amount",
-            "total_tip_money" -> "total_tip_amount",
-            "total_money" -> "ord_total",
-            "total_service_charge_money" -> "service_charge_amount"
-        )
-        // Helper map to deal with fields were renamed by `read`
-        val renamedFieldsMap = Map[String, String](
-            "id" -> "ord_id",
-            "state" -> "ord_state"
-        )
         val processedOrderSummary =
-            OrderSummaryProcessor.transformOrderSummary(orderSummary, dateNow, testPartnerId, identityIndex)
+            OrderSummaryProcessor.transformOrderSummary(orderSummary, dateNow, partnerId, identityIndexes)
 
-        processedOrderSummary.collect
-            .zip(rawData)
-            .foreach { case (result, origin) =>
-                ccToMap(origin)
-                    // .filter{ case (k, v) => result.schema.fieldNames.contains(k) }
-                    .foreach {
-                        case (k, v) if result.schema.fieldNames.contains(k) => {
-                            val a = result.getAs[AnyVal](k)
-                            logger.debug(s"test:$k: $a <vs> $v")
-                            withClue(s"Auto field comparison: $k") {
-                                a shouldBe v
-                            }
-                        }
-                        case (k, v) if (k == "tenders") => {
-                            val target = result.getAs[Seq[String]]("tender_ids")
-                            withClue(s"tenders_ids comparison") {
-                                target should contain(tendersId.toString)
-                            }
-                        }
-                        case (k, v) if renamedFieldsMap.keySet.contains(k) => {
-                            // some fields are renamed
-                            withClue(s"Auto field comparison: $k") {
-                                result.getAs[String](renamedFieldsMap.apply(k)) shouldBe v.toString
-                            }
-                        }
-                        case (k, v) if k == "closed_at" => { // closed_at used multiple times in other fields
-                            // per bug:2842 null on `closed_at` must be treated as `created_at`
-                            val compareWith = if (v == null) origin.created_at else v
-                            withClue(s"closed_at equality to ord_date") {
-                                result.getAs[String]("ord_date") shouldBe compareWith
-                            }
-                            withClue(s"ord_timestamp equality to ord_date") {
-                                result.getAs[String]("ord_timestamp") shouldBe compareWith
-                            }
-                        }
-                        case (k, Money(amount)) if moneyFieldsMap.keySet.contains(k) => {
-                            // check all money related fields
-                            withClue(s"Money field comparison error") {
-                                (result
-                                    .getAs[java.math.BigDecimal](moneyFieldsMap.apply(k))
-                                    .doubleValue() - amount / 100.0) shouldBe <(0.01)
-                            }
-                        }
-                        case (k, Discount(uid)) => {
-                            withClue(s"Field comparison discount_id") {
-                                result.getAs[String]("discount_id") shouldBe uid
-                            }
-                        }
-                        case (k, _) if List("fulfillments", "line_items", "customer_id", "created_at").contains(k) => {
-                            logger.debug(s"Omitting field check for $k")
-                        }
-                        case other =>
-                            logger.warn(s"Don't know how to test select-field $other")
-                    }
+        // then
+        val actualFieldsReturned = processedOrderSummary.schema.fields.map(f => f.name)
+        withClue("Actual fields returned:\n" + processedOrderSummary.schema.treeString) {
+            actualFieldsReturned shouldEqual Array(
+                "ord_id",
+                "ord_desc",
+                "ord_total",
+                "ord_date",
+                "ord_timestamp",
+                "discount_amount",
+                "cxi_partner_id",
+                "location_id",
+                "ord_state",
+                "ord_type",
+                "ord_originate_channel_id",
+                "ord_target_channel_id",
+                "item_quantity",
+                "item_total",
+                "emp_id",
+                "discount_id",
+                "dsp_qty",
+                "dsp_ttl",
+                "guest_check_line_item_id",
+                "line_id",
+                "taxes_id",
+                "taxes_amount",
+                "item_id",
+                "item_price_id",
+                "reason_code_id",
+                "service_charge_id",
+                "service_charge_amount",
+                "total_taxes_amount",
+                "total_tip_amount",
+                "tender_ids",
+                "ord_pay_total",
+                "ord_sub_total",
+                "feed_date"
+            )
+        }
+        val actualSquareLocationsData = processedOrderSummary.collect
+
+        val expectedLst = List(
+            new OrderSummaryTransformResult(
+                ord_id = orderId1,
+                ord_desc = null,
+                ord_total = BigDecimal.valueOf(2.24),
+                ord_date = "2022-07-05T12:42Z",
+                ord_timestamp = "2022-07-05T12:42Z",
+                discount_amount = BigDecimal.valueOf(0.01),
+                cxi_partner_id = "testPartnerId",
+                location_id = "dsdsd",
+                ord_state = "COMPLETED",
+                ord_type = null,
+                ord_originate_channel_id = 1,
+                ord_target_channel_id = 0,
+                item_quantity = "2",
+                item_total = null,
+                emp_id = null,
+                discount_id = "uidABC",
+                dsp_qty = null,
+                dsp_ttl = null,
+                guest_check_line_item_id = null,
+                line_id = null,
+                taxes_id = null,
+                taxes_amount = null,
+                item_id = "1",
+                item_price_id = null,
+                reason_code_id = null,
+                service_charge_id = null,
+                service_charge_amount = BigDecimal.valueOf(7.03),
+                total_taxes_amount = BigDecimal.valueOf(.10),
+                total_tip_amount = BigDecimal.valueOf(0.05),
+                tender_ids = Seq("42"),
+                ord_pay_total = BigDecimal.valueOf(2.24),
+                ord_sub_total = BigDecimal.valueOf(-4.94),
+                feed_date = java.sql.Date.valueOf(LocalDate.parse(dateNow, dtFormatShort))
+            ),
+            new OrderSummaryTransformResult(
+                ord_id = orderId2,
+                ord_desc = null,
+                ord_total = BigDecimal.valueOf(5.11),
+                ord_date = "2022-07-05T12:42Z",
+                ord_timestamp = "2022-07-05T12:42Z",
+                discount_amount = BigDecimal.valueOf(0.01),
+                cxi_partner_id = "testPartnerId",
+                location_id = "dsdsd",
+                ord_state = "COMPLETED",
+                ord_type = null,
+                ord_originate_channel_id = 1,
+                ord_target_channel_id = 0,
+                item_quantity = "2",
+                item_total = null,
+                emp_id = null,
+                discount_id = "uidXYZ",
+                dsp_qty = null,
+                dsp_ttl = null,
+                guest_check_line_item_id = null,
+                line_id = null,
+                taxes_id = null,
+                taxes_amount = null,
+                item_id = "1",
+                item_price_id = null,
+                reason_code_id = null,
+                service_charge_id = null,
+                service_charge_amount = BigDecimal.valueOf(1.28),
+                total_taxes_amount = BigDecimal.valueOf(0.10),
+                total_tip_amount = BigDecimal.valueOf(0.05),
+                tender_ids = Seq("17"),
+                ord_pay_total = BigDecimal.valueOf(5.11),
+                ord_sub_total = BigDecimal.valueOf(3.68),
+                feed_date = java.sql.Date.valueOf(LocalDate.parse(dateNow, dtFormatShort))
+            )
+        )
+
+        var expected = expectedLst.toDF
+        // Need ensure issue of Spark  https://issues.apache.org/jira/browse/SPARK-18484
+        // doesn't affect field comparison
+        expected.schema.fields.foreach { field =>
+            if (field.dataType.isInstanceOf[DecimalType]) {
+                expected = expected
+                    .withColumn(field.name, expected(field.name).cast(DecimalType(9, 2)))
             }
+        }
+
+        withClue("read JSON order summary does not match") {
+            val collectedExpected = expected.collect
+            collectedExpected should contain theSameElementsAs actualSquareLocationsData
+        }
     }
 
 }
 
 object OrderSummaryProcessorTest {
-    val _rnd = new Random()
-
-    /** Helper mapper convert case class to pair with field name
-      * @param cc case class to create map
-      * @return Map of pair field_name -> value
-      */
-    def ccToMap(cc: Any): Map[String, AnyRef] = {
-
-        cc.getClass.getDeclaredFields
-            .map(f => {
-                f.setAccessible(true)
-                f.getName -> f.get(cc)
-            })
-            .toMap
-    }
 
     case class OrdTargetChannelIdTestCase(fulfillments: Seq[Fulfillment], expectedOrdTargetChannelId: Int)
 
@@ -315,26 +413,54 @@ object OrderSummaryProcessorTest {
         id: String,
         created_at: String,
         closed_at: String,
-        total_money: Money = Money(amount = _rnd.nextInt(1000) + 1),
-        fulfillments: String = "[{'pickup_details':{'note':'abc'}, 'state':'FL'}]",
-        line_items: String = "[{'catalog_object_id':1, 'quantity':2}]",
-        total_service_charge_money: Money = Money(amount = _rnd.nextInt(1000) + 1),
-        total_tax_money: Money = Money(10),
-        total_tip_money: Money = Money(5),
-        total_discount_money: Money = Money(1),
-        customer_id: String = _rnd.nextString(12),
+        total_money: Money,
+        fulfillments: String,
+        line_items: String,
+        total_service_charge_money: Money,
+        total_tax_money: Money,
+        total_tip_money: Money,
+        total_discount_money: Money,
+        customer_id: String,
         tenders: String,
-        location_id: String = "dsdsd",
-        state: String = "COMPLETED",
-        discounts: Discount = Discount(uid = _rnd.nextString(5))
-    ) {
-        def this(id: String, created_at: String, closed_at: String, tender_id: Int) = this(
-            id = id,
-            created_at = created_at,
-            closed_at = closed_at,
-            tenders = s"{'id':$tender_id}"
-        )
-    }
+        location_id: String,
+        state: String,
+        discounts: Discount
+    )
+    case class OrderSummaryTransformResult(
+        ord_id: String,
+        ord_desc: String,
+        ord_total: BigDecimal,
+        ord_date: String,
+        ord_timestamp: String,
+        discount_amount: BigDecimal,
+        cxi_partner_id: String,
+        location_id: String,
+        ord_state: String,
+        ord_type: String,
+        ord_originate_channel_id: Int,
+        ord_target_channel_id: Int,
+        item_quantity: String,
+        item_total: BigDecimal,
+        emp_id: String,
+        discount_id: String,
+        dsp_qty: String,
+        dsp_ttl: String,
+        guest_check_line_item_id: String,
+        line_id: String,
+        taxes_id: Seq[String],
+        taxes_amount: BigDecimal,
+        item_id: String,
+        item_price_id: String,
+        reason_code_id: String,
+        service_charge_id: String,
+        service_charge_amount: BigDecimal,
+        total_taxes_amount: BigDecimal,
+        total_tip_amount: BigDecimal,
+        tender_ids: Seq[String],
+        ord_pay_total: BigDecimal,
+        ord_sub_total: BigDecimal,
+        feed_date: java.sql.Date
+    )
 
     case class RawDataEmulator(feed_date: String, record_value: String, record_type: String = "orders")
 
