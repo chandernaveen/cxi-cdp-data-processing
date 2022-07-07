@@ -9,7 +9,6 @@ import support.BaseSparkBatchJobTest
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.DecimalType
 import org.json4s.jackson.Serialization
 import org.json4s.DefaultFormats
 import org.scalatest.Matchers
@@ -664,39 +663,39 @@ object OrderSummaryProcessorTest {
         discounts: Discount
     )
     case class OrderSummaryTransformResult(
-                                              ord_id: String,
-                                              ord_desc: String,
-                                              ord_total: BigDecimal,
-                                              ord_date: String,
-                                              ord_timestamp: String,
-                                              discount_amount: BigDecimal,
-                                              cxi_partner_id: String,
-                                              location_id: String,
-                                              ord_state_id: Int,
-                                              ord_type: String,
-                                              ord_originate_channel_id: Int,
-                                              ord_target_channel_id: Int,
-                                              item_quantity: String,
-                                              item_total: BigDecimal,
-                                              emp_id: String,
-                                              discount_id: String,
-                                              dsp_qty: String,
-                                              dsp_ttl: String,
-                                              guest_check_line_item_id: String,
-                                              line_id: String,
-                                              taxes_id: Seq[String],
-                                              taxes_amount: BigDecimal,
-                                              item_id: String,
-                                              item_price_id: String,
-                                              reason_code_id: String,
-                                              service_charge_id: String,
-                                              service_charge_amount: BigDecimal,
-                                              total_taxes_amount: BigDecimal,
-                                              total_tip_amount: BigDecimal,
-                                              tender_ids: Seq[String],
-                                              ord_pay_total: BigDecimal,
-                                              ord_sub_total: BigDecimal,
-                                              feed_date: java.sql.Date
+        ord_id: String,
+        ord_desc: String,
+        ord_total: BigDecimal,
+        ord_date: String,
+        ord_timestamp: String,
+        discount_amount: BigDecimal,
+        cxi_partner_id: String,
+        location_id: String,
+        ord_state_id: Int,
+        ord_type: String,
+        ord_originate_channel_id: Int,
+        ord_target_channel_id: Int,
+        item_quantity: String,
+        item_total: BigDecimal,
+        emp_id: String,
+        discount_id: String,
+        dsp_qty: String,
+        dsp_ttl: String,
+        guest_check_line_item_id: String,
+        line_id: String,
+        taxes_id: Seq[String],
+        taxes_amount: BigDecimal,
+        item_id: String,
+        item_price_id: String,
+        reason_code_id: String,
+        service_charge_id: String,
+        service_charge_amount: BigDecimal,
+        total_taxes_amount: BigDecimal,
+        total_tip_amount: BigDecimal,
+        tender_ids: Seq[String],
+        ord_pay_total: BigDecimal,
+        ord_sub_total: BigDecimal,
+        feed_date: java.sql.Date
     )
 
     case class RawDataEmulator(feed_date: String, record_value: String, record_type: String = "orders")
