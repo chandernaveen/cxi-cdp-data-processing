@@ -3,6 +3,7 @@ package refined_zone.pos_square
 
 import raw_zone.pos_square.model.{Fulfillment, PickupDetails}
 import refined_zone.hub.model.{ChannelType, OrderStateType}
+import support.normalization.DateNormalization
 import support.normalization.DateNormalization.parseToSqlDate
 import support.BaseSparkBatchJobTest
 
@@ -13,8 +14,8 @@ import org.json4s.jackson.Serialization
 import org.json4s.DefaultFormats
 import org.scalatest.Matchers
 
-import java.time.{Instant, LocalDate, ZoneId}
 import java.time.format.DateTimeFormatter
+import java.time.ZoneId
 
 class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
 
@@ -79,26 +80,81 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
             }
         }
     }
+
     test("testRead") {
         import spark.implicits._
-        val tableName = "raw_orders"
         // given
-        val baseDate = Instant.now()
-        val dtFormatShort = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneId.systemDefault())
+        val tableName = "raw_orders"
         val dateNow = "2022-07-05"
         val rawOrderSummary = List(
             (
                 dateNow,
-                """{
-                  "id":"orderId1","created_at":"2022-07-05T12:42Z","closed_at":"2022-07-05T12:42Z","total_money":{"amount":224},"fulfillments":"[{'pickup_details':{'note':'abc'}, 'state':'FL'}]","line_items":"[{'catalog_object_id':1, 'quantity':2}]","total_service_charge_money":{"amount":703},"total_tax_money":{"amount":10},"total_tip_money":{"amount":5},"total_discount_money":{"amount":1},"customer_id":"ABC-123","tenders":"{'id':42}","location_id":"dsdsd","state":"COMPLETED","discounts":{"uid":"uidABC"}
-                  }""",
+                """
+                  {
+                    "id": "orderId1",
+                    "created_at": "2022-07-05T12:42Z",
+                    "closed_at": "2022-07-05T12:42Z",
+                    "total_money": {
+                        "amount": 224
+                    },
+                    "fulfillments": "[{'pickup_details':{'note':'abc'}, 'state':'FL'}]",
+                    "line_items": "[{'catalog_object_id':1, 'quantity':2}]",
+                    "total_service_charge_money": {
+                        "amount": 703
+                    },
+                    "total_tax_money": {
+                        "amount": 10
+                    },
+                    "total_tip_money": {
+                        "amount": 5
+                    },
+                    "total_discount_money": {
+                        "amount": 1
+                    },
+                    "customer_id": "ABC-123",
+                    "tenders": "{'id':42}",
+                    "location_id": "dsdsd",
+                    "state": "COMPLETED",
+                    "discounts": {
+                        "uid": "uidABC"
+                    }
+                }
+                """.stripMargin,
                 "orders"
             ),
             (
                 dateNow,
-                """{
-                   "id":"orderId2","created_at":"2022-07-05T12:42Z","closed_at":null,"total_money":{"amount":45},"fulfillments":"[{'pickup_details':{'note':'abc'}, 'state':'FL'}]","line_items":"[{'catalog_object_id':1, 'quantity':2}]","total_service_charge_money":{"amount":746},"total_tax_money":{"amount":10},"total_tip_money":{"amount":5},"total_discount_money":{"amount":1},"customer_id":"XYZ:789","tenders":"{'id':17}","location_id":"dsdsd","state":"COMPLETED","discounts":{"uid":"uidXYZ"}
-                   }""",
+                """
+                  {
+                    "id": "orderId2",
+                    "created_at": "2022-07-05T12:42Z",
+                    "closed_at": null,
+                    "total_money": {
+                        "amount": 45
+                    },
+                    "fulfillments": "[{'pickup_details':{'note':'abc'}, 'state':'FL'}]",
+                    "line_items": "[{'catalog_object_id':1, 'quantity':2}]",
+                    "total_service_charge_money": {
+                        "amount": 746
+                    },
+                    "total_tax_money": {
+                        "amount": 10
+                    },
+                    "total_tip_money": {
+                        "amount": 5
+                    },
+                    "total_discount_money": {
+                        "amount": 1
+                    },
+                    "customer_id": "XYZ:789",
+                    "tenders": "{'id':17}",
+                    "location_id": "dsdsd",
+                    "state": "COMPLETED",
+                    "discounts": {
+                        "uid": "uidXYZ"
+                    }
+                }
+                """.stripMargin,
                 "orders"
             )
         ).toDF("feed_date", "record_value", "record_type")
@@ -196,8 +252,8 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
     }
     test("testTransform With Close Date missed") {
         import spark.implicits._
-        val tableName = "raw_orders"
         // given
+        val tableName = "raw_orders"
         val dateNow = "2022-07-05"
         val orderId1 = "orderId1"
         val orderId2 = "orderId2"
@@ -213,7 +269,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
                 // case for normal flow
                 dateNow,
                 Serialization.write(
-                    new OrderSummaryFromRaw(
+                    OrderSummaryFromRaw(
                         id = orderId1,
                         created_at = dateTimeCreatedAt,
                         closed_at = dateTimeClosedAt,
@@ -236,7 +292,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
             RawDataEmulator(
                 dateNow,
                 Serialization.write(
-                    new OrderSummaryFromRaw(
+                    OrderSummaryFromRaw(
                         id = orderId2,
                         created_at = dateTimeCreatedAt,
                         closed_at = null,
@@ -312,7 +368,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
         val actualSquareLocationsData = processedOrderSummary.collect
 
         val expectedLst = List(
-            new OrderSummaryTransformResult(
+            OrderSummaryTransformResult(
                 ord_id = orderId1,
                 ord_desc = null,
                 ord_total = BigDecimal.valueOf(2.24),
@@ -345,9 +401,9 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
                 tender_ids = Seq("42"),
                 ord_pay_total = BigDecimal.valueOf(2.24),
                 ord_sub_total = BigDecimal.valueOf(-4.94),
-                feed_date = java.sql.Date.valueOf(LocalDate.parse(dateNow, dtFormatShort))
+                feed_date = DateNormalization.parseToSqlDate(dateNow).get
             ),
-            new OrderSummaryTransformResult(
+            OrderSummaryTransformResult(
                 ord_id = orderId2,
                 ord_desc = null,
                 ord_total = BigDecimal.valueOf(5.11),
@@ -380,7 +436,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
                 tender_ids = Seq("17"),
                 ord_pay_total = BigDecimal.valueOf(5.11),
                 ord_sub_total = BigDecimal.valueOf(3.68),
-                feed_date = java.sql.Date.valueOf(LocalDate.parse(dateNow, dtFormatShort))
+                feed_date = DateNormalization.parseToSqlDate(dateNow).get
             )
         )
 
