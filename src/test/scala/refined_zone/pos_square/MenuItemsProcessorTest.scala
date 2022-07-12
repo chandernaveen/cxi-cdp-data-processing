@@ -174,13 +174,12 @@ class MenuItemsProcessorTest extends BaseSparkBatchJobTest {
             (
                 "objects",
                 recordValue,
-                "CAASMwoTNTY4NjgyMjE5OjY2ODQ4OTI5NxIcEAEQBBAGEAgQChAhECIQIxAlECYQJxApEC04ZA",
                 feedDate,
                 "catalog_list_637716625269333561_4dbb5934-6580-4da4-b149-227603043c16",
                 "c8118a58-7aef-45f5-bba6-a03faa63eb8e"
             )
         )
-            .toDF("record_type", "record_value", "cursor", "feed_date", "file_name", "cxi_id")
+            .toDF("record_type", "record_value", "feed_date", "file_name", "cxi_id")
         rawData.createOrReplaceTempView(scrTable)
 
         // when

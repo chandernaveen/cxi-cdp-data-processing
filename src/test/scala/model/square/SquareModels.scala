@@ -54,8 +54,7 @@ case class SquareLandingZoneModel(
     customers: Seq[Customer] = null,
     feed_date: String = null,
     cxi_id: String = null,
-    file_name: String = null,
-    cursor: String = null
+    file_name: String = null
 )
 
 case class SquareRawZoneModel(
@@ -63,6 +62,5 @@ case class SquareRawZoneModel(
     record_value: String = null,
     feed_date: String = null,
     file_name: String = null,
-    cxi_id: String = null,
-    cursor: String = null
+    cxi_id: String = null
 )

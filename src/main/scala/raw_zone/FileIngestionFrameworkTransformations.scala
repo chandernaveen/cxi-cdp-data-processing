@@ -131,12 +131,15 @@ object FileIngestionFrameworkTransformations {
     }
 
     def transformSquare(df: DataFrame): DataFrame = {
-        val squareCommonColumns: List[String] = List("cursor")
+
+        val cursorColumn: String = "cursor"
 
         val squareColPerType =
-            df.columns.filter(col => !squareCommonColumns.contains(col) && !CxiCommonColumns.contains(col))
+            df.columns
+                .filter(!CxiCommonColumns.contains(_))
+                .filter(!_.equals(cursorColumn))
 
-        val outputColumns = ("record_type" :: "record_value" :: squareCommonColumns ::: CxiCommonColumns).map(col(_))
+        val outputColumns = ("record_type" :: "record_value" :: CxiCommonColumns).map(col(_))
 
         transformCompositeColumns(df, squareColPerType)
             .withColumn(
