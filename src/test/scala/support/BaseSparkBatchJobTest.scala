@@ -17,10 +17,7 @@ class BaseSparkBatchJobTest extends FunSuite with BeforeAndAfter with DataFrameS
     override def beforeAll(): Unit = {
         fixHadoopOnWindows()
         super.beforeAll()
-        SparkSessionProvider.sparkSession.sparkContext.addJar(SparkSessionFactory.assemblyJarLocalPath)
-        SparkSessionProvider.sparkSession.sparkContext.addJar(
-            "target/scala-2.12/cxi-cdp-data-processing_2.12-1.0.0-tests.jar"
-        )
+        spark.sparkContext.addJar("target/scala-2.12/cxi_cdp_data_processing_assembly_test_2_12.jar")
     }
 
     /** Info on the issue:
@@ -53,6 +50,8 @@ class BaseSparkBatchJobTest extends FunSuite with BeforeAndAfter with DataFrameS
         conf.set("spark.sql.shuffle.partitions", "1")
         conf.set("spark.debug.maxToStringFields", "1000")
         conf.set("spark.sql.session.timeZone", "UTC")
+        conf.set("spark.databricks.service.client.checkDeps", "false")
+        conf.set("spark.databricks.service.client.autoAddDeps", "false")
         conf
     }
 

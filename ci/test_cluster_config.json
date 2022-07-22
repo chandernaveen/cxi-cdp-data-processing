@@ -22,5 +22,7 @@
     "autotermination_minutes": 15,
     "enable_elastic_disk": true,
     "cluster_source": "UI",
-    "init_scripts": []
+    "init_scripts": [
+        "dbfs:/FileStore/cxi/artifacts/cxi_cdp_data_processing_init_scripts/1.0.3/sedona-setup.sh"
+    ]
 }

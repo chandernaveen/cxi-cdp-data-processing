@@ -34,22 +34,15 @@ object Customer360Job {
     }
 
     def run(spark: SparkSession, contract: ContractUtils): Unit = {
-        val refinedHubDb = contract.prop[String]("schema.refined_hub.db_name")
-        val identityTable = contract.prop[String]("schema.refined_hub.identity_table")
-        val identityRelationshipTable = contract.prop[String]("schema.refined_hub.identity_relationship_table")
+        val identityTable = contract.prop[String]("schema.identity_table")
+        val identityRelationshipTable = contract.prop[String]("schema.identity_relationship_table")
+        val customer360Table = contract.prop[String]("schema.customer_360_table")
 
-        val curatedDb = contract.prop[String]("schema.curated.db_name")
-        val customer360Table = contract.prop[String]("schema.curated.customer_360_table")
+        val connectedComponents = buildConnectedComponents(spark, identityTable, identityRelationshipTable)
 
-        val connectedComponents = buildConnectedComponents(
-            spark,
-            s"$refinedHubDb.$identityTable",
-            s"$refinedHubDb.$identityRelationshipTable"
-        )
-
-        val prevCustomer360 = readCustomer360(spark, s"$curatedDb.$customer360Table")
+        val prevCustomer360 = readCustomer360(spark, customer360Table)
         val newCustomer360 = AudienceService.updateCustomer360(spark, connectedComponents, prevCustomer360)
-        writeCustomer360(newCustomer360, s"$curatedDb.$customer360Table")
+        writeCustomer360(newCustomer360, customer360Table)
     }
 
     def buildConnectedComponents(
