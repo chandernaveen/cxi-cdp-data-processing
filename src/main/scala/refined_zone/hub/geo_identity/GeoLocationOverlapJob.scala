@@ -6,7 +6,7 @@ import com.cxi.cdp.data_processing.support.SparkSessionFactory
 
 import org.apache.log4j.Logger
 import org.apache.sedona.sql.utils._
-import org.apache.spark.sql.{Column, DataFrame, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, SaveMode, SparkSession}
 import org.apache.spark.sql.functions.{broadcast, coalesce, expr, lit, to_date, to_timestamp}
 
 import java.nio.file.Paths
@@ -196,15 +196,27 @@ object GeoLocationOverlapJob {
             )
     }
 
-    // scalastyle:off method.length
     private[geo_identity] def writeGeoLocation(geoLocation: DataFrame, targetTable: String, fullReprocess: Boolean)(
         implicit spark: SparkSession
     ): Unit = {
         if (fullReprocess) {
-            logger.info("Full reprocess was requested. Delete old data from the geo_location table.")
-            spark.sql(s"DELETE FROM $targetTable")
+            writeGeoLocationFullReprocess(geoLocation, targetTable)
+        } else {
+            writeGeoLocationIncremental(geoLocation, targetTable)
         }
+    }
 
+    /** Overwriting the table fully should be more efficient than deleting and merging. */
+    private def writeGeoLocationFullReprocess(geoLocation: DataFrame, targetTable: String): Unit = {
+        geoLocation.write
+            .format("delta")
+            .mode(SaveMode.Overwrite)
+            .saveAsTable(targetTable)
+    }
+
+    private def writeGeoLocationIncremental(geoLocation: DataFrame, targetTable: String)(implicit
+        spark: SparkSession
+    ): Unit = {
         val srcTable = "newGeoLocation"
         geoLocation.createOrReplaceTempView(srcTable)
         spark.sql(s"""
