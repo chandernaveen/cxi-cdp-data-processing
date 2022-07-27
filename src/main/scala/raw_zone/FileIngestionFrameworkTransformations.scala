@@ -1,9 +1,11 @@
 package com.cxi.cdp.data_processing
 package raw_zone
 
+import raw_zone.pos_parbrink.udf.ParbrinkUdfs
+
+import org.apache.spark.sql.{DataFrame, Encoders}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{ArrayType, StructType}
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.{ArrayType, DataTypes, StructType}
 
 object FileIngestionFrameworkTransformations {
     def transformationFunctionsMap: Map[String, DataFrame => DataFrame] = Map[String, DataFrame => DataFrame](
@@ -13,7 +15,8 @@ object FileIngestionFrameworkTransformations {
         "transformQuBeyond" -> transformQuBeyond,
         "transformSquare" -> transformSquare,
         "transformSegmint" -> transformSegmint,
-        "transformVeraset" -> transformVeraset
+        "transformVeraset" -> transformVeraset,
+        "transformParbrink" -> transformParbrink
     )
 
     final val CxiCommonColumns: List[String] = List("feed_date", "file_name", "cxi_id")
@@ -151,6 +154,49 @@ object FileIngestionFrameworkTransformations {
                 coalesce(squareColPerType.map(c => when(col(c).isNotNull, col(c)).otherwise(lit(null))): _*)
             )
             .select(outputColumns: _*)
+    }
+
+    def transformParbrink(df: DataFrame): DataFrame = {
+
+        val singularDataTypes = Seq("options")
+
+        val enrichedDf = df
+            .withColumn("record_type", ParbrinkUdfs.recordTypeByFilePath(col("file_name")))
+            .withColumn("location_id", ParbrinkUdfs.locationByFilePath(col("file_name")))
+
+        val parbrinkRecordTypes = enrichedDf
+            .select("record_type")
+            .distinct()
+            .map(r => r.getString(0))(Encoders.STRING)
+            .collect()
+
+        val byRecordTypeDf = parbrinkRecordTypes.foldLeft(enrichedDf)((acc, recordType) => {
+            val allRecordsByType =
+                df.sparkSession.read.json(
+                    enrichedDf.select("value").as[String](Encoders.STRING).where(col("record_type") === recordType)
+                )
+            val dataType = if (singularDataTypes.contains(recordType)) {
+                allRecordsByType.schema
+            } else {
+                DataTypes.createArrayType(allRecordsByType.schema)
+            }
+            acc.withColumn(
+                recordType,
+                when(col("record_type") === lit(recordType), from_json(col("value"), dataType)).otherwise(null)
+            )
+        })
+
+        val transformedDf = transformCompositeColumns(byRecordTypeDf, parbrinkRecordTypes)
+
+        val outputColumns = ("record_type" :: "record_value" :: "location_id" :: CxiCommonColumns).map(col(_))
+
+        transformedDf
+            .withColumn(
+                "record_value",
+                coalesce(parbrinkRecordTypes.map(c => when(col(c).isNotNull, col(c)).otherwise(lit(null))): _*)
+            )
+            .select(outputColumns: _*)
+
     }
 
     def transformVeraset(df: DataFrame): DataFrame = {
