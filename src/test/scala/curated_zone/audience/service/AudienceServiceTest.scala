@@ -11,7 +11,6 @@ import org.apache.spark.sql.functions.collect_list
 import org.scalatest.Matchers
 
 class AudienceServiceTest extends BaseSparkBatchJobTest with Matchers {
-
     import spark.implicits._
 
     case class TestCaseInput(vertices: Seq[String], edges: Seq[(String, String)], expectedClusters: Array[Seq[String]])

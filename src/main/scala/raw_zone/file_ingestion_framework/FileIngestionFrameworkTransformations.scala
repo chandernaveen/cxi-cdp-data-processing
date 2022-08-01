@@ -1,5 +1,5 @@
 package com.cxi.cdp.data_processing
-package raw_zone
+package raw_zone.file_ingestion_framework
 
 import raw_zone.pos_parbrink.udf.ParbrinkUdfs
 
@@ -14,6 +14,7 @@ object FileIngestionFrameworkTransformations {
         "transformOracleSim" -> transformOracleSim,
         "transformQuBeyond" -> transformQuBeyond,
         "transformSquare" -> transformSquare,
+        "transformToast" -> transformToast,
         "transformSegmint" -> transformSegmint,
         "transformVeraset" -> transformVeraset,
         "transformParbrink" -> transformParbrink
@@ -224,6 +225,69 @@ object FileIngestionFrameworkTransformations {
             .withColumn("ipv_6", when(isIpv6Address, col("ip_address")).otherwise(lit(null)))
             .withColumn("id_type", upper(col("id_type")))
             .drop("ad_id", "ip_address")
+    }
+
+    // scalastyle:off method.length
+    def transformToast(df: DataFrame): DataFrame = {
+        val recordTypeFolderNameElementPosition = 7
+        val recordTypeUdf = udf((fileName: String) => {
+            val folderParts = fileName.split("/")
+            folderParts(recordTypeFolderNameElementPosition)
+        })
+
+        val restaurantFolderNameElementPositionForOrders = 8
+        val orderLocationIdUdf = udf((fileName: String) => {
+            val restaurantPartition = fileName.split("/")(restaurantFolderNameElementPositionForOrders)
+            restaurantPartition.replace("restaurant=", "")
+        })
+
+        val enrichedDf = df
+            .withColumn("record_type", recordTypeUdf(col("file_name")))
+            .withColumn(
+                "location_id",
+                when(col("record_type") === "orders", orderLocationIdUdf(col("file_name"))).otherwise(lit(null))
+            )
+
+        val toastRecordTypesExceptMenus = enrichedDf
+            .select("record_type")
+            .distinct()
+            .map(r => r.getString(0))(Encoders.STRING)
+            .collect()
+            .filter(rt => !rt.equals("menus"))
+
+        val singularDataTypes = Seq("restaurants")
+
+        val byRecordTypeDfExceptMenus = toastRecordTypesExceptMenus
+            .foldLeft(enrichedDf.filter(col("record_type") =!= "menus"))((acc, recordType) => {
+                val recordTypeDf =
+                    df.sparkSession.read.json(
+                        enrichedDf.select("value").as[String](Encoders.STRING).where(col("record_type") === recordType)
+                    )
+                val dataType = if (singularDataTypes.contains(recordType)) {
+                    recordTypeDf.schema
+                } else {
+                    DataTypes.createArrayType(recordTypeDf.schema)
+                }
+                acc.withColumn(
+                    recordType,
+                    when(col("record_type") === lit(recordType), from_json(col("value"), dataType)).otherwise(null)
+                )
+            })
+
+        val menusRecordTypeDf = enrichedDf
+            .filter(col("record_type") === "menus")
+
+        val transformedCompositeColumns =
+            transformCompositeColumns(byRecordTypeDfExceptMenus, toastRecordTypesExceptMenus)
+
+        val outputColumns = ("record_type" :: "record_value" :: "location_id" :: CxiCommonColumns).map(col(_))
+        transformedCompositeColumns
+            .withColumn(
+                "record_value",
+                coalesce(toastRecordTypesExceptMenus.map(c => when(col(c).isNotNull, col(c)).otherwise(lit(null))): _*)
+            )
+            .select(outputColumns: _*)
+            .unionByName(menusRecordTypeDf.withColumnRenamed("value", "record_value"))
     }
 
     private def transformCompositeColumns(df: DataFrame, columns: Seq[String]): DataFrame = {

@@ -1,35 +1,33 @@
 package com.cxi.cdp.data_processing
 package raw_zone
 
-import raw_zone.config.FileIngestionFrameworkConfig
-import raw_zone.FileIngestionFrameworkTransformations.transformationFunctionsMap
+import raw_zone.file_ingestion_framework.FileIngestionFrameworkConfig
+import raw_zone.file_ingestion_framework.FileIngestionFrameworkTransformations.transformationFunctionsMap
+import raw_zone.file_ingestion_framework.WriteOptionsFunctions._
+import support.audit.{AuditLogs, LogContext}
 import support.crypto_shredding.config.CryptoShreddingConfig
 import support.crypto_shredding.CryptoShredding
-import support.exceptions.CryptoShreddingException
-import support.functions.LogContext
-import support.functions.UnifiedFrameworkFunctions._
-import support.utils.ContractUtils
+import support.normalization.DateNormalization
+import support.utils.{ContractUtils, DatalakeFiles}
 import support.utils.ContractUtils.jobConfigPropName
 import support.SparkSessionFactory.getSparkSession
 
-import com.databricks.service.DBUtils
 import io.delta.tables.DeltaTable
 import org.apache.log4j.Logger
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions.{expr, input_file_name, lit, udf}
-import org.apache.spark.sql.types.StructType
 
 import java.time.format.DateTimeFormatter
 import java.time.LocalDate
-import scala.collection.Seq
 import scala.util.{Failure, Success, Try}
 
 object FileIngestionFramework {
 
+    private val logger = Logger.getLogger(this.getClass.getName)
+
     val basePropName = "jobs.databricks.landing_to_raw_job.job_config"
 
     def main(args: Array[String]): Unit = {
-        val logger: Logger = configureLogger()
         logger.info("Main class arguments: " + args.mkString(", "))
 
         val cliArgs = CliArgs.parse(args)
@@ -38,93 +36,89 @@ object FileIngestionFramework {
         val contractPath = "/mnt/" + cliArgs.contractPath
         val np = new ContractUtils(java.nio.file.Paths.get(contractPath))
         val config = FileIngestionFrameworkConfig(cliArgs.date, cliArgs.sourceDateDirFormatter, np, basePropName)
+        val feedDate = DateNormalization.formatFromLocalDate(cliArgs.date).get
 
         val spark: SparkSession = getSparkSession()
         applySparkConfigOptions(spark, config.configOptions)
 
-        var landingDF: DataFrame = null
-        var filesProcessed: Seq[String] = null
         try {
-            val allFiles = getAllFiles(spark.sparkContext.hadoopConfiguration, config.sourcePath)
-            val processedResult = if (config.fileFormat.isEmpty) {
-                throw new RuntimeException("The fileFormat parameter is empty.")
-            } else {
-                processFilesBasedOnFileFormat(
-                    config.sourcePath,
-                    allFiles,
-                    config.fileFormat,
-                    config.fileFormatOptions,
-                    config.schema
-                )(spark)
-            }
-            filesProcessed = processedResult._1
-            landingDF = processedResult._2
+            val landingDf = read(config)(spark)
+            val finalDf = transform(landingDf, cliArgs, np, config)(spark)
+            write(finalDf, config, getWriteOptions(finalDf, feedDate, config))
+
+            val logContext = buildLogContext(config = config, writeStatus = "0", errorMessage = "")
+            AuditLogs.write(logContext)(spark)
         } catch {
-            case e: Throwable =>
+            case e: RuntimeException =>
                 // If run failed write Audit log table to indicate data processing failure
-                val logContext = buildLogContext(config = config, writeStatus = "0", errorMessage = e.toString)
-                fnWriteAuditTable(logContext, logger = logger, spark = spark)
-                logger.error(s"Failed to new files from ${config.sourcePath}. Due to error: ${e.toString}")
+                val logContext = buildLogContext(config = config, writeStatus = "1", errorMessage = e.toString)
+                AuditLogs.write(logContext)(spark)
+                logger.error(s"Failed to process new files from ${config.sourcePath}. Due to error: ${e.toString}")
                 throw e
         }
-
-        processLandingDF(logger, cliArgs, np, config, spark, landingDF)
-
-        val files = filesProcessed.size
-        val logContext = buildLogContext(config = config, writeStatus = "1", errorMessage = "")
-        fnWriteAuditTable(logContext = logContext, logger = logger, spark = spark)
-        logger.info(s"""Files processed: $files""")
     }
 
-    private def processLandingDF(
-        logger: Logger,
-        cliArgs: CliArgs,
-        np: ContractUtils,
+    def read(config: FileIngestionFrameworkConfig)(implicit spark: SparkSession): DataFrame = {
+        if (config.fileFormat == null || config.fileFormat.isEmpty) {
+            throw new IllegalArgumentException("The fileFormat parameter is null or empty.")
+        }
+        if (config.fileFormatOptions == null) {
+            throw new IllegalArgumentException("The fileFormatOptions parameter is null.")
+        }
+
+        val allFiles = DatalakeFiles.listAllFiles(spark.sparkContext.hadoopConfiguration, config.sourcePath)
+
+        if (allFiles.isEmpty) {
+            throw new IllegalStateException(
+                s"The folder $config.sourcePath does not contain data files we are looking for."
+            )
+        }
+
+        val reader = spark.read
+            .format(config.fileFormat)
+            .options(config.fileFormatOptions)
+
+        reader.load(allFiles: _*)
+    }
+
+    def transform(landingDf: DataFrame, cliArgs: CliArgs, np: ContractUtils, config: FileIngestionFrameworkConfig)(
+        implicit spark: SparkSession
+    ): DataFrame = {
+        val pathFileName =
+            udf((fileName: String, pathParts: Int) => fileName.split("/").takeRight(pathParts).mkString("/"))
+        val enrichedDf = landingDf
+            .withColumn("feed_date", lit(DateNormalization.formatFromLocalDate(cliArgs.date).get))
+            .withColumn("file_name", pathFileName(input_file_name, lit(config.pathParts)))
+            .withColumn("cxi_id", expr("uuid()"))
+        val transformationFunction = transformationFunctionsMap(config.transformationName)
+        val transformedDf = transformationFunction(enrichedDf)
+
+        val finalDf = if (np.propIsSet(jobConfigPropName(basePropName, "crypto"))) {
+            applyCryptoShredding(spark, transformedDf, np, cliArgs.date, cliArgs.runId)
+        } else {
+            transformedDf
+        }
+        finalDf
+    }
+
+    def write(
+        finalDf: DataFrame,
         config: FileIngestionFrameworkConfig,
-        spark: SparkSession,
-        landingDF: DataFrame
+        writeOptions: Map[String, String]
     ): Unit = {
-        try {
-            val pathFileName =
-                udf((fileName: String, pathParts: Int) => fileName.split("/").takeRight(pathParts).mkString("/"))
-            val feedDate = cliArgs.date.toString
-            val finalDF = landingDF
-                .withColumn("feed_date", lit(feedDate))
-                .withColumn("file_name", pathFileName(input_file_name, lit(config.pathParts)))
-                .withColumn("cxi_id", expr("uuid()"))
-
-            val saveMode =
-                if (DeltaTable.isDeltaTable(spark, config.targetPath)) config.saveModeFromContract else "errorifexists"
-
-            val transformationFunction = transformationFunctionsMap(config.transformationName)
-            val transformedDf = transformationFunction(finalDF)
-
-            val finalDf = if (np.propIsSet(jobConfigPropName(basePropName, "crypto"))) {
-                applyCryptoShredding(spark, transformedDf, np, cliArgs.date, cliArgs.runId)
+        val saveMode =
+            if (DeltaTable.isDeltaTable(finalDf.sparkSession, config.targetPath)) {
+                config.saveModeFromContract
             } else {
-                transformedDf
+                "errorifexists"
             }
 
-            finalDf.write
-                .format("delta")
-                .partitionBy(config.targetPartitionColumns: _*)
-                .mode(saveMode)
-                .options(getWriteOptions(transformedDf, feedDate, config))
-                .save(config.targetPath)
-        } catch {
-            case cryptoShreddingEx: CryptoShreddingException =>
-                logger.error(s"Failed to apply crypto shredding ${cryptoShreddingEx.getMessage}", cryptoShreddingEx)
-                val logContext =
-                    buildLogContext(config = config, writeStatus = "0", errorMessage = cryptoShreddingEx.toString)
-                fnWriteAuditTable(logContext = logContext, logger = logger, spark = spark)
-                throw cryptoShreddingEx
-            case e: Throwable =>
-                // If run failed write Audit log table to indicate data processing failure
-                val logContext = buildLogContext(config = config, writeStatus = "0", errorMessage = e.toString)
-                fnWriteAuditTable(logContext = logContext, logger = logger, spark = spark)
-                logger.error(s"Failed to write to delta location ${config.targetPath}. Due to error: ${e.toString}")
-                throw e
-        }
+        finalDf.write
+            .format("delta")
+            .partitionBy(config.targetPartitionColumns: _*)
+            .mode(saveMode)
+            .options(writeOptions)
+            .save(config.targetPath)
     }
 
     def applyCryptoShredding(
@@ -135,7 +129,6 @@ object FileIngestionFramework {
         runId: String
     ): DataFrame = {
         val cryptoShreddingConf = CryptoShreddingConfig(
-            country = np.prop[String](jobConfigPropName(basePropName, "crypto.cxi_source_country")),
             cxiSource = np.prop[String](jobConfigPropName(basePropName, "crypto.cxi_source")),
             lookupDestDbName = np.prop[String]("schema.crypto.db_name"),
             lookupDestTableName = np.prop[String]("schema.crypto.lookup_table"),
@@ -150,35 +143,6 @@ object FileIngestionFramework {
         val cryptoHashedDf = cryptoShredding
             .applyHashCryptoShredding(hashFunctionType, hashFunctionConfig, transformedDf)
         cryptoHashedDf
-    }
-
-    def processFilesBasedOnFileFormat(
-        sourcePath: String,
-        files: Seq[String],
-        format: String,
-        options: Map[String, String],
-        schema: Option[StructType]
-    )(implicit spark: SparkSession): (Seq[String], DataFrame) = {
-        if (files.nonEmpty) {
-            val reader = spark.read
-                .format(format)
-                .options(options)
-            schema.foreach(reader.schema(_))
-            (files, reader.load(files: _*))
-        } else {
-            throw new RuntimeException(s"The folder $sourcePath does not contain data files we are looking for.")
-        }
-    }
-
-    def getWriteOptions(df: DataFrame, feedDate: String, config: FileIngestionFrameworkConfig): Map[String, String] = {
-        val functionsMap: Map[String, WriteOptionsFunction] =
-            writeOptionsFunctionsMap + ("replaceWhereForFeedDate" -> replaceWhereForFeedDate(feedDate))
-
-        config.writeOptionsFunctionName match {
-            case None => config.writeOptions
-            case Some(functionName) =>
-                functionsMap(functionName)(df, config.writeOptionsFunctionParams) ++ config.writeOptions
-        }
     }
 
     def buildLogContext(
@@ -203,13 +167,17 @@ object FileIngestionFramework {
         )
     }
 
-    private def configureLogger(): Logger = {
-        val loggerName = Try(DBUtils.widgets.get("loggerName")).getOrElse("RawLogger")
-        val logSystem = Try(DBUtils.widgets.get("logSystem")).getOrElse("App")
-        val logLevel = Try(DBUtils.widgets.get("logLevel")).getOrElse("INFO")
-        val logAppender = Try(DBUtils.widgets.get("logAppender")).getOrElse("RawFile")
-        val isRootLogEnabled = Try(DBUtils.widgets.get("isRootLogEnabled")).getOrElse("False")
-        fnInitializeLogger(loggerName, logSystem, logLevel, logAppender, isRootLogEnabled)
+    def applySparkConfigOptions(spark: SparkSession, configOptions: Map[String, Any]): Unit = {
+        configOptions.foreach {
+            case (key, value: String) => spark.conf.set(key, value)
+            case (key, value: Boolean) => spark.conf.set(key, value)
+            case (key, value: Long) => spark.conf.set(key, value)
+            case (key, value: Integer) => spark.conf.set(key, value.toLong)
+            case (key, value) =>
+                throw new IllegalArgumentException(s"""
+                       |Haven't found how to alter Apache Spark configuration
+                       |for key:value = $key:$value""".stripMargin)
+        }
     }
 
     case class CliArgs(contractPath: String, date: LocalDate, runId: String, sourceDateDirFormat: String = "yyyyMMdd") {

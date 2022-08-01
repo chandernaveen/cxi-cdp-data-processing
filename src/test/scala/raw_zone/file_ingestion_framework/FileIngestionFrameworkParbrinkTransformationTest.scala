@@ -1,7 +1,7 @@
 package com.cxi.cdp.data_processing
-package raw_zone
+package raw_zone.file_ingestion_framework
 
-import raw_zone.FileIngestionFrameworkTransformations.transformParbrink
+import raw_zone.file_ingestion_framework.FileIngestionFrameworkTransformations.transformParbrink
 import support.BaseSparkBatchJobTest
 
 import model.parbrink.{ParbrinkLandingZoneModel, ParbrinkRawZoneModel}

@@ -413,7 +413,6 @@ object CxiIdentityProcessor {
 
     private def getCryptoShreddingConfig(config: ProcessorConfig, workspaceConfigPath: String) = {
         CryptoShreddingConfig(
-            country = config.contract.prop[String]("partner.country"),
             cxiSource = config.cxiPartnerId,
             lookupDestDbName = config.contract.prop[String]("schema.crypto.db_name"),
             lookupDestTableName = config.contract.prop[String]("schema.crypto.lookup_table"),

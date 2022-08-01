@@ -457,7 +457,6 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
     }
 
     test("transform order summary") {
-
         // given
         val line_items =
             """

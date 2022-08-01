@@ -4,7 +4,6 @@ package curated_zone
 import support.utils.{ContractUtils, TransformUtils}
 import support.utils.mongodb.MongoDbConfigUtils
 import support.utils.mongodb.MongoDbConfigUtils.{MongoDbConfig, MongoSparkConnectorClass}
-import support.utils.JsonUtils.sparkSession
 import support.utils.TransformUtils.ColumnsMapping
 import support.SparkSessionFactory
 
@@ -53,7 +52,7 @@ object CommonDataLakeToMongoJob {
         mapper.registerModule(DefaultScalaModule)
         val shardKey = mapper.writeValueAsString(contract.prop[Map[String, Int]]("mongo.shardKey"))
         val transformedDf = process(
-            sparkSession,
+            SparkSessionFactory.getSparkSession(),
             s"$datalakeSourceDb.$datalakeSourceTable",
             columnsMappingOptions,
             includeAllSourceColumns

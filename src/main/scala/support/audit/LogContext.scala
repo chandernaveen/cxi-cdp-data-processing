@@ -1,5 +1,5 @@
 package com.cxi.cdp.data_processing
-package support.functions
+package support.audit
 
 case class LogContext(
     logTable: String = "testing.application_audit_logs",

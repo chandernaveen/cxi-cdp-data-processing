@@ -1,15 +1,11 @@
 package com.cxi.cdp.data_processing
-package raw_zone.config
+package raw_zone.file_ingestion_framework
 
 import support.utils.{ContractUtils, PathUtils}
 import support.utils.ContractUtils.jobConfigPropName
 
-import com.databricks.service.DBUtils
-import org.apache.spark.sql.types.{DataType, StructType}
-
 import java.time.format.DateTimeFormatter
 import java.time.LocalDate
-import scala.collection.Seq
 
 case class FileIngestionFrameworkConfig(
     sourcePath: String,
@@ -22,7 +18,6 @@ case class FileIngestionFrameworkConfig(
     fileFormat: String,
     fileFormatOptions: Map[String, String],
     transformationName: String,
-    schema: Option[StructType],
     saveModeFromContract: String,
     configOptions: Map[String, Any],
     writeOptions: Map[String, String],
@@ -45,7 +40,6 @@ object FileIngestionFrameworkConfig {
         basePropName: String
     ): FileIngestionFrameworkConfig = {
         val baseSourcePath = "/mnt/" + contractUtils.prop(jobConfigPropName(basePropName, "read.path"))
-        val maybeSchemaPath = contractUtils.propOrNone[String](jobConfigPropName(basePropName, "read.schemaPath"))
         val targetPath = "/mnt/" + contractUtils.prop(jobConfigPropName(basePropName, "write.path"))
 
         FileIngestionFrameworkConfig(
@@ -64,7 +58,6 @@ object FileIngestionFrameworkConfig {
             ),
             transformationName = contractUtils
                 .propOrElse[String](jobConfigPropName(basePropName, "transform.transformationName"), "identity"),
-            schema = maybeSchemaPath.map(parseSchema),
             saveModeFromContract =
                 contractUtils.propOrElse[String](jobConfigPropName(basePropName, "write.saveMode"), "append"),
             configOptions = contractUtils.propOrElse[Map[String, Any]](
@@ -93,10 +86,6 @@ object FileIngestionFrameworkConfig {
     /** Creates the final source path from the base path (which comes from a contract) and the processing date. */
     private def getSourcePath(basePath: String, date: LocalDate, sourceDateDirFormat: DateTimeFormatter): String = {
         PathUtils.concatPaths(basePath, sourceDateDirFormat.format(date))
-    }
-
-    private def parseSchema(schemaPath: String): StructType = {
-        DataType.fromJson(DBUtils.fs.head(s"/mnt/$schemaPath")).asInstanceOf[StructType]
     }
 
 }

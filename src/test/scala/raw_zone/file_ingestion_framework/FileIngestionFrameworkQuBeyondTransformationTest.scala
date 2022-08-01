@@ -1,9 +1,9 @@
 package com.cxi.cdp.data_processing
-package raw_zone
+package raw_zone.file_ingestion_framework
 
 import support.BaseSparkBatchJobTest
 
-import model.qu_beyond.{Check, Data, DataDelta, QuBeyondLandingZoneModel, QuBeyondRawZoneModel}
+import model.qu_beyond._
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal}
 
 class FileIngestionFrameworkQuBeyondTransformationTest extends BaseSparkBatchJobTest {

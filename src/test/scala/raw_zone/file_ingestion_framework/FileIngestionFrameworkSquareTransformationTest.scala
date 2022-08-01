@@ -1,5 +1,5 @@
 package com.cxi.cdp.data_processing
-package raw_zone
+package raw_zone.file_ingestion_framework
 
 import support.BaseSparkBatchJobTest
 

@@ -1,7 +1,7 @@
 package com.cxi.cdp.data_processing
 package support
 
-import com.holdenkarau.spark.testing.{DataFrameSuiteBase, SparkSessionProvider}
+import com.holdenkarau.spark.testing.DataFrameSuiteBase
 import org.apache.spark.SparkConf
 import org.scalatest.{BeforeAndAfter, FunSuite}
 
@@ -10,6 +10,7 @@ import java.nio.file.Paths
 import java.util.UUID
 
 class BaseSparkBatchJobTest extends FunSuite with BeforeAndAfter with DataFrameSuiteBase {
+
     override implicit def reuseContextIfPossible: Boolean = true
 
     override protected implicit def enableHiveSupport: Boolean = true

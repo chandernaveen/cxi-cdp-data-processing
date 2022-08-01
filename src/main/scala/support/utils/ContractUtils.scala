@@ -1,133 +1,19 @@
 package com.cxi.cdp.data_processing
 package support.utils
 
-import scala.collection.mutable.Map
+import support.SparkSessionFactory
+
+import scala.annotation.tailrec
+import scala.collection.{immutable, mutable}
 import scala.reflect.runtime.universe._
 import scala.reflect.ClassTag
 
-class ContractUtils(jsonPath: String) extends Serializable {
+class ContractUtils(jsonContent: String) extends Serializable {
 
-    protected var properties: scala.collection.immutable.Map[String, Object] = JsonUtils.toMap[Object](jsonPath)
+    private val properties: immutable.Map[String, Object] = JsonUtils.toMap[Object](jsonContent)
 
-    /** @param pathToProperyFiles
-      */
-    def this(pathToProperyFiles: java.nio.file.Path) {
-        this(JsonUtils.readJSONSchemaSTR(pathToProperyFiles.toString))
-    }
-
-    /** @param name
-      * @return
-      */
-    def getProperty(name: String): Option[Object] = {
-        getProperty(name, properties.toMap)
-    }
-
-    /** @return
-      */
-    override def toString(): String = properties.toString()
-
-    /** @param name
-      * @return
-      */
-    def propIsSet(name: String): Boolean = getProperty(name).isDefined
-
-    /** @param name
-      * @return
-      */
-    def propString(name: String): String = {
-        val value = getProperty(name, properties.toMap)
-        value match {
-            case Some(s) =>
-                s match {
-                    case s: String => s
-                    case _ =>
-                        throw new RuntimeException(
-                            s"Property ${name} is not String type. Type of ${name} is ${value.get.getClass.getName}"
-                        )
-                }
-            case None => null
-        }
-    }
-
-    /** @param name
-      * @param alt
-      * @return
-      */
-    def propStringOrElse(name: String, alt: => String): String = Option(propString(name)).getOrElse(alt)
-
-    /** @param name
-      * @return
-      */
-    def propStringOrEmpty(name: String): String = propStringOrElse(name, "")
-
-    /** @param name
-      * @return
-      */
-    def propStringOrNull(name: String): String = propStringOrElse(name, null)
-
-    /** @param name
-      * @return
-      */
-    def propStringOrNone(name: String): Option[String] = Option(propStringOrNull(name))
-
-    /** @param name
-      * @return
-      */
-    def propInt(name: String): Integer = {
-        val value = getProperty(name, properties.toMap)
-        value match {
-            case Some(s) =>
-                s match {
-                    case s: Integer => s
-                    case _ =>
-                        throw new RuntimeException(
-                            s"Property ${name} is not Integer type. Type of ${name} is ${value.get.getClass.getName}"
-                        )
-                }
-            case None => null
-        }
-    }
-
-    /** @param name
-      * @param alt
-      * @return
-      */
-    def propIntOrElse(name: String, alt: => Integer): Integer = Option(propInt(name)).getOrElse(alt)
-
-    /** @param name
-      * @return
-      */
-    def propIntOrEmpty(name: String): Integer = propIntOrElse(name, 0)
-
-    /** @param name
-      * @return
-      */
-    def propIntOrNull(name: String): Integer = propIntOrElse(name, null)
-
-    /** @param name
-      * @return
-      */
-    def propIntOrNone(name: String): Option[Integer] = Option(propIntOrNull(name))
-
-    /** @param name
-      * @tparam A
-      * @return
-      */
-    def getListProperty[A: ClassTag](name: String): Option[List[A]] = {
-        val value = getProperty(name, properties.toMap)
-        value match {
-            case Some(s) =>
-                s match {
-                    case s: List[_] => {
-                        Option(s.asInstanceOf[List[A]])
-                    }
-                    case _ =>
-                        throw new RuntimeException(
-                            s"Property ${name} is not List type. Type of ${name} is ${value.get.getClass.getName}"
-                        )
-                }
-            case None => None
-        }
+    def this(path: java.nio.file.Path) {
+        this(JsonUtils.readFileContentAsString(path.toString)(SparkSessionFactory.getSparkSession()))
     }
 
     def prop[A: ClassTag](name: String): A = {
@@ -150,23 +36,25 @@ class ContractUtils(jsonPath: String) extends Serializable {
 
     def propOrElse[A: ClassTag](name: String, alt: => A): A = propOrNone[A](name).getOrElse(alt)
 
-    protected def get(name: String, map: scala.collection.immutable.Map[String, Object]): Option[Object] = {
-        map.contains(name) match {
-            case true => Some(map(name))
-            case _ => None
+    private def isInstanceOfMap[T: TypeTag](b: T): Boolean =
+        typeOf[mutable.Map[String, Object]] <:< typeOf[T]
+
+    private def get(name: String, map: scala.collection.immutable.Map[String, Object]): Option[Object] = {
+        if (map.contains(name)) {
+            Some(map(name))
+        } else {
+            None
         }
     }
 
-    def isInstanceOfMap[T: TypeTag](b: T): Boolean =
-        typeOf[Map[String, Object]] <:< typeOf[T]
+    def propIsSet(name: String): Boolean = getProperty(name).isDefined
 
-    protected def getProperty(name: String, map: scala.collection.immutable.Map[String, Object]): Option[Object] = {
-        def gp(listOfNames: Array[String], z: Object) =
-            getProperty(
-                listOfNames.slice(1, listOfNames.size).mkString("."),
-                z.asInstanceOf[scala.collection.immutable.Map[String, Object]]
-            )
+    def getProperty(name: String): Option[Object] = {
+        getProperty(name, properties.toMap)
+    }
 
+    @tailrec
+    private def getProperty(name: String, map: scala.collection.immutable.Map[String, Object]): Option[Object] = {
         if (name == null) {
             throw new IllegalArgumentException("Name is null")
         }
@@ -195,15 +83,11 @@ class ContractUtils(jsonPath: String) extends Serializable {
         }
     }
 
-    def propToString(): String = {
-        propToString("")
-    }
-
     def propToString(name: String): String = {
         propToString(name, properties.toMap)
     }
 
-    protected def propToString(name: String, map: scala.collection.immutable.Map[String, Object]): String = {
+    private def propToString(name: String, map: scala.collection.immutable.Map[String, Object]): String = {
         if (name == null) {
             throw new IllegalArgumentException("Name is null")
         }
@@ -235,6 +119,7 @@ class ContractUtils(jsonPath: String) extends Serializable {
         }
     }
 
+    override def toString: String = properties.toString()
 }
 
 object ContractUtils {

@@ -6,7 +6,6 @@ import com.cxi.cdp.data_processing.support.normalization.DateNormalization
 import java.time.LocalDate
 
 case class CryptoShreddingConfig(
-    country: String,
     cxiSource: String,
     date: LocalDate,
     runId: String,
@@ -14,7 +13,6 @@ case class CryptoShreddingConfig(
     lookupDestTableName: String,
     workspaceConfigPath: String
 ) {
-    require(country != null && country.trim.nonEmpty, "country should not be empty")
     require(cxiSource != null && cxiSource.trim.nonEmpty, "cxiSource should not be empty")
     require(date != null, "date should not be null")
     require(runId != null && runId.trim.nonEmpty, "runId should not be empty")
