@@ -137,12 +137,12 @@ compileScalastyle := scalastyle.in(Compile).toTask("").value
 jacocoReportSettings := JacocoReportSettings(
   "Jacoco Coverage Report",
   None,
-  JacocoThresholds( instruction = 24.84,
-            method = 13.51,
-            branch = 7.66,
-            complexity = 10.40,
-            line = 36.0,
-            clazz = 35.51),
+  JacocoThresholds(instruction = 38.0,
+            method = 20.0,
+            branch = 11.0,
+            complexity = 16.0,
+            line = 53.0,
+            clazz = 51.0),
   Seq(JacocoReportFormats.ScalaHTML, JacocoReportFormats.XML), "utf-8")
 
 (Compile / runMain) := Defaults.runMainTask(Compile / fullClasspath, runner.in(Compile, run)).evaluated // set correct classpath for runMain

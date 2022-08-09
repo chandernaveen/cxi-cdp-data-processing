@@ -27,6 +27,11 @@ object GeoLocationOverlapJob {
 
     private final val JobConfigPrefix = "jobs.databricks.geo_location_overlap_job.job_config"
 
+    private case class PreFilterConfig(
+        maxDistanceToStore: Double,
+        maxFiltersPerCoordinate: Int
+    )
+
     def main(args: Array[String]): Unit = {
         logger.info(s"""Received following args: ${args.mkString(",")}""")
 
@@ -55,7 +60,10 @@ object GeoLocationOverlapJob {
         val locations = readLocations(locationTable)
         val storeLocationsInMeters = getStoreLocationsInMeters(locations)
 
-        val veraset = readVeraset(verasetTable, dateExpression)
+        val maybePreFilterConfig = getPreFilterConfig(contract)
+        val maybePreFilter = maybePreFilterConfig.map(getPreFilter(storeLocationsInMeters, _))
+
+        val veraset = readVeraset(verasetTable, dateExpression, maybePreFilter)
 
         val geoLocationOverlap = getGeoLocationOverlap(
             horizontalAccuracyMax = horizontalAccuracyMax,
@@ -98,6 +106,26 @@ object GeoLocationOverlapJob {
         s"$db.$table"
     }
 
+    private def getPreFilterConfig(contract: ContractUtils): Option[PreFilterConfig] = {
+        val preFilterConfigKey = s"$JobConfigPrefix.pre_filter_config"
+        contract.getProperty(preFilterConfigKey).map { _ =>
+            PreFilterConfig(
+                maxDistanceToStore = contract.prop[Double](s"$preFilterConfigKey.max_distance_to_store"),
+                maxFiltersPerCoordinate = contract.prop[Int](s"$preFilterConfigKey.max_filters_per_coordinate")
+            )
+        }
+    }
+
+    private def getPreFilter(storeLocationsInMeters: DataFrame, preFilterConfig: PreFilterConfig)(implicit
+        spark: SparkSession
+    ): Column = {
+        GeoLocationOverlapPreFiltering.storeLocationsPreFilter(
+            storeLocationsInMeters = storeLocationsInMeters,
+            maxDistanceToStore = preFilterConfig.maxDistanceToStore,
+            maxFiltersPerCoordinate = preFilterConfig.maxFiltersPerCoordinate
+        )
+    }
+
     private[geo_identity] def readLocations(table: String)(implicit spark: SparkSession): DataFrame = {
         import spark.implicits._
 
@@ -136,10 +164,12 @@ object GeoLocationOverlapJob {
         expr(s"ST_TRANSFORM($columnName, 'epsg:4326', 'epsg:3857')")
     }
 
-    private def readVeraset(verasetDataPath: String, dateFilter: String)(implicit spark: SparkSession): DataFrame = {
+    private def readVeraset(verasetDataPath: String, dateFilter: String, maybePreFilter: Option[Column])(implicit
+        spark: SparkSession
+    ): DataFrame = {
         import spark.implicits._
 
-        spark.read
+        val df = spark.read
             .format("delta")
             .load(verasetDataPath)
             .filter(expr(dateFilter) && ($"advertiser_id_AAID".isNotNull || $"advertiser_id_IDFA".isNotNull))
@@ -152,6 +182,11 @@ object GeoLocationOverlapJob {
                 $"advertiser_id_AAID",
                 $"advertiser_id_IDFA"
             )
+
+        maybePreFilter match {
+            case None => df
+            case Some(preFilter) => df.filter(preFilter)
+        }
     }
 
     private[geo_identity] def getGeoLocationOverlap(
