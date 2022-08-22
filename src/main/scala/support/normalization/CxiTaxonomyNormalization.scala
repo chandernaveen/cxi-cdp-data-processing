@@ -3,7 +3,7 @@ package support.normalization
 
 import refined_zone.hub.model.{OrderStateType, OrderTenderType}
 
-sealed trait CxiTaxonomyNormalization extends Normalization
+trait CxiTaxonomyNormalization extends Normalization
 
 case object OrderTenderTypeNormalization extends CxiTaxonomyNormalization {
 

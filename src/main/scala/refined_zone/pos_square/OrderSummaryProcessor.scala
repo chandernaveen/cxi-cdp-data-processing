@@ -1,15 +1,16 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
-import raw_zone.pos_square.model.{Fulfillment, LineItem, Tender}
-import refined_zone.hub.model.ChannelType
+import raw_zone.pos_square.model.{Fulfillment, LineItem, OrderSource, Tender}
 import refined_zone.pos_square.config.ProcessorConfig
 import refined_zone.pos_square.model.PosSquareOrderStateTypes.PosSquareToCxiOrderStateType
+import refined_zone.pos_square.normalization.OrderChannelTypeNormalization
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.{getSchemaRefinedPath, parsePosSquareDate}
 import support.normalization.udf.MoneyNormalizationUdfs.convertCentsToMoney
+import support.normalization.udf.OrderChannelTypeNormalizationUdfs
 import support.normalization.udf.OrderStateNormalizationUdfs.normalizeOrderState
 
-import org.apache.spark.sql.{Column, DataFrame, Encoders, SparkSession}
+import org.apache.spark.sql.{DataFrame, Encoders, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.DataTypes
 
@@ -34,6 +35,7 @@ object OrderSummaryProcessor {
     def readOrderSummary(spark: SparkSession, date: String, dbName: String, table: String): DataFrame = {
         spark.sql(s"""
                |SELECT
+               |get_json_object(record_value, "$$.source") as ord_source,
                |get_json_object(record_value, "$$.id") as ord_id,
                |get_json_object(record_value, "$$.total_money.amount") as ord_total,
                |get_json_object(record_value, "$$.total_discount_money.amount") as discount_amount,
@@ -63,6 +65,7 @@ object OrderSummaryProcessor {
         cxiIdentityIdsByOrder: DataFrame
     ): DataFrame = {
         orderSummary
+            .withColumn("ord_source", from_json(col("ord_source"), Encoders.product[OrderSource].schema))
             .withColumn("cxi_partner_id", lit(cxiPartnerId))
             .withColumn("ord_desc", lit(null))
             .withColumn("ord_total", convertCentsToMoney("ord_total"))
@@ -73,8 +76,14 @@ object OrderSummaryProcessor {
                 "fulfillments",
                 from_json(col("fulfillments"), DataTypes.createArrayType(Encoders.product[Fulfillment].schema))
             )
-            .withColumn("ord_target_channel_id", getOrdTargetChannelId(col("fulfillments")))
-            .withColumn("ord_originate_channel_id", getOrdOriginateChannelId())
+            .withColumn(
+                "ord_originate_channel_id",
+                normalizeOrderOriginateChannelTypeUdf(col("ord_source"))
+            )
+            .withColumn(
+                "ord_target_channel_id",
+                normalizeOrderTargetChannelTypeUdf(col("ord_source"), col("fulfillments"))
+            )
             .withColumn("line_id", lit(null))
             .withColumn("emp_id", lit(null))
             .withColumn("dsp_qty", lit(null))
@@ -155,25 +164,13 @@ object OrderSummaryProcessor {
             .dropDuplicates("cxi_partner_id", "location_id", "ord_id", "ord_date", "item_id")
     }
 
-    val getOrdTargetChannelId = udf((fulfillments: Option[Seq[Fulfillment]]) => {
-        val (completedFulfillments, otherFulfillments) = fulfillments
-            .getOrElse(Seq.empty[Fulfillment])
-            .partition(_.state == Fulfillment.State.Completed)
+    val normalizeOrderOriginateChannelTypeUdf = OrderChannelTypeNormalizationUdfs.normalizeOrderChannelType(
+        OrderChannelTypeNormalization.normalizeOrderOriginateChannelType _
+    )
 
-        // prefer (non-null) type from COMPLETED fulfillments
-        val fulfillmentType = (completedFulfillments ++ otherFulfillments)
-            .flatMap(fulfillment => Option(fulfillment.`type`))
-            .headOption
-
-        fulfillmentType match {
-            case Some(Fulfillment.Type.Pickup) => ChannelType.PhysicalPickup.code
-            case _ => ChannelType.Unknown.code
-        }
-    })
-
-    def getOrdOriginateChannelId(): Column = {
-        lit(ChannelType.PhysicalLane.code)
-    }
+    val normalizeOrderTargetChannelTypeUdf = OrderChannelTypeNormalizationUdfs.normalizeOrderChannelType(
+        OrderChannelTypeNormalization.normalizeOrderTargetChannelType _
+    )
 
     def writeOrderSummary(df: DataFrame, cxiPartnerId: String, destTable: String): Unit = {
         val srcTable = "newOrderSummary"

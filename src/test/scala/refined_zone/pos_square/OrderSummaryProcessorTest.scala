@@ -1,8 +1,9 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
-import raw_zone.pos_square.model.{Fulfillment, PickupDetails}
-import refined_zone.hub.model.{ChannelType, OrderStateType}
+import raw_zone.pos_square.model.{Fulfillment, OrderSource, PickupDetails}
+import raw_zone.pos_square.model.Fulfillment.{State, Type}
+import refined_zone.hub.model.{OrderChannelType, OrderStateType}
 import support.normalization.DateNormalization
 import support.normalization.DateNormalization.parseToSqlDate
 import support.BaseSparkBatchJobTest
@@ -21,65 +22,6 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
 
     import spark.implicits._
     import OrderSummaryProcessorTest._
-
-    test("getOrdTargetChannelId") {
-        import Fulfillment.{State, Type}
-        import spark.implicits._
-
-        val protoFulfillment = Fulfillment(pickup_details = PickupDetails(note = "a note"), state = "FL")
-        val unknownType = "some unknown type"
-
-        val inputDF = List[OrdTargetChannelIdTestCase](
-            OrdTargetChannelIdTestCase(fulfillments = null, expectedOrdTargetChannelId = ChannelType.Unknown.code),
-            OrdTargetChannelIdTestCase(fulfillments = Seq(), expectedOrdTargetChannelId = ChannelType.Unknown.code),
-            OrdTargetChannelIdTestCase(
-                fulfillments = Seq(protoFulfillment.copy(`type` = Type.Pickup)),
-                expectedOrdTargetChannelId = ChannelType.PhysicalPickup.code
-            ),
-
-            // prefer COMPLETED fulfillment
-            OrdTargetChannelIdTestCase(
-                fulfillments = Seq(
-                    protoFulfillment.copy(`type` = unknownType, state = State.Proposed),
-                    protoFulfillment.copy(`type` = Type.Pickup, state = State.Completed)
-                ),
-                expectedOrdTargetChannelId = ChannelType.PhysicalPickup.code
-            ),
-
-            // COMPLETED fulfillment has null type, so ignore it
-            OrdTargetChannelIdTestCase(
-                fulfillments = Seq(
-                    protoFulfillment.copy(`type` = null, state = State.Completed),
-                    protoFulfillment.copy(`type` = Type.Pickup, state = State.Proposed)
-                ),
-                expectedOrdTargetChannelId = ChannelType.PhysicalPickup.code
-            ),
-            OrdTargetChannelIdTestCase(
-                fulfillments = Seq(
-                    protoFulfillment.copy(`type` = unknownType, state = State.Completed),
-                    protoFulfillment.copy(`type` = Type.Pickup, state = State.Proposed)
-                ),
-                expectedOrdTargetChannelId = ChannelType.Unknown.code
-            ),
-            OrdTargetChannelIdTestCase(
-                fulfillments = Seq(protoFulfillment.copy(`type` = unknownType)),
-                expectedOrdTargetChannelId = ChannelType.Unknown.code
-            )
-        ).toDS
-
-        val results = inputDF
-            .withColumn("actualOrdTargetChannelId", OrderSummaryProcessor.getOrdTargetChannelId(col("fulfillments")))
-            .collect
-
-        results.foreach { result =>
-            val fulfillments = result.getAs[Seq[Fulfillment]]("fulfillments")
-            val expectedOrdTargetChannelId = result.getAs[Int]("expectedOrdTargetChannelId")
-            val actualOrdTargetChannelId = result.getAs[Int]("actualOrdTargetChannelId")
-            withClue(s"actual channel type id does not match for fulfillments: $fulfillments") {
-                actualOrdTargetChannelId shouldBe expectedOrdTargetChannelId
-            }
-        }
-    }
 
     test("testRead") {
         import spark.implicits._
@@ -126,6 +68,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
                 dateNow,
                 """
                   {
+                    "source": {"name": "Ubereats"},
                     "id": "orderId2",
                     "created_at": "2022-07-05T12:42Z",
                     "closed_at": null,
@@ -169,6 +112,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
         val actualFieldsReturned = orderSummaryActual.schema.fields.map(f => f.name)
         withClue("Actual fields returned:\n" + orderSummaryActual.schema.treeString) {
             actualFieldsReturned shouldEqual Array(
+                "ord_source",
                 "ord_id",
                 "ord_total",
                 "discount_amount",
@@ -192,6 +136,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
         withClue("read JSON order summary does not match") {
             val expected = List(
                 (
+                    null,
                     "orderId1",
                     "224",
                     "1",
@@ -210,6 +155,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
                     "{'id':42}"
                 ),
                 (
+                    """{"name":"Ubereats"}""",
                     "orderId2",
                     "45",
                     "1",
@@ -228,6 +174,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
                     "{'id':17}"
                 )
             ).toDF(
+                "ord_source",
                 "ord_id",
                 "ord_total",
                 "discount_amount",
@@ -247,9 +194,9 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
             ).collect()
             actualSquareLocationsData.length should equal(expected.length)
             actualSquareLocationsData should contain theSameElementsAs expected
-
         }
     }
+
     test("testTransform With Close Date missed") {
         import spark.implicits._
         // given
@@ -557,6 +504,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
 
         val orderSummary = Seq(
             (
+                """{"name": "Ubereats"}""",
                 "ord_1",
                 "100",
                 "5",
@@ -575,6 +523,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
                 tenders
             )
         ).toDF(
+            "ord_source",
             "ord_id",
             "ord_total",
             "discount_amount",
@@ -614,8 +563,8 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
                 "loc_1",
                 OrderStateType.Completed.code,
                 null,
-                1,
-                0,
+                OrderChannelType.DigitalApp.code,
+                OrderChannelType.PhysicalDelivery.code,
                 "1",
                 BigDecimal(11.61),
                 null,
@@ -688,6 +637,173 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest with Matchers {
         }
     }
 
+    test("normalizeOrderOriginateChannelTypeUdf") {
+        // given
+        val testCaseDF = Seq(
+            (null, OrderChannelType.PhysicalLane.code),
+            (OrderSource(name = null), OrderChannelType.PhysicalLane.code),
+            (OrderSource(name = ""), OrderChannelType.PhysicalLane.code),
+            (OrderSource(name = "Popmenu"), OrderChannelType.DigitalWeb.code),
+            (OrderSource(name = "Popmenu 123"), OrderChannelType.DigitalWeb.code),
+            (OrderSource(name = "Doordash"), OrderChannelType.DigitalApp.code),
+            (OrderSource(name = "Doordash 456"), OrderChannelType.DigitalApp.code),
+            (OrderSource(name = "Ubereats"), OrderChannelType.DigitalApp.code),
+            (OrderSource(name = "Ubereats 7"), OrderChannelType.DigitalApp.code),
+            (OrderSource(name = "Grubhubweb"), OrderChannelType.DigitalApp.code),
+            (OrderSource(name = "Grubhubweb 890"), OrderChannelType.DigitalApp.code),
+            (OrderSource(name = "Square Online"), OrderChannelType.DigitalWeb.code),
+            (OrderSource(name = "Square Online 111"), OrderChannelType.DigitalWeb.code),
+            (OrderSource(name = "Unknown name"), OrderChannelType.PhysicalLane.code)
+        )
+            .toDF("ord_source", "expected_ord_originate_channel_id")
+
+        val inputDF = testCaseDF.select("ord_source")
+
+        // when
+        val actual = inputDF
+            .withColumn(
+                "ord_originate_channel_id",
+                OrderSummaryProcessor.normalizeOrderOriginateChannelTypeUdf(col("ord_source"))
+            )
+
+        // then
+        val expected = testCaseDF.withColumnRenamed("expected_ord_originate_channel_id", "ord_originate_channel_id")
+
+        expected.schema.fieldNames shouldBe actual.schema.fieldNames
+        assertDataFrameDataEquals(expected, actual)
+    }
+
+    test("normalizeOrderTargetChannelTypeUdf") {
+        // given
+        val protoFulfillment = Fulfillment(pickup_details = PickupDetails(note = "a note"), state = "FL")
+        val pickupFulfillments = Seq(
+            protoFulfillment.copy(`type` = "some unknown type", state = State.Proposed),
+            protoFulfillment.copy(`type` = Type.Pickup, state = State.Completed)
+        )
+        val unknownFulfillments = Seq(
+            protoFulfillment.copy(`type` = "some unknown type", state = State.Completed),
+            protoFulfillment.copy(`type` = Type.Pickup, state = State.Proposed)
+        )
+
+        // target channel type can be devised from order source; fulfillments do not matter
+        def testCasesForPhysicalDelivery(orderSourceNamePrefix: String): Seq[TargetChannelTypeTestCase] = Seq(
+            TargetChannelTypeTestCase(
+                orderSource = OrderSource(name = orderSourceNamePrefix),
+                fulfillments = null,
+                expectedOrderChannelTypeCode = OrderChannelType.PhysicalDelivery.code
+            ),
+            TargetChannelTypeTestCase(
+                orderSource = OrderSource(name = s"$orderSourceNamePrefix 123"),
+                fulfillments = Seq.empty[Fulfillment],
+                expectedOrderChannelTypeCode = OrderChannelType.PhysicalDelivery.code
+            ),
+            TargetChannelTypeTestCase(
+                orderSource = OrderSource(name = s"$orderSourceNamePrefix 456"),
+                fulfillments = pickupFulfillments,
+                expectedOrderChannelTypeCode = OrderChannelType.PhysicalDelivery.code
+            ),
+            TargetChannelTypeTestCase(
+                orderSource = OrderSource(name = s"$orderSourceNamePrefix 7"),
+                fulfillments = unknownFulfillments,
+                expectedOrderChannelTypeCode = OrderChannelType.PhysicalDelivery.code
+            )
+        )
+
+        // target channel type can *not* be devised from order source; devise it from fulfillments
+        def testCasesForPickupFulfillment(fulfillments: Seq[Fulfillment]): Seq[TargetChannelTypeTestCase] = Seq(
+            TargetChannelTypeTestCase(
+                orderSource = null,
+                fulfillments = fulfillments,
+                expectedOrderChannelTypeCode = OrderChannelType.PhysicalPickup.code
+            ),
+            TargetChannelTypeTestCase(
+                orderSource = OrderSource(name = null),
+                fulfillments = fulfillments,
+                expectedOrderChannelTypeCode = OrderChannelType.PhysicalPickup.code
+            ),
+            TargetChannelTypeTestCase(
+                orderSource = OrderSource(name = "Unknown order"),
+                fulfillments = fulfillments,
+                expectedOrderChannelTypeCode = OrderChannelType.PhysicalPickup.code
+            )
+        )
+
+        val physicalDeliveryTestCases: Seq[TargetChannelTypeTestCase] = Seq(
+            OrderSource.SourceNamePrefix.Doordash,
+            OrderSource.SourceNamePrefix.Popmenu,
+            OrderSource.SourceNamePrefix.Ubereats,
+            OrderSource.SourceNamePrefix.Grubhubweb,
+            OrderSource.SourceNamePrefix.SquareOnline
+        )
+            .flatMap(testCasesForPhysicalDelivery _)
+
+        val pickupFulfillmentTestCases: Seq[TargetChannelTypeTestCase] = Seq(
+            Seq(protoFulfillment.copy(`type` = Type.Pickup, state = State.Proposed)),
+            Seq(protoFulfillment.copy(`type` = Type.Pickup, state = State.Completed)),
+            pickupFulfillments
+        )
+            .flatMap(testCasesForPickupFulfillment _)
+
+        // target channel type can *not* be devised from neither order source nor fulfillments; fall back to Unknown
+        val unknownTestCases: Seq[TargetChannelTypeTestCase] = Seq(
+            TargetChannelTypeTestCase(
+                orderSource = null,
+                fulfillments = null,
+                expectedOrderChannelTypeCode = OrderChannelType.Unknown.code
+            ),
+            TargetChannelTypeTestCase(
+                orderSource = null,
+                fulfillments = Seq.empty[Fulfillment],
+                expectedOrderChannelTypeCode = OrderChannelType.Unknown.code
+            ),
+            TargetChannelTypeTestCase(
+                orderSource = OrderSource(name = null),
+                fulfillments = null,
+                expectedOrderChannelTypeCode = OrderChannelType.Unknown.code
+            ),
+            TargetChannelTypeTestCase(
+                orderSource = OrderSource(name = "Unknown source"),
+                fulfillments = Seq.empty[Fulfillment],
+                expectedOrderChannelTypeCode = OrderChannelType.Unknown.code
+            ),
+            TargetChannelTypeTestCase(
+                orderSource = null,
+                fulfillments = unknownFulfillments,
+                expectedOrderChannelTypeCode = OrderChannelType.Unknown.code
+            ),
+            TargetChannelTypeTestCase(
+                orderSource = OrderSource(name = null),
+                fulfillments = unknownFulfillments,
+                expectedOrderChannelTypeCode = OrderChannelType.Unknown.code
+            ),
+            TargetChannelTypeTestCase(
+                orderSource = OrderSource(name = "Unknown source"),
+                fulfillments = unknownFulfillments,
+                expectedOrderChannelTypeCode = OrderChannelType.Unknown.code
+            )
+        )
+
+        val testCases = physicalDeliveryTestCases ++ pickupFulfillmentTestCases ++ unknownTestCases
+
+        val testCaseDF = testCases.toDF("ord_source", "fulfillments", "expected_ord_target_channel_id")
+
+        val inputDF = testCaseDF
+            .select("ord_source", "fulfillments")
+
+        // when
+        val actual = inputDF
+            .withColumn(
+                "ord_target_channel_id",
+                OrderSummaryProcessor.normalizeOrderTargetChannelTypeUdf(col("ord_source"), col("fulfillments"))
+            )
+
+        // then
+        val expected = testCaseDF.withColumnRenamed("expected_ord_target_channel_id", "ord_target_channel_id")
+
+        expected.schema.fieldNames shouldBe actual.schema.fieldNames
+        assertDataFrameDataEquals(expected, actual)
+    }
+
 }
 
 object OrderSummaryProcessorTest {
@@ -754,4 +870,11 @@ object OrderSummaryProcessorTest {
     case class RawDataEmulator(feed_date: String, record_value: String, record_type: String = "orders")
 
     case class IdentityTestData(ord_id: String)
+
+    case class TargetChannelTypeTestCase(
+        orderSource: OrderSource,
+        fulfillments: Seq[Fulfillment],
+        expectedOrderChannelTypeCode: Int
+    )
+
 }
