@@ -1,6 +1,7 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
+import refined_zone.hub.model.LocationType
 import support.BaseSparkBatchJobTest
 
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal}
@@ -245,7 +246,7 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
                 (
                     "98765",
                     "L0P0DJ340FXF0",
-                    1,
+                    LocationType.Restaurant.code,
                     1,
                     null,
                     null,
@@ -269,7 +270,7 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
                 (
                     null,
                     "ACA0DJ910FPO1",
-                    6,
+                    LocationType.Mobile.code,
                     0,
                     null,
                     null,
@@ -293,7 +294,7 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
                 (
                     null,
                     "PQW0DJ340ALS0",
-                    0,
+                    LocationType.Other.code,
                     1,
                     null,
                     null,

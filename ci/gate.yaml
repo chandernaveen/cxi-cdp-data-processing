@@ -8,7 +8,7 @@ variables:
 stages:
 - stage: PR_checks
   pool:
-     vmimage: ubuntu-18.04
+     vmimage: ubuntu-latest
   jobs:
     - job: run_tests_and_build
       steps:

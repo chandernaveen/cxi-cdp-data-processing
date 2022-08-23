@@ -1,13 +1,14 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_square
 
-import com.cxi.cdp.data_processing.support.normalization.udf.LocationNormalizationUdfs.normalizeZipCode
+import refined_zone.hub.model.LocationType
 import refined_zone.pos_square.config.ProcessorConfig
 import refined_zone.pos_square.RawRefinedSquarePartnerJob.{
     getSchemaRefinedHubPath,
     getSchemaRefinedPath,
     parsePosSquareTimestamp
 }
+import support.normalization.udf.LocationNormalizationUdfs.normalizeZipCode
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
@@ -69,11 +70,10 @@ object LocationsProcessor {
             .withColumn("active_flg", when(col("active_flg") === "ACTIVE", 1).otherwise(0))
             .withColumn(
                 "location_type",
-                when(upper(col("location_type")) === "PHYSICAL", 1)
-                    .otherwise(
-                        when(upper(col("location_type")) === "MOBILE", 6)
-                            .otherwise(0)
-                    )
+                when(upper(col("location_type")) === "PHYSICAL", lit(LocationType.Restaurant.code))
+                    .when(upper(col("location_type")) === "MOBILE", lit(LocationType.Mobile.code))
+                    .when(col("location_type").isNotNull, lit(LocationType.Other.code))
+                    .otherwise(lit(LocationType.Unknown.code))
             )
             .withColumn("address_2", lit(null))
             .withColumn("fax", lit(null))

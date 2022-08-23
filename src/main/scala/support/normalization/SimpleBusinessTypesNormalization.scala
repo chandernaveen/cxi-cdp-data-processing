@@ -33,7 +33,7 @@ case object DateNormalization extends SimpleBusinessTypesNormalization {
             Some(java.sql.Date.valueOf(parseToLocalDate(date, pattern)))
         } catch {
             case _: Exception =>
-                logger.warn(s"Cannot parse to sqlDate: '$date'")
+                logger.warn(s"Cannot parse to sqlDate: '$date' with pattern '$pattern'")
                 None
         }
     }
@@ -58,7 +58,7 @@ case object TimestampNormalization extends SimpleBusinessTypesNormalization {
             Some(Timestamp.from(instant))
         } catch {
             case _: RuntimeException =>
-                logger.warn(s"Cannot parse to timestamp: '$timestamp'")
+                logger.warn(s"Cannot parse to timestamp: '$timestamp' with pattern '$pattern'")
                 None
         }
     }

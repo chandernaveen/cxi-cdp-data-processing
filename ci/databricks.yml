@@ -20,7 +20,7 @@ name: $(versionNumber)
 stages:
 - stage: Build
   pool:
-     vmimage: ubuntu-18.04
+     vmimage: ubuntu-latest
   jobs:
     - job: run_tests_and_build
       steps:

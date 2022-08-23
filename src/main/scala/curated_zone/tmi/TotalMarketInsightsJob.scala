@@ -1,7 +1,7 @@
 package com.cxi.cdp.data_processing
 package curated_zone.tmi
 
-import refined_zone.hub.model.OrderStateType
+import refined_zone.hub.model.{LocationType, OrderStateType}
 import refined_zone.hub.ChangeDataFeedViews
 import support.utils.mongodb.MongoDbConfigUtils
 import support.utils.mongodb.MongoDbConfigUtils.MongoSparkConnectorClass
@@ -163,17 +163,8 @@ object TotalMarketInsightsJob {
             )
     }
 
-    // scalastyle:off magic.number
     def getLocationType(locationTypeCode: Int): String = {
-        locationTypeCode match {
-            case 1 => "Restaurant"
-            case 2 => "C-Store"
-            case 3 => "Hotel"
-            case 4 => "Bar"
-            case 5 => "Website"
-            case 6 => "Mobile"
-            case _ => "Unknown"
-        }
+        LocationType.withValueOpt(locationTypeCode).getOrElse(LocationType.Unknown).name
     }
 
     def computePartnerMarketInsights(orderSummary: DataFrame): DataFrame = {

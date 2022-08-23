@@ -4,7 +4,7 @@ package support.normalization.udf
 import support.normalization._
 
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.functions.{col, to_date, to_timestamp, udf}
 import org.apache.spark.sql.Column
 
 sealed trait SimpleBusinessTypesNormalizationUdfs extends NormalizationUdfs
@@ -21,6 +21,12 @@ case object TimestampNormalizationUdfs extends SimpleBusinessTypesNormalizationU
       */
     def parseToTimestampWithPattern: UserDefinedFunction =
         udf((value: String, pattern: Option[String]) => TimestampNormalization.parseToTimestamp(value, pattern))
+
+    /** Converts a column to timestamp data type column with ability to provide the format as well.
+      */
+    def parseToTimestamp(col: Column, format: String = null): Column = {
+        Option(format).map(f => to_timestamp(col, f)).getOrElse(to_timestamp(col))
+    }
 }
 
 case object DateNormalizationUdfs extends SimpleBusinessTypesNormalizationUdfs {
@@ -33,6 +39,13 @@ case object DateNormalizationUdfs extends SimpleBusinessTypesNormalizationUdfs {
       */
     def parseToSqlDateWithPattern: UserDefinedFunction =
         udf((value: String, pattern: String) => DateNormalization.parseToSqlDate(value, pattern))
+
+    /** Converts a column to date data type with ability to provide the format as well.
+      * For example allows converting timestamp data type columns.
+      */
+    def parseToSqlDate(col: Column, format: String = null): Column = {
+        Option(format).map(f => to_date(col, f)).getOrElse(to_date(col))
+    }
 }
 
 case object LocationNormalizationUdfs extends SimpleBusinessTypesNormalizationUdfs {
