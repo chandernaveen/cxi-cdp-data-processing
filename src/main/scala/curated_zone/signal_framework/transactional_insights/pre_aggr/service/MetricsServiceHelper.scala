@@ -3,7 +3,7 @@ package curated_zone.signal_framework.transactional_insights.pre_aggr.service
 
 import curated_zone.model.signal.transactional_insights._
 import curated_zone.model.signal.SignalDomain
-import refined_zone.hub.model.OrderTenderType
+import refined_zone.hub.model.{OrderChannelType, OrderTenderType}
 
 import org.apache.log4j.Logger
 import org.apache.spark.sql.functions.udf
@@ -20,11 +20,43 @@ private[pre_aggr] object MetricsServiceHelper {
         maybeHour.map(hour => TimeOfDayMetric.fromHour(hour).signalName)
     })
 
-    val channelCodeToChannelMetricUdf = udf((maybeChannelTypeCode: Option[Int]) => {
-        for {
-            channelTypeCode <- maybeChannelTypeCode
-            channelMetric <- ChannelMetric.fromChannelTypeCode(channelTypeCode)
-        } yield channelMetric.signalName
+    def channelMetric(
+        ordOriginateChannelType: OrderChannelType,
+        ordTargetChannelType: OrderChannelType
+    ): ChannelMetric = {
+        import OrderChannelType._
+
+        (ordOriginateChannelType, ordTargetChannelType) match {
+
+            case (res @ (PhysicalLane | PhysicalKiosk), Unknown | Other) =>
+                ChannelMetric.fromChannelType(res)
+
+            case (
+                    Unknown | Other | PhysicalLane | PhysicalKiosk | DigitalWeb | DigitalApp,
+                    res @ (PhysicalLane | PhysicalKiosk | PhysicalPickup | PhysicalDelivery)
+                ) =>
+                ChannelMetric.fromChannelType(res)
+
+            case (DigitalWeb | DigitalApp, Unknown | Other) =>
+                ChannelMetric.PhysicalDelivery
+
+            case _ => ChannelMetric.Unknown
+
+        }
+    }
+
+    val channelMetricUdf = udf((maybeOrdOriginateChannelId: Option[Int], maybeOrdTargetChannelId: Option[Int]) => {
+        val maybeChannelMetric = for {
+            ordOriginateChannelId <- maybeOrdOriginateChannelId
+            ordOriginateChannelType <- OrderChannelType.withValueOpt(ordOriginateChannelId)
+
+            ordTargetChannelId <- maybeOrdTargetChannelId
+            ordTargetChannelType <- OrderChannelType.withValueOpt(ordTargetChannelId)
+        } yield channelMetric(ordOriginateChannelType, ordTargetChannelType)
+
+        maybeChannelMetric
+            .getOrElse(ChannelMetric.Unknown)
+            .signalName
     })
 
     /** Creates tender type metric from a CXI tender type value.

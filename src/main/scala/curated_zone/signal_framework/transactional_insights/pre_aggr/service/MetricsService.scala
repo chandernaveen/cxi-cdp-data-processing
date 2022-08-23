@@ -34,7 +34,8 @@ private[pre_aggr] object MetricsService {
 
     def addChannelMetrics(orderSummary: DataFrame): DataFrame = {
         orderSummary.convertSignalValuesToMetrics(
-            signalColumn = MetricsServiceHelper.channelCodeToChannelMetricUdf(col("ord_target_channel_id")),
+            signalColumn =
+                MetricsServiceHelper.channelMetricUdf(col("ord_originate_channel_id"), col("ord_target_channel_id")),
             signalDomain = ChannelMetric
         )
     }

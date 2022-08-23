@@ -82,34 +82,32 @@ class MetricsServiceTest extends BaseSparkBatchJobTest with Matchers {
 
     test("addChannelMetrics") {
         // given
-        import com.cxi.cdp.data_processing.curated_zone.model.signal.transactional_insights.ChannelMetric._
         import spark.implicits._
+        import com.cxi.cdp.data_processing.refined_zone.hub.model.OrderChannelType._
+        import com.cxi.cdp.data_processing.curated_zone.model.signal.transactional_insights.ChannelMetric
 
         val expected = List(
-            ("0", Some(0), 1L, 0L, 0L, 0L, 0L, 0L, 0L, 0L),
-            ("1", Some(1), 0L, 1L, 0L, 0L, 0L, 0L, 0L, 0L),
-            ("2", Some(2), 0L, 0L, 1L, 0L, 0L, 0L, 0L, 0L),
-            ("3", Some(3), 0L, 0L, 0L, 1L, 0L, 0L, 0L, 0L),
-            ("4", Some(4), 0L, 0L, 0L, 0L, 1L, 0L, 0L, 0L),
-            ("5", Some(5), 0L, 0L, 0L, 0L, 0L, 1L, 0L, 0L),
-            ("6", Some(6), 0L, 0L, 0L, 0L, 0L, 0L, 1L, 0L),
-            ("7", Some(99), 0L, 0L, 0L, 0L, 0L, 0L, 0L, 1L),
-            ("8", Some(-42), 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L),
-            ("9", None, 0L, 0L, 0L, 0L, 0L, 0L, 0L, 0L)
+            ("0", None, None, 1L, 0L, 0L, 0L, 0L, 0L, 0L, 0L),
+            ("0", Some(Unknown.code), Some(Other.code), 1L, 0L, 0L, 0L, 0L, 0L, 0L, 0L),
+            ("1", Some(Unknown.code), Some(PhysicalLane.code), 0L, 1L, 0L, 0L, 0L, 0L, 0L, 0L),
+            ("2", Some(Other.code), Some(PhysicalKiosk.code), 0L, 0L, 1L, 0L, 0L, 0L, 0L, 0L),
+            ("3", Some(Unknown.code), Some(PhysicalPickup.code), 0L, 0L, 0L, 1L, 0L, 0L, 0L, 0L),
+            ("4", Some(Other.code), Some(PhysicalDelivery.code), 0L, 0L, 0L, 0L, 1L, 0L, 0L, 0L)
         ).toDF(
             "ord_id",
+            "ord_originate_channel_id",
             "ord_target_channel_id",
-            metricColumnName(signalDomainName, Unknown.signalName),
-            metricColumnName(signalDomainName, PhysicalLane.signalName),
-            metricColumnName(signalDomainName, PhysicalKiosk.signalName),
-            metricColumnName(signalDomainName, PhysicalPickup.signalName),
-            metricColumnName(signalDomainName, PhysicalDelivery.signalName),
-            metricColumnName(signalDomainName, DigitalWeb.signalName),
-            metricColumnName(signalDomainName, DigitalApp.signalName),
-            metricColumnName(signalDomainName, Other.signalName)
+            metricColumnName(ChannelMetric.signalDomainName, ChannelMetric.Unknown.signalName),
+            metricColumnName(ChannelMetric.signalDomainName, ChannelMetric.PhysicalLane.signalName),
+            metricColumnName(ChannelMetric.signalDomainName, ChannelMetric.PhysicalKiosk.signalName),
+            metricColumnName(ChannelMetric.signalDomainName, ChannelMetric.PhysicalPickup.signalName),
+            metricColumnName(ChannelMetric.signalDomainName, ChannelMetric.PhysicalDelivery.signalName),
+            metricColumnName(ChannelMetric.signalDomainName, ChannelMetric.DigitalWeb.signalName),
+            metricColumnName(ChannelMetric.signalDomainName, ChannelMetric.DigitalApp.signalName),
+            metricColumnName(ChannelMetric.signalDomainName, ChannelMetric.Other.signalName)
         )
 
-        val orderSummary = expected.select("ord_id", "ord_target_channel_id")
+        val orderSummary = expected.select("ord_id", "ord_originate_channel_id", "ord_target_channel_id")
 
         // when
         val actual = addChannelMetrics(orderSummary)

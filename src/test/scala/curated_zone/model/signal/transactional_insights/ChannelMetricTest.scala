@@ -7,9 +7,9 @@ import org.scalatest.{FunSuite, Matchers}
 
 class ChannelMetricTest extends FunSuite with Matchers {
 
-    test("a specific ChannelMetric should be defined for every ChannelType") {
+    test("a specific ChannelMetric should be defined for every OrderChannelType") {
         OrderChannelType.values.foreach { channelType =>
-            withClue(s"checking ChannelMetric for ChannelType $channelType") {
+            withClue(s"checking ChannelMetric for OrderChannelType $channelType") {
                 noException should be thrownBy ChannelMetric.fromChannelType(channelType)
             }
         }

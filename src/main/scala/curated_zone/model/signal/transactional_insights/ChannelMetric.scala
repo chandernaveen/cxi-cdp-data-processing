@@ -11,6 +11,7 @@ sealed abstract class ChannelMetric(
     val orderChannelType: OrderChannelType
 ) extends StringEnumEntry
     with Signal
+    with Product
     with Serializable {
     override def signalName: String = value
 }

@@ -6,6 +6,7 @@ import enumeratum.values._
 sealed abstract class OrderChannelType(val value: Int, val name: String)
     extends IntEnumEntry
     with CxiTaxonomy
+    with Product
     with Serializable {
     def code: Int = value
 }
