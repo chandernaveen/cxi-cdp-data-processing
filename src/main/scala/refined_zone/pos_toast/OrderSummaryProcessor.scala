@@ -19,6 +19,7 @@ import support.WorkspaceConfigReader
 import org.apache.spark.sql.{DataFrame, Encoders, SparkSession}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.{DataTypes, StringType}
 
 object OrderSummaryProcessor {
     def process(
@@ -104,9 +105,13 @@ object OrderSummaryProcessor {
             .withColumn("ord_pay_total", col("ord_total"))
             .withColumn(
                 "discount_amount",
-                expr(
-                    """AGGREGATE(check.appliedDiscounts, 0.0d, (accumulator, item) -> accumulator + cast(item.discountAmount as double))"""
-                )
+                if (columnDataTypeIsArrayOfStrings(orderSummary, "check.appliedDiscounts")) {
+                    lit(0d)
+                } else {
+                    expr(
+                        """AGGREGATE(check.appliedDiscounts, 0.0d, (accumulator, item) -> accumulator + cast(item.discountAmount as double))"""
+                    )
+                }
             )
             .withColumn("ord_type", lit(null))
             .withColumn("line_id", lit(null))
@@ -129,16 +134,24 @@ object OrderSummaryProcessor {
             .withColumn("ord_date", parseToSqlDate(col("ord_timestamp")))
             .withColumn(
                 "service_charge_amount",
-                expr(
-                    """AGGREGATE(check.appliedServiceCharges, 0.0d, (accumulator, item) -> accumulator + cast(item.chargeAmount as double))"""
-                )
+                if (columnDataTypeIsArrayOfStrings(orderSummary, "check.appliedServiceCharges")) {
+                    lit(0d)
+                } else {
+                    expr(
+                        """AGGREGATE(check.appliedServiceCharges, 0.0d, (accumulator, item) -> accumulator + cast(item.chargeAmount as double))"""
+                    )
+                }
             )
             .withColumn("total_taxes_amount", $"check.taxAmount")
             .withColumn(
                 "total_tip_amount",
-                expr(
-                    """AGGREGATE(check.payments, 0.0d, (accumulator, item) -> accumulator + cast(item.tipAmount as double))"""
-                )
+                if (columnDataTypeIsArrayOfStrings(orderSummary, "check.payments")) {
+                    lit(0d)
+                } else {
+                    expr(
+                        """AGGREGATE(check.payments, 0.0d, (accumulator, item) -> accumulator + cast(item.tipAmount as double))"""
+                    )
+                }
             )
             .withColumn(
                 "ord_sub_total",
@@ -208,6 +221,16 @@ object OrderSummaryProcessor {
                 "item_id",
                 "guest_check_line_item_id"
             )
+    }
+
+    /** @return true, when column data type is an array of strings.
+      *         String is the default array element type when size(array_column_name) == 0 for all values of that column in the data frame.
+      */
+    private def columnDataTypeIsArrayOfStrings(df: DataFrame, colName: String): Boolean = {
+        df.select(col(colName).as("array_col")).schema("array_col").dataType == DataTypes.createArrayType(
+            StringType,
+            true
+        )
     }
 
     private def channelTypeNormalizationUdf(mapping: Map[String, OrderChannelType]): UserDefinedFunction = {
