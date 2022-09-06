@@ -17,6 +17,14 @@ class PrivacyFunctions(spark: SparkSession, workspaceConfig: WorkspaceConfig) {
         spark.conf.unset(getAdlsStorageAccountKey(storageAccount))
     }
 
+    private def authorizedContextExists: Boolean = {
+        spark.conf.getOption(getAdlsStorageAccountKey(storageAccount)) match {
+            case Some(value) => value.equals(getSparkConfStorageAccountValue)
+            case _ => false
+        }
+
+    }
+
     private def getAdlsStorageAccountKey(storageAccount: String): String =
         s"fs.azure.account.key.$storageAccount.dfs.core.windows.net"
 
@@ -30,15 +38,22 @@ object PrivacyFunctions {
       * allowing it to access restricted data such as the privacy lookup table.
       *
       * Ensures that authorization settings are unset in case of a failure.
+      * Does not set/unset authorization settings if authorized context is already exists.
       */
     def inAuthorizedContext[T](spark: SparkSession, workspaceConfig: WorkspaceConfig)(body: => T): T = {
         val privacyFunctions = new PrivacyFunctions(spark, workspaceConfig)
-        try {
-            privacyFunctions.authorize()
+
+        if (privacyFunctions.authorizedContextExists) {
             body
-        } finally {
-            privacyFunctions.unauthorize()
+        } else {
+            try {
+                privacyFunctions.authorize()
+                body
+            } finally {
+                privacyFunctions.unauthorize()
+            }
         }
+
     }
 
 }

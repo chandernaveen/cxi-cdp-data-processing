@@ -7,6 +7,8 @@ import support.normalization.{OrderStateNormalization, OrderTenderTypeNormalizat
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.udf
 
+import scala.reflect.runtime.universe.TypeTag
+
 trait CxiTaxonomyNormalizationUdfs extends NormalizationUdfs
 
 case object OrderTenderTypeNormalizationUdfs extends CxiTaxonomyNormalizationUdfs {
@@ -16,6 +18,14 @@ case object OrderTenderTypeNormalizationUdfs extends CxiTaxonomyNormalizationUdf
             OrderTenderTypeNormalization
                 .normalizeOrderTenderType(tenderType, valueToOrderTenderType)
                 .code
+        )
+
+    def normalizeIntOrderTenderType(valueToOrderTenderType: Map[Int, OrderTenderType]): UserDefinedFunction =
+        udf((tenderType: Option[Int]) =>
+            tenderType match {
+                case Some(value) => valueToOrderTenderType.getOrElse(value, OrderTenderType.Other).code
+                case None => OrderTenderType.Unknown.code
+            }
         )
 }
 
@@ -27,4 +37,8 @@ case object OrderStateNormalizationUdfs extends CxiTaxonomyNormalizationUdfs {
                 .normalizeOrderState(orderState, valueToOrderStateType)
                 .code
         )
+
+    def normalizeOrderState[A: TypeTag](normalizeFn: A => OrderStateType): UserDefinedFunction = {
+        udf((a: A) => normalizeFn(a).code)
+    }
 }

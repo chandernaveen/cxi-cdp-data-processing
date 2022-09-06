@@ -7,7 +7,7 @@ import org.apache.commons.validator.routines.EmailValidator
 import org.apache.log4j.Logger
 
 import java.sql.Timestamp
-import java.time.{Instant, LocalDate}
+import java.time.{Instant, LocalDate, LocalDateTime, ZoneId}
 import java.time.format.DateTimeFormatter
 
 sealed trait SimpleBusinessTypesNormalization extends Normalization
@@ -43,18 +43,37 @@ case object TimestampNormalization extends SimpleBusinessTypesNormalization {
 
     private val logger = Logger.getLogger(this.getClass.getName)
 
-    /** If custom pattern is not provided, uses ISO-like date-time formatter that formats or parses a date-time
-      * with the offset and zone if available, such as '2011-12-03T10:15:30', '2011-12-03T10:15:30+01:00'
+    /** Converts a date-time string to the instance of [[java.sql.Timestamp]]
+      *
+      * @param timestamp the date-time string to convert
+      * @param pattern custom pattern (optional).
+      * If custom pattern is not provided, uses ISO-like date-time formatter that formats or parses a date-time
+      * with the offset and zone if available, such as '2011-12-03T10:15:30+01:00'
       * or '2011-12-03T10:15:30+01:00[Europe/Paris]'.
+      * @param timeZone custom timezone (optional).
+      * If timestamp does not contain timezone information, this parameters must be set as [[java.time.Instant]]
+      * cannot be formatted as a date or time without providing some form of time-zone,
+      * see [[https://docs.oracle.com/javase/8/docs/api/java/time/format/DateTimeFormatter.html#ISO_INSTANT]]
+      * Takes precedence over timezone specified in the timestamp string.
+      * @return an instance of [[java.sql.Timestamp]]
       */
-    def parseToTimestamp(timestamp: String, pattern: Option[String] = None): Option[Timestamp] = {
+    def parseToTimestamp(
+        timestamp: String,
+        pattern: Option[String] = None,
+        timeZone: Option[String] = None
+    ): Option[Timestamp] = {
+
         try {
             val formatter = pattern match {
                 case Some(value) => DateTimeFormatter.ofPattern(value)
                 case None => DateTimeFormatter.ISO_DATE_TIME
             }
             val temporalAccessor = formatter.parse(timestamp)
-            val instant = Instant.from(temporalAccessor)
+
+            val instant = timeZone match {
+                case Some(tz) => LocalDateTime.from(temporalAccessor).atZone(ZoneId.of(tz)).toInstant
+                case None => Instant.from(temporalAccessor)
+            }
             Some(Timestamp.from(instant))
         } catch {
             case _: RuntimeException =>

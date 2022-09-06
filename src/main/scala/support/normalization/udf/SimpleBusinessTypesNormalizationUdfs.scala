@@ -17,16 +17,21 @@ case object TimestampNormalizationUdfs extends SimpleBusinessTypesNormalizationU
     def parseToTimestampIsoDateTime: UserDefinedFunction =
         udf((value: String) => TimestampNormalization.parseToTimestamp(value))
 
-    /** Uses custom pattern (e.g. 'yyy.MM.dd'T'HH.mm.ssZ') to parse not ISO8601-compliant strings to the timestamp
-      */
-    def parseToTimestampWithPattern: UserDefinedFunction =
-        udf((value: String, pattern: Option[String]) => TimestampNormalization.parseToTimestamp(value, pattern))
-
     /** Converts a column to timestamp data type column with ability to provide the format as well.
       */
     def parseToTimestamp(col: Column, format: String = null): Column = {
         Option(format).map(f => to_timestamp(col, f)).getOrElse(to_timestamp(col))
     }
+
+    /** Uses custom pattern (e.g. 'yyy.MM.dd'T'HH.mm.ssZ') and custom timezone (e.g. "+02:00", "UTC" etc.)
+      * to parse not ISO8601-compliant strings to the timestamp.
+      * See underlying [[com.cxi.cdp.data_processing.support.normalization.TimestampNormalization.parseToTimestamp]]
+      * for more details.
+      */
+    def parseToTimestampWithPatternAndTimezone: UserDefinedFunction =
+        udf((value: String, pattern: Option[String], timeZone: Option[String]) =>
+            TimestampNormalization.parseToTimestamp(value, pattern, timeZone)
+        )
 }
 
 case object DateNormalizationUdfs extends SimpleBusinessTypesNormalizationUdfs {

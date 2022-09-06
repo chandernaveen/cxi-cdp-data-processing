@@ -90,34 +90,55 @@ class SimpleBusinessTypesNormalizationTest extends FunSuite {
             TimestampNormalizationTestCase(
                 "2021-11-02T23:59:16Z",
                 None,
+                None,
                 Some(from(of(2021, 11, 2, 23, 59, 16).toInstant(UTC)))
             ),
             TimestampNormalizationTestCase(
                 "2022-02-24T04:30:00.000Z",
+                None,
                 None,
                 Some(from(of(2022, 2, 24, 4, 30, 0, 0).toInstant(UTC)))
             ),
             TimestampNormalizationTestCase(
                 "2021-05-13T21:50:55.435Z",
                 None,
+                None,
                 Some(from(of(2021, 5, 13, 21, 50, 55, 435000000).toInstant(UTC)))
             ),
             TimestampNormalizationTestCase(
                 "2022-12-03T10:15:30+02:00",
                 None, // +02:00 timezone
+                None,
                 Some(from(of(2022, 12, 3, 8, 15, 30).toInstant(UTC)))
             ),
             TimestampNormalizationTestCase(
-                "20220224T07.15.00+0200",
-                Some("yyyyMMdd'T'HH.mm.ssZ"), // custom pattern with +02:00 timezone
-                Some(from(of(2022, 2, 24, 5, 15, 0).toInstant(UTC)))
+                "20220224T07.15.00+0300",
+                Some("yyyyMMdd'T'HH.mm.ssZ"), // custom pattern with +03:00 timezone
+                None,
+                Some(from(of(2022, 2, 24, 4, 15, 0).toInstant(UTC)))
             ),
-            TimestampNormalizationTestCase("some invalid string", None, None),
-            TimestampNormalizationTestCase("", None, None),
-            TimestampNormalizationTestCase(null, None, None)
+            TimestampNormalizationTestCase(
+                "2020-04-07T11:48:58.553",
+                Some("yyyy-MM-dd'T'HH:mm:ss.SSS"), // custom pattern without TZ
+                Some("America/Los_Angeles"),
+                Some(from(of(2020, 4, 7, 18, 48, 58, 553000000).toInstant(UTC)))
+            ),
+            TimestampNormalizationTestCase(
+                "20220224T13.15.00+0200",
+                Some("yyyyMMdd'T'HH.mm.ssZ"), // custom pattern with +02:00 timezone
+                Some("America/Los_Angeles"), // explicitly set 'America/Los_Angeles' zone
+                Some(from(of(2022, 2, 24, 21, 15, 0).toInstant(UTC)))
+            ),
+            TimestampNormalizationTestCase("some invalid string", None, None, None),
+            TimestampNormalizationTestCase("", None, None, None),
+            TimestampNormalizationTestCase(null, None, None, None)
         )
         for (testcase <- testCases) {
-            TimestampNormalization.parseToTimestamp(testcase.value, testcase.pattern) shouldBe testcase.expected
+            TimestampNormalization.parseToTimestamp(
+                testcase.value,
+                testcase.pattern,
+                testcase.timeZone
+            ) shouldBe testcase.expected
         }
     }
 
@@ -169,7 +190,12 @@ class SimpleBusinessTypesNormalizationTest extends FunSuite {
         }
     }
 
-    case class TimestampNormalizationTestCase(value: String, pattern: Option[String], expected: Option[Timestamp])
+    case class TimestampNormalizationTestCase(
+        value: String,
+        pattern: Option[String],
+        timeZone: Option[String],
+        expected: Option[Timestamp]
+    )
     case class SqlDateNormalizationTestCase(value: String, pattern: String, expected: Option[java.sql.Date])
     case class ZipCodeNormalizationTestCase(value: String, expected: Option[String])
     case class MoneyNormalizationTestCase(value: String, expected: Option[java.math.BigDecimal])

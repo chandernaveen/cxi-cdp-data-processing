@@ -12,7 +12,7 @@ object OrderTenderType extends IntEnum[OrderTenderType] {
 
     case object Unknown extends OrderTenderType(value = 0, name = "Unknown")
     case object Cash extends OrderTenderType(value = 1, name = "Cash")
-    case object CreditCard extends OrderTenderType(value = 2, name = "Credit Card")
+    case object CreditCard extends OrderTenderType(value = 2, name = "Credit Card / Debit")
     case object GiftCard extends OrderTenderType(value = 3, name = "Gift Card")
     case object Wallet extends OrderTenderType(value = 4, name = "Wallet")
     case object Other extends OrderTenderType(value = 99, name = "Other")

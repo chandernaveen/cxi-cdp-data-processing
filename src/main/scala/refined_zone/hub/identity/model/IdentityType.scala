@@ -14,6 +14,7 @@ object IdentityType extends StringEnum[IdentityType] {
 
     case object CombinationBin extends IdentityType("combination-bin")
     case object CombinationCard extends IdentityType("combination-card")
+    case object CardHolderNameTypeNumber extends IdentityType("card-holder-name-type-number")
 
     case object IPv4 extends IdentityType("ipv4")
     case object IPv6 extends IdentityType("ipv6")
@@ -23,6 +24,8 @@ object IdentityType extends StringEnum[IdentityType] {
     case object MaidUnknown extends IdentityType("MAID-UNKNOWN")
 
     case object ThrotleId extends IdentityType("throtle-id")
+
+    case object ParbrinkCustomerId extends IdentityType("parbrink-customer-id")
 
     val values = findValues
 

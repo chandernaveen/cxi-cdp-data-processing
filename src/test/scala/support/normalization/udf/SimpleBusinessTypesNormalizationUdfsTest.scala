@@ -4,7 +4,10 @@ package support.normalization.udf
 import support.normalization.udf.DateNormalizationUdfs.{parseToSqlDateIsoFormat, parseToSqlDateWithPattern}
 import support.normalization.udf.LocationNormalizationUdfs.normalizeZipCode
 import support.normalization.udf.MoneyNormalizationUdfs.convertCentsToMoney
-import support.normalization.udf.TimestampNormalizationUdfs.{parseToTimestampIsoDateTime, parseToTimestampWithPattern}
+import support.normalization.udf.TimestampNormalizationUdfs.{
+    parseToTimestampIsoDateTime,
+    parseToTimestampWithPatternAndTimezone
+}
 import support.BaseSparkBatchJobTest
 
 import org.apache.spark.sql.functions.{col, lit}
@@ -60,13 +63,47 @@ class SimpleBusinessTypesNormalizationUdfsTest extends BaseSparkBatchJobTest {
         // when
         val actual = df.select(
             col("id"),
-            parseToTimestampWithPattern(col("timestamp"), lit("yyyy.MM.dd'T'HH.mm.ssZ")).as("timestamp")
+            parseToTimestampWithPatternAndTimezone(col("timestamp"), lit("yyyy.MM.dd'T'HH.mm.ssZ"), lit(null)).as(
+                "timestamp"
+            )
         )
 
         // then
         withClue("timestamp is not correctly parsed from string") {
             val expected = Seq(
                 ("id_1", from(of(2022, 2, 24, 7, 15, 0).toInstant(UTC))),
+                ("id_2", null),
+                ("id_3", null),
+                ("id_4", null)
+            ).toDF("id", "timestamp")
+
+            actual.schema.fields.map(_.name) shouldEqual expected.schema.fields.map(_.name)
+            actual.collect() should contain theSameElementsAs expected.collect()
+        }
+    }
+
+    test("parseToTimestamp with custom pattern and timezone udf") {
+
+        // given
+        val df = Seq(
+            ("id_1", "2022.02.24T07.15.00"),
+            ("id_2", null),
+            ("id_3", ""),
+            ("id_4", "some string")
+        ).toDF("id", "timestamp")
+
+        // when
+        val actual = df.select(
+            col("id"),
+            parseToTimestampWithPatternAndTimezone(col("timestamp"), lit("yyyy.MM.dd'T'HH.mm.ss"), lit("-02:00")).as(
+                "timestamp"
+            )
+        )
+
+        // then
+        withClue("timestamp is not correctly parsed from string") {
+            val expected = Seq(
+                ("id_1", from(of(2022, 2, 24, 9, 15, 0).toInstant(UTC))),
                 ("id_2", null),
                 ("id_3", null),
                 ("id_4", null)
