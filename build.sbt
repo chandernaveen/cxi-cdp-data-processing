@@ -134,6 +134,10 @@ scalastyleFailOnWarning := true
 compileScalastyle := scalastyle.in(Compile).toTask("").value
 (compile in Compile) := ((compile in Compile) dependsOn compileScalastyle).value
 
+jacocoExcludes   :=Seq(
+  "com.cxi.cdp.data_processing.raw_zone.pos_square.model*"
+)
+
 jacocoReportSettings := JacocoReportSettings(
   "Jacoco Coverage Report",
   None,

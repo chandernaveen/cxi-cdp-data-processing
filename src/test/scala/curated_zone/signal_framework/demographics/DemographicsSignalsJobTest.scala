@@ -87,7 +87,7 @@ class DemographicsSignalsJobTest extends BaseSparkBatchJobTest {
         }
     }
 
-    test("test readThrotleTidAtt") {
+    test("test read ThrotleTidAtt") {
         // given
         val tidAttTableName = "tid_attTableTemp"
         val signals = ListSet("age", "children")
@@ -104,7 +104,7 @@ class DemographicsSignalsJobTest extends BaseSparkBatchJobTest {
         df.createOrReplaceTempView(tidAttTableName)
 
         // when
-        val actual = DemographicsSignalsJob.readThrotleTidAttAttributesAsSignals(spark, tidAttTableName, signals)
+        val actual = DemographicsSignalsJob.readThrotleTidAttributesAsSignals(spark, tidAttTableName, signals)
 
         // then
         val actualData = actual.collect()
@@ -122,7 +122,7 @@ class DemographicsSignalsJobTest extends BaseSparkBatchJobTest {
         }
     }
 
-    test("test transform") {
+    test("test transform ThrotleTidAtt") {
         // given
         val customer360Df = Seq(
             ("uuid1", "throtle_id_1"),
@@ -208,4 +208,111 @@ class DemographicsSignalsJobTest extends BaseSparkBatchJobTest {
         }
     }
 
+    test("test read ThrotleTidGeo") {
+        // given
+        val postalCodeTableName = "postal_codeTableTemp"
+        val postalCodeDf = spark
+            .createDataFrame(
+                List(
+                    ("06820", 42.51864, -71.76138),
+                    ("00602", 18.36074, -67.17519)
+                )
+            )
+            .toDF("postal_code", "lat", "lng")
+        postalCodeDf.createOrReplaceTempView(postalCodeTableName)
+
+        val tidGeoTableName = "tid_geoTableTemp"
+        val df = spark
+            .createDataFrame(
+                List(
+                    ("throtle_id1", "throtle_hhid1", "06820"),
+                    ("throtle_id2", "throtle_hhid2", "37015"),
+                    ("throtle_id3", "throtle_hhid3", "40511"),
+                    ("throtle_id4", "throtle_hhid4", "16137")
+                )
+            )
+            .toDF("throtle_id", "throtle_hhid", "zip_code")
+        df.createOrReplaceTempView(tidGeoTableName)
+
+        // when
+        val actual = DemographicsSignalsJob.readThrotleTidGeoAsSignals(spark, postalCodeTableName, tidGeoTableName)
+
+        // then
+        val actualData = actual.collect()
+        withClue(
+            "Read data does not match." + actualData.mkString("\nActual data:\n", "\n-----------------------\n", "\n\n")
+        ) {
+            val expected = Seq(
+                ("throtle_id1", "06820", "42.51864,-71.76138"),
+                ("throtle_id2", "37015", null),
+                ("throtle_id3", "40511", null),
+                ("throtle_id4", "16137", null)
+            ).toDF("throtle_id", "zip_code", "location")
+            actual.schema shouldEqual expected.schema
+            actualData should contain theSameElementsAs expected.collect()
+        }
+    }
+
+    test("test transform ThrotleTidGeo") {
+        // given
+        val customer360Df = Seq(
+            ("uuid1", "throtle_id_1"),
+            ("uuid2", "throtle_id_2"),
+            ("uuid3", "throtle_id_3"),
+            ("uuid3", "throtle_id_4"), // two diff throtle_ids matched with same customer
+            ("uuid11", "throtle_id_11")
+        ).toDF("customer_360_id", "throtle_id")
+        val tidGeoschema = StructType(
+            Array(
+                StructField("throtle_id", StringType, true),
+                StructField("zip_code", StringType, true)
+            )
+        )
+        import collection.JavaConverters._
+        val refinedThrotleTidGeoDf = spark.createDataFrame(
+            Seq(
+                Row("throtle_id_1", "06820"),
+                Row("throtle_id_2", "37015"),
+                Row("throtle_id_3", "40511"),
+                Row("throtle_id_4", "16137"),
+                Row("throtle_id_5", "85132") // filtered out, no matched throtle_id
+            ).asJava,
+            tidGeoschema
+        )
+        val feedDate = "2022-08-24"
+        val signalNameToSignalDomain = Map("zip_code" -> "profile")
+
+        // when
+        val transformedDfs = DemographicsSignalsJob
+            .transform(customer360Df, refinedThrotleTidGeoDf, signalNameToSignalDomain, feedDate)
+
+        // then
+        val zipcodeSignalDf = transformedDfs.find(data => data._1 == "profile" && data._2 == "zip_code").map(_._3).get
+        val zipcodeSignalActualData = zipcodeSignalDf.collect()
+        val schema = StructType(
+            Array(
+                StructField("customer_360_id", StringType, true),
+                StructField("signal_generation_date", StringType, false),
+                StructField("signal_domain", StringType, false),
+                StructField("signal_name", StringType, false),
+                StructField("signal_value", StringType, true)
+            )
+        )
+
+        withClue(
+            "Transformed data does not match." + zipcodeSignalActualData
+                .mkString("\nActual data:\n", "\n-----------------------\n", "\n\n")
+        ) {
+            val expected_1 = spark.createDataFrame(
+                Seq(
+                    Row("uuid1", feedDate, "profile", "zip_code", "06820"),
+                    Row("uuid2", feedDate, "profile", "zip_code", "37015"),
+                    Row("uuid3", feedDate, "profile", "zip_code", "16137")
+                ).asJava,
+                schema
+            )
+            zipcodeSignalDf.schema shouldEqual expected_1.schema
+            zipcodeSignalActualData should contain theSameElementsAs expected_1.collect()
+        }
+    }
 }

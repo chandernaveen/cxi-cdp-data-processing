@@ -24,47 +24,98 @@ object DemographicsSignalsJob {
         logger.info(s"""Received following args: ${args.mkString(",")}""")
 
         val spark = SparkSessionFactory.getSparkSession()
-
         val contractPath = "/mnt/" + args(0)
         val feedDate = args(1)
-
         val contract: ContractUtils = new ContractUtils(Paths.get(contractPath))
 
         val curatedDb = contract.prop[String]("datalake.curated.db_name")
         val customer360TableName = contract.prop[String]("datalake.curated.customer_360_table")
-
-        val refinedThrotleDb = contract.prop[String]("datalake.refined_throtle.db_name")
-        val refinedThrotleTidAttTableName = contract.prop[String]("datalake.refined_throtle.tid_att_table")
-
         val customer360GenericDailySignalsTable =
             contract.prop[String]("datalake.curated.customer_360_generic_daily_signals_table")
 
+        val refinedDb = contract.prop[String]("datalake.refined.db_name")
+        val postalCodeTableName = contract.prop[String]("datalake.refined.postal_code_table")
+
+        val refinedThrotleDb = contract.prop[String]("datalake.refined_throtle.db_name")
+        val refinedThrotleTidAttTableName = contract.prop[String]("datalake.refined_throtle.tid_att_table")
+        val refinedThrotleTidGeoTableName = contract.prop[String]("datalake.refined_throtle.tid_geo_table")
+
         val customer360Df = readCustomer360WithThrotleIds(spark, s"$curatedDb.$customer360TableName")
-        val signalNameToSignalDomain = getSignalNameToSignalDomainMapping
-        val throtleTidAtt = readThrotleTidAttAttributesAsSignals(
+
+        processTidAttSignal(
             spark,
             s"$refinedThrotleDb.$refinedThrotleTidAttTableName",
-            signalNameToSignalDomain.keys.to[ListSet]
+            customer360Df,
+            feedDate,
+            s"$curatedDb.$customer360GenericDailySignalsTable"
+        )
+        processTidGeoSignal(
+            spark,
+            s"$refinedThrotleDb.$refinedThrotleTidGeoTableName",
+            customer360Df,
+            feedDate,
+            s"$refinedDb.$postalCodeTableName",
+            s"$curatedDb.$customer360GenericDailySignalsTable"
+        )
+    }
+
+    def processTidAttSignal(
+        spark: SparkSession,
+        refinedThrotleTidAttTableName: String,
+        customer360Df: DataFrame,
+        feedDate: String,
+        customer360GenericDailySignalsTable: String
+    ): Unit = {
+        val tidAttSignalNameToSignalDomain = getTidAttSignalNameToSignalDomainMapping
+        val throtleTidAtt = readThrotleTidAttributesAsSignals(
+            spark,
+            refinedThrotleTidAttTableName,
+            tidAttSignalNameToSignalDomain.keys.to[ListSet]
         )
 
-        val transformedDemographicsSignals = transform(customer360Df, throtleTidAtt, signalNameToSignalDomain, feedDate)
+        val transformedDemographicsSignals =
+            transform(customer360Df, throtleTidAtt, tidAttSignalNameToSignalDomain, feedDate)
 
         transformedDemographicsSignals.foreach(tuple => {
             val (signalDomain, signalName, df) = tuple
-            write(df, feedDate, signalDomain, signalName, s"$curatedDb.$customer360GenericDailySignalsTable")
+            write(df, feedDate, signalDomain, signalName, customer360GenericDailySignalsTable)
+        })
+    }
+
+    def processTidGeoSignal(
+        spark: SparkSession,
+        refinedThrotleTidGeoTableName: String,
+        customer360Df: DataFrame,
+        feedDate: String,
+        postalCodeTableName: String,
+        customer360GenericDailySignalsTable: String
+    ): Unit = {
+        val tidGeoSignalNameToSignalDomain = getTidGeoSignalNameToSignalDomainMapping
+        val throtleTidGeo = readThrotleTidGeoAsSignals(
+            spark,
+            postalCodeTableName,
+            refinedThrotleTidGeoTableName
+        )
+
+        val transformedGeographicsSignals =
+            transform(customer360Df, throtleTidGeo, tidGeoSignalNameToSignalDomain, feedDate)
+
+        transformedGeographicsSignals.foreach(tuple => {
+            val (signalDomain, signalName, df) = tuple
+            write(df, feedDate, signalDomain, signalName, customer360GenericDailySignalsTable)
         })
     }
 
     def transform(
         customer360Df: DataFrame,
-        refinedThrotleTidAttDf: DataFrame,
+        refinedThrotleTidDf: DataFrame,
         signalNameToSignalDomain: Map[SignalName, SignalDomain],
         feedDate: String
     ): Seq[(SignalDomain, SignalName, DataFrame)] = {
         val notSignalColumns = Set("customer_360_id", "throtle_id")
 
         val customer360WithDemographics = customer360Df
-            .join(refinedThrotleTidAttDf, "throtle_id")
+            .join(refinedThrotleTidDf, "throtle_id")
             .dropDuplicates("customer_360_id", "throtle_id")
             .drop("throtle_id")
 
@@ -101,7 +152,7 @@ object DemographicsSignalsJob {
             })
     }
 
-    def getSignalNameToSignalDomainMapping: Map[SignalName, SignalDomain] = {
+    def getTidAttSignalNameToSignalDomainMapping: Map[SignalName, SignalDomain] = {
         val profileSignalDomainName = "profile"
         val signalNameToSignalDomain = Map(
             "gender" -> profileSignalDomainName,
@@ -120,6 +171,15 @@ object DemographicsSignalsJob {
         signalNameToSignalDomain
     }
 
+    def getTidGeoSignalNameToSignalDomainMapping: Map[SignalName, SignalDomain] = {
+        val profileSignalDomainName = "profile"
+        val signalNameToSignalDomain = Map(
+            "zip_code" -> profileSignalDomainName,
+            "location" -> profileSignalDomainName
+        )
+        signalNameToSignalDomain
+    }
+
     def readCustomer360WithThrotleIds(spark: SparkSession, customer360Table: String): DataFrame = {
         spark
             .table(customer360Table)
@@ -130,15 +190,33 @@ object DemographicsSignalsJob {
             .select("customer_360_id", "throtle_id")
     }
 
-    def readThrotleTidAttAttributesAsSignals(
+    def readThrotleTidAttributesAsSignals(
         spark: SparkSession,
-        refinedThrotleTidAttTableName: String,
+        refinedThrotleTidTableName: String,
         signalNames: ListSet[String]
     ): DataFrame = {
         val columnsToSelect: List[String] = List("throtle_id") ++ signalNames
         spark
-            .table(refinedThrotleTidAttTableName)
+            .table(refinedThrotleTidTableName)
             .select(columnsToSelect.map(col): _*)
+    }
+
+    def readThrotleTidGeoAsSignals(
+        spark: SparkSession,
+        refinedPostalCodeTableName: String,
+        refinedThrotleTidTableName: String
+    ): DataFrame = {
+
+        val postalDF = spark
+            .table(refinedPostalCodeTableName)
+            .withColumn("location", concat(col("lat"), lit(","), col("lng")))
+            .select("postal_code", "location")
+
+        spark
+            .table(refinedThrotleTidTableName)
+            .select("throtle_id", "zip_code")
+            .join(postalDF, col("zip_code") === col("postal_code"), "left")
+            .drop("postal_code")
     }
 
     def write(
