@@ -27,7 +27,7 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
         location_nm = "Miguel's Jr. - Original",
         address_1 = "1039 West 6th St.",
         address_2 = null,
-        city = "Corona",
+        city = "Corona\t",
         state_code = "CA",
         zip_code = "92882",
         lat = "33.877219",
@@ -53,6 +53,21 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
         country_code = "US",
         timezone = "999"
     )
+    val location_3_onRead = LocationOnRead(
+        location_id = "loc_id_3",
+        location_nm = "* Darrin Heisey",
+        address_1 = "11545 W. Bernardo Ct",
+        address_2 = "Suite 150",
+        city = "Test \nCity\t One",
+        state_code = null,
+        zip_code = "92881",
+        lat = "33.025114",
+        longitude = "-117.082445",
+        phone = "Home Phone",
+        fax = "1234567890",
+        country_code = "US",
+        timezone = "999"
+    )
 
     test("read Parbrink locations") {
 
@@ -60,7 +75,7 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
         val location_1 = LocationRaw(
             Address1 = "1039 West 6th St.",
             Address2 = None,
-            City = Some("Corona"),
+            City = Some("Corona\t"),
             Country = "US",
             Latitude = 33.877219,
             Longitude = -117.581545,
@@ -154,7 +169,8 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
         val locationsOnRead = Seq(
             location_1_onRead,
             location_1_onRead, // emulate duplicated data coming from different files
-            location_2_onRead
+            location_2_onRead,
+            location_3_onRead
         ).toDF()
             .withColumnRenamed("longitude", "long")
 
@@ -214,6 +230,30 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
                     address_1 = "11545 W. Bernardo Ct",
                     address_2 = "Suite 150",
                     city = "Corona",
+                    state_code = "CA",
+                    region = "SouthWest",
+                    zip_code = "92881",
+                    lat = "33.025114",
+                    longitude = "-117.082445",
+                    phone = null,
+                    fax = "1234567890",
+                    country_code = "US",
+                    parent_location_id = null,
+                    currency = CurrencyDefault,
+                    open_dt = null,
+                    timezone = null,
+                    extended_attr = null
+                ),
+                LocationRefined(
+                    location_id = "loc_id_3",
+                    cxi_partner_id = cxiPartnerId,
+                    location_type = LocationTypeDefault,
+                    location_nm = "* Darrin Heisey",
+                    location_website = null,
+                    active_flg = ActiveFlagDefault,
+                    address_1 = "11545 W. Bernardo Ct",
+                    address_2 = "Suite 150",
+                    city = "Test City One",
                     state_code = "CA",
                     region = "SouthWest",
                     zip_code = "92881",

@@ -144,6 +144,10 @@ case object LocationNormalization extends SimpleBusinessTypesNormalization {
         }
     }
 
+    def locationSpecialCharacters(city: String): String = {
+        StringContext.processEscapes(city).filter(_ >= ' ')
+    }
+
 }
 
 case object MoneyNormalization extends SimpleBusinessTypesNormalization {

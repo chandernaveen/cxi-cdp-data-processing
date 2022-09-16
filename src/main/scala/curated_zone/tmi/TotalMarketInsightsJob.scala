@@ -171,11 +171,12 @@ object TotalMarketInsightsJob {
         import orderSummary.sparkSession.implicits._
 
         orderSummary
+            .dropDuplicates("cxi_partner_id", "location_id", "ord_date", "ord_id")
             .groupBy("cxi_partner_id", "location_type", "region", "state", "city", "location_id", "ord_date")
             .agg(
                 min("location_nm") as "location_nm",
                 sum("ord_pay_total") as "transaction_amount",
-                countDistinct("ord_id").cast(IntegerType) as "transaction_quantity"
+                count("ord_id").cast(IntegerType) as "transaction_quantity"
             )
             .withColumnRenamed("ord_date", "date")
             .select(

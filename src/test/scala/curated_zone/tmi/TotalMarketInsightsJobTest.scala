@@ -17,8 +17,30 @@ class TotalMarketInsightsJobTest extends BaseSparkBatchJobTest {
             ("1", cxiPartnerId1, "P300002", "Loc 2", "city_1", "state_1", "region_1", "2021-10-10", "Restaurant", 10),
             ("2", cxiPartnerId1, "P300002", "Loc 2", "city_1", "state_1", "region_1", "2021-10-10", "Restaurant", 15),
             ("3", cxiPartnerId1, "P300002", "Loc 2", "city_1", "state_1", "region_1", "2021-10-10", "Restaurant", 10),
-            ("2", cxiPartnerId1, "P300001", "Loc 1", "city_2", "state_2", "region_1", "2021-10-10", "Restaurant", 20),
-            ("2", cxiPartnerId1, "P300001", "Loc 1", "city_2", "state_2", "region_1", "2021-10-10", "Restaurant", 30),
+            (
+                "2",
+                cxiPartnerId1,
+                "P300001",
+                "Loc 1",
+                "city_2",
+                "state_2",
+                "region_1",
+                "2021-10-10",
+                "Restaurant",
+                20
+            ), // item-1
+            (
+                "2",
+                cxiPartnerId1,
+                "P300001",
+                "Loc 1",
+                "city_2",
+                "state_2",
+                "region_1",
+                "2021-10-10",
+                "Restaurant",
+                20
+            ), // item-2
             ("3", cxiPartnerId2, "A300003", "Loc 3", "city_3", "state_3", "region_1", "2021-10-10", "Bar", 30),
             ("4", cxiPartnerId2, "B300004", "Loc 4", "city_4", "state_4", "region_1", "2021-10-11", "Restaurant", 40),
             ("5", cxiPartnerId3, "C300005", "Loc 5", "city_5", "state_5", "region_2", "2021-10-11", "Restaurant", 40)
@@ -58,11 +80,11 @@ class TotalMarketInsightsJobTest extends BaseSparkBatchJobTest {
         val actualPartnerMarketInsightsData = actual.collect()
         withClue("Partner market insights data do not match") {
             val expected = List(
-                (cxiPartnerId1, "Restaurant", "region_1", "state_1", "city_1", "P300002", "Loc 2", "2021-10-10", 35, 3),
-                (cxiPartnerId1, "Restaurant", "region_1", "state_2", "city_2", "P300001", "Loc 1", "2021-10-10", 50, 1),
                 (cxiPartnerId2, "Bar", "region_1", "state_3", "city_3", "A300003", "Loc 3", "2021-10-10", 30, 1),
                 (cxiPartnerId2, "Restaurant", "region_1", "state_4", "city_4", "B300004", "Loc 4", "2021-10-11", 40, 1),
-                (cxiPartnerId3, "Restaurant", "region_2", "state_5", "city_5", "C300005", "Loc 5", "2021-10-11", 40, 1)
+                (cxiPartnerId3, "Restaurant", "region_2", "state_5", "city_5", "C300005", "Loc 5", "2021-10-11", 40, 1),
+                (cxiPartnerId1, "Restaurant", "region_1", "state_1", "city_1", "P300002", "Loc 2", "2021-10-10", 35, 3),
+                (cxiPartnerId1, "Restaurant", "region_1", "state_2", "city_2", "P300001", "Loc 1", "2021-10-10", 20, 1)
             ).toDF(
                 "cxi_partner_id",
                 "location_type",

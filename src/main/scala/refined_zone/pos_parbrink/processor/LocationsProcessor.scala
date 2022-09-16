@@ -5,6 +5,7 @@ import refined_zone.hub.model.LocationType
 import refined_zone.pos_parbrink.config.ProcessorConfig
 import refined_zone.pos_parbrink.model.{ParbrinkRecordType, Timezone}
 import refined_zone.pos_parbrink.RawRefinedParbrinkPartnerJob.{getSchemaRefinedHubPath, getSchemaRefinedPath}
+import support.normalization.udf.LocationNormalizationUdfs.locationSpecialCharacter
 import support.normalization.PhoneNumberNormalization
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
@@ -80,7 +81,10 @@ object LocationsProcessor {
             .withColumn("timezone", timezoneByCode(col("timezone")))
             .join(postalCodes, locations("zip_code") === postalCodes("postal_code"), "left")
             .withColumn("state_code", coalesce(col("state_code"), col("postal_codes_state_code")))
-            .withColumn("city", coalesce(col("city"), col("postal_codes_city")))
+            .withColumn(
+                "city",
+                when(col("city").isNotNull, locationSpecialCharacter(col("city"))).otherwise(col("postal_codes_city"))
+            )
             .drop("postal_code", "postal_codes_state_code", "postal_codes_city")
     }
 

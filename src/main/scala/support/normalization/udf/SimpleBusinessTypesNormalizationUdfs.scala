@@ -55,6 +55,10 @@ case object DateNormalizationUdfs extends SimpleBusinessTypesNormalizationUdfs {
 
 case object LocationNormalizationUdfs extends SimpleBusinessTypesNormalizationUdfs {
     def normalizeZipCode: UserDefinedFunction = udf(LocationNormalization.normalizeZipCode _)
+
+    def locationSpecialCharacter: UserDefinedFunction = {
+        udf((value: String) => LocationNormalization.locationSpecialCharacters(value))
+    }
 }
 
 case object MoneyNormalizationUdfs extends SimpleBusinessTypesNormalizationUdfs {
