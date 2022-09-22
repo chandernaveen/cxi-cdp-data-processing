@@ -3,17 +3,20 @@ package raw_zone.file_ingestion_framework
 
 import raw_zone.pos_parbrink.udf.ParbrinkUdfs
 
+import org.apache.log4j.Logger
 import org.apache.spark.sql.{DataFrame, Encoders}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{ArrayType, DataTypes, StructType}
 
 object FileIngestionFrameworkTransformations {
+
     def transformationFunctionsMap: Map[String, DataFrame => DataFrame] = Map[String, DataFrame => DataFrame](
         "identity" -> identity,
         "spaceToUnderscore" -> spaceToUnderScoreInColumnNamesTransformation,
         "transformOracleSim" -> transformOracleSim,
         "transformQuBeyond" -> transformQuBeyond,
         "transformSquare" -> transformSquare,
+        "transformOmnivore" -> transformOmnivore,
         "transformToast" -> transformToast,
         "transformSegmint" -> transformSegmint,
         "transformVeraset" -> transformVeraset,
@@ -154,6 +157,31 @@ object FileIngestionFrameworkTransformations {
                 "record_value",
                 coalesce(squareColPerType.map(c => when(col(c).isNotNull, col(c)).otherwise(lit(null))): _*)
             )
+            .select(outputColumns: _*)
+    }
+
+    def transformOmnivore(tdf: DataFrame): DataFrame = {
+
+        val ovColumnList = tdf.select("_embedded.*").columns.map("_embedded." + _).toList
+
+        val ovoutputColumns = ("feed_date" :: "file_name" :: "cxi_id" :: ovColumnList).map(col(_))
+
+        val df = tdf.select(ovoutputColumns: _*)
+
+        val omnivoreColPerType = df.columns.filter(col => !CxiCommonColumns.contains(col))
+
+        val outputColumns = ("record_type" :: "record_value" :: CxiCommonColumns).map(col(_))
+
+        transformCompositeColumns(df, omnivoreColPerType)
+            .withColumn(
+                "record_type",
+                coalesce(omnivoreColPerType.map(c => when(col(c).isNotNull, lit(c)).otherwise(lit(null))): _*)
+            )
+            .withColumn(
+                "record_value",
+                coalesce(omnivoreColPerType.map(c => when(col(c).isNotNull, col(c)).otherwise(lit(null))): _*)
+            )
+            .filter(col("record_type").isNotNull)
             .select(outputColumns: _*)
     }
 

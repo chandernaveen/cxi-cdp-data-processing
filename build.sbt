@@ -134,8 +134,14 @@ scalastyleFailOnWarning := true
 compileScalastyle := scalastyle.in(Compile).toTask("").value
 (compile in Compile) := ((compile in Compile) dependsOn compileScalastyle).value
 
+
+
+
 jacocoExcludes   :=Seq(
-  "com.cxi.cdp.data_processing.raw_zone.pos_square.model*"
+    "com.cxi.cdp.data_processing.curated_zone.audience.model*","com.cxi.cdp.data_processing.raw_zone.pos_omnivore.model*",
+    "com.cxi.cdp.data_processing.raw_zone.pos_square.model*","com.cxi.cdp.data_processing.refined_zone.hub.model*",
+    "com.cxi.cdp.data_processing.refined_zone.pos_omnivore.model*","com.cxi.cdp.data_processing,refined_zone.pos_square.model*",
+    "com.cxi.cdp.data_processing.refined_zone.pos_toast.model*"
 )
 
 jacocoReportSettings := JacocoReportSettings(
@@ -148,6 +154,8 @@ jacocoReportSettings := JacocoReportSettings(
             line = 57.8,
             clazz = 45.9),
   Seq(JacocoReportFormats.ScalaHTML, JacocoReportFormats.XML), "utf-8")
+
+
 
 (Compile / runMain) := Defaults.runMainTask(Compile / fullClasspath, runner.in(Compile, run)).evaluated // set correct classpath for runMain
 (Compile / runMain) := ((Compile / runMain) dependsOn assembly).evaluated // build assembly jar for runMain

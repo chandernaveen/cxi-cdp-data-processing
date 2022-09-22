@@ -129,6 +129,12 @@ class SimpleBusinessTypesNormalizationTest extends FunSuite {
                 Some("America/Los_Angeles"), // explicitly set 'America/Los_Angeles' zone
                 Some(from(of(2022, 2, 24, 21, 15, 0).toInstant(UTC)))
             ),
+            TimestampNormalizationTestCase(
+                "2022-07-07 09:41:32 America/Los_Angeles",
+                Some("yyyy-MM-dd HH:mm:ss VV"), // custom pattern with named timezone
+                None,
+                Some(from(of(2022, 7, 7, 16, 41, 32).toInstant(UTC)))
+            ),
             TimestampNormalizationTestCase("some invalid string", None, None, None),
             TimestampNormalizationTestCase("", None, None, None),
             TimestampNormalizationTestCase(null, None, None, None)

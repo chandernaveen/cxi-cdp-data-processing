@@ -32,6 +32,11 @@ case object TimestampNormalizationUdfs extends SimpleBusinessTypesNormalizationU
         udf((value: String, pattern: Option[String], timeZone: Option[String]) =>
             TimestampNormalization.parseToTimestamp(value, pattern, timeZone)
         )
+
+    /** Converts epoch/unix time in second to timestamp
+      */
+    def convertToTimestamp: UserDefinedFunction =
+        udf((value: Long) => TimestampNormalization.convertToTimestamp(value))
 }
 
 case object DateNormalizationUdfs extends SimpleBusinessTypesNormalizationUdfs {

@@ -81,6 +81,19 @@ case object TimestampNormalization extends SimpleBusinessTypesNormalization {
                 None
         }
     }
+
+    /** Convert epoch/unix time in second to timestamp
+      */
+    def convertToTimestamp(epoch: Long): Option[Timestamp] = {
+        try {
+            val instant = Instant.ofEpochSecond(epoch);
+            Some(Timestamp.from(instant))
+        } catch {
+            case _: RuntimeException =>
+                logger.warn(s"Cannot convert from epoch: '$epoch' to timestamp")
+                None
+        }
+    }
 }
 
 case object EmailNormalization extends SimpleBusinessTypesNormalization {
