@@ -19,6 +19,7 @@ object DemographicsSignalsJob {
 
     type SignalDomain = String
     type SignalName = String
+    type SignalUniverseName = String
 
     def main(args: Array[String]): Unit = {
         logger.info(s"""Received following args: ${args.mkString(",")}""")
@@ -78,7 +79,13 @@ object DemographicsSignalsJob {
 
         transformedDemographicsSignals.foreach(tuple => {
             val (signalDomain, signalName, df) = tuple
-            write(df, feedDate, signalDomain, signalName, customer360GenericDailySignalsTable)
+            write(
+                df,
+                feedDate,
+                signalDomain,
+                getSignalNameToSignalUniverseMapping(signalName),
+                customer360GenericDailySignalsTable
+            )
         })
     }
 
@@ -166,7 +173,34 @@ object DemographicsSignalsJob {
             "education_code" -> profileSignalDomainName,
             "home_owner" -> profileSignalDomainName,
             "net_worth" -> profileSignalDomainName,
-            "marital_status" -> profileSignalDomainName
+            "marital_status" -> profileSignalDomainName,
+            "pets" -> profileSignalDomainName,
+            "pets_own_at_least_one_cat" -> profileSignalDomainName,
+            "pets_own_at_least_one_dog" -> profileSignalDomainName,
+            "language" -> profileSignalDomainName
+        )
+        signalNameToSignalDomain
+    }
+
+    def getSignalNameToSignalUniverseMapping: Map[SignalName, SignalUniverseName] = {
+
+        val signalNameToSignalDomain = Map(
+            "gender" -> "gender",
+            "income" -> "income",
+            "age_range" -> "age_range",
+            "occupation" -> "occupation",
+            "children" -> "children",
+            "new_credit_range" -> "new_credit_range",
+            "credit_ranges" -> "credit_ranges",
+            "children_interests" -> "children_interests",
+            "education_code" -> "education_code",
+            "home_owner" -> "home_owner",
+            "net_worth" -> "net_worth",
+            "marital_status" -> "marital_status",
+            "pets" -> "pets",
+            "pets_own_at_least_one_cat" -> "pets_cat",
+            "pets_own_at_least_one_dog" -> "pets_dog",
+            "language" -> "language"
         )
         signalNameToSignalDomain
     }
@@ -223,7 +257,7 @@ object DemographicsSignalsJob {
         df: DataFrame,
         feedDate: String,
         signalDomain: SignalDomain,
-        signalName: SignalName,
+        signalName: SignalUniverseName,
         destTable: String
     ): Unit = {
         val srcTable = s"new_customer_360_generic_daily_signals_${signalDomain}_${signalName}"

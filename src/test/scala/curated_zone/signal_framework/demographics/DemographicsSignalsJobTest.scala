@@ -122,7 +122,7 @@ class DemographicsSignalsJobTest extends BaseSparkBatchJobTest {
         }
     }
 
-    test("test transform ThrotleTidAtt") {
+    test("test transform ThrotleTidAtt for age") {
         // given
         val customer360Df = Seq(
             ("uuid1", "throtle_id_1"),
@@ -205,6 +205,135 @@ class DemographicsSignalsJobTest extends BaseSparkBatchJobTest {
             )
             childrenSignalDf.schema shouldEqual expected_2.schema
             childrenSignalActualData should contain theSameElementsAs expected_2.collect()
+        }
+    }
+
+    test("test transform ThrotleTidAtt for pets") {
+        // given
+        val customer360Df = Seq(
+            ("uuid1", "throtle_id_1"),
+            ("uuid2", "throtle_id_2"),
+            ("uuid3", "throtle_id_3"),
+            ("uuid3", "throtle_id_4"), // two diff throtle_ids matched with same customer
+            ("uuid11", "throtle_id_11")
+        ).toDF("customer_360_id", "throtle_id")
+        val tidAttschema = StructType(
+            Array(
+                StructField("throtle_id", StringType, true),
+                StructField("pets", BooleanType, true),
+                StructField("pets_cat", BooleanType, true),
+                StructField("pets_dog", BooleanType, true),
+                StructField("language", StringType, true)
+            )
+        )
+        import collection.JavaConverters._
+        val refinedThrotleTidAttDf = spark.createDataFrame(
+            Seq(
+                Row("throtle_id_1", false, true, true, "English"),
+                Row("throtle_id_2", true, false, true, "Spanish"),
+                Row("throtle_id_3", false, null, true, "English"), // pets signal is null -> filtered out
+                Row(
+                    "throtle_id_4",
+                    true,
+                    null,
+                    true,
+                    "English"
+                ), // pets signal for customer uuid3 contains cat values [3, 4], only first value will be picked, cat signal is null -> filtered out
+                Row("throtle_id_5", true, true, true, "Chinese") // filtered out, no matched throtle_id
+            ).asJava,
+            tidAttschema
+        )
+        val feedDate = "2022-02-24"
+        val signalNameToSignalDomain =
+            Map("pets" -> "profile", "pets_cat" -> "profile", "pets_dog" -> "profile", "language" -> "profile")
+
+        // when
+        val transformedDfs = DemographicsSignalsJob
+            .transform(customer360Df, refinedThrotleTidAttDf, signalNameToSignalDomain, feedDate)
+
+        // then
+        val petsSignalDf = transformedDfs.find(data => data._1 == "profile" && data._2 == "pets").map(_._3).get
+        val petsSignalActualData = petsSignalDf.collect()
+        val schema = StructType(
+            Array(
+                StructField("customer_360_id", StringType, true),
+                StructField("signal_generation_date", StringType, false),
+                StructField("signal_domain", StringType, false),
+                StructField("signal_name", StringType, false),
+                StructField("signal_value", StringType, true)
+            )
+        )
+
+        withClue(
+            "Transformed data does not match." + petsSignalActualData
+                .mkString("\nActual data:\n", "\n-----------------------\n", "\n\n")
+        ) {
+            val expected_1 = spark.createDataFrame(
+                Seq(
+                    Row("uuid1", feedDate, "profile", "pets", "false"),
+                    Row("uuid2", feedDate, "profile", "pets", "true"),
+                    Row("uuid3", feedDate, "profile", "pets", "false")
+                ).asJava,
+                schema
+            )
+            petsSignalDf.schema shouldEqual expected_1.schema
+            petsSignalActualData should contain theSameElementsAs expected_1.collect()
+        }
+
+        val petsCatSignalDf =
+            transformedDfs.find(data => data._1 == "profile" && data._2 == "pets_cat").map(_._3).get
+        val petsCatSignalActualData = petsCatSignalDf.collect()
+        withClue(
+            "Transformed data does not match." + petsCatSignalActualData
+                .mkString("\nActual data:\n", "\n-----------------------\n", "\n\n")
+        ) {
+            val expected_2 = spark.createDataFrame(
+                Seq(
+                    Row("uuid1", feedDate, "profile", "pets_cat", "true"),
+                    Row("uuid2", feedDate, "profile", "pets_cat", "false")
+                ).asJava,
+                schema
+            )
+            petsCatSignalDf.schema shouldEqual expected_2.schema
+            petsCatSignalActualData should contain theSameElementsAs expected_2.collect()
+        }
+
+        val petsDogSignalDf =
+            transformedDfs.find(data => data._1 == "profile" && data._2 == "pets_dog").map(_._3).get
+        val petsDogSignalActualData = petsDogSignalDf.collect()
+        withClue(
+            "Transformed data does not match." + petsDogSignalActualData
+                .mkString("\nActual data:\n", "\n-----------------------\n", "\n\n")
+        ) {
+            val expected_2 = spark.createDataFrame(
+                Seq(
+                    Row("uuid1", feedDate, "profile", "pets_dog", "true"),
+                    Row("uuid2", feedDate, "profile", "pets_dog", "true"),
+                    Row("uuid3", feedDate, "profile", "pets_dog", "true")
+                ).asJava,
+                schema
+            )
+            petsDogSignalDf.schema shouldEqual expected_2.schema
+            petsDogSignalActualData should contain theSameElementsAs expected_2.collect()
+        }
+
+        val languageSignalDf =
+            transformedDfs.find(data => data._1 == "profile" && data._2 == "language").map(_._3).get
+        val languageSignalActualData = languageSignalDf.collect()
+        withClue(
+            "Transformed data does not match." + languageSignalActualData
+                .mkString("\nActual data:\n", "\n-----------------------\n", "\n\n")
+        ) {
+            val expected_2 = spark.createDataFrame(
+                Seq(
+                    Row("uuid1", feedDate, "profile", "language", "English"),
+                    Row("uuid2", feedDate, "profile", "language", "Spanish"),
+                    Row("uuid3", feedDate, "profile", "language", "English")
+                ).asJava,
+                schema
+            )
+            languageSignalDf.schema shouldEqual expected_2.schema
+            languageSignalActualData should contain theSameElementsAs expected_2.collect()
         }
     }
 

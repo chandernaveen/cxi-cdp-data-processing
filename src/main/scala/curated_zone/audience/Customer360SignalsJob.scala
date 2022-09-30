@@ -169,7 +169,7 @@ object Customer360SignalsJob {
     ): DataFrame = {
         val feedDateCol = to_date(lit(feedDate), "yyyy-MM-dd")
         val daysInAWeek = 7
-        val excludeCurrentDay = 1
+        val excludeCurrentDay = 0
 
         val partnerLocationWeeklyTableWithLastWeekData = spark
             .table(partnerLocationWeeklySignalsTableName)

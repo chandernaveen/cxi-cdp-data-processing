@@ -731,7 +731,7 @@ class Customer360SignalsJobSpecificPartnerLocationSignalsTest extends BaseSparkB
         val actual = Customer360SignalsJob.readPartnerLocationWeeklySignals(
             spark,
             partnerLocationWeeklySignalsTable,
-            signalGenerationDate.plusDays(1).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+            signalGenerationDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
         )
 
         // then
