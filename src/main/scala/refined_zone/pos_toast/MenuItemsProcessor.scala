@@ -6,6 +6,7 @@ import refined_zone.pos_toast.config.ProcessorConfig
 
 import org.apache.spark.sql.{DataFrame, Encoders, SparkSession}
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
 
 object MenuItemsProcessor {
     def process(
@@ -44,6 +45,15 @@ object MenuItemsProcessor {
     def readMenuGroups(spark: SparkSession, date: String, table: String): DataFrame = {
         import spark.implicits._
 
+        val guidSchema = new StructType()
+            .add("guid", StringType)
+
+        val menuItemSchema = new StructType()
+            .add("name", StringType)
+            .add("items", ArrayType(guidSchema))
+            .add("optionGroups", ArrayType(guidSchema))
+            .add("subgroups", ArrayType(guidSchema))
+
         val rawMenuItems = spark
             .table(table)
             .filter($"record_type" === "menu-groups" && $"feed_date" === date)
@@ -51,6 +61,7 @@ object MenuItemsProcessor {
             .as[String]
 
         spark.read
+            .schema(menuItemSchema)
             .json(rawMenuItems.select("record_value").as[String](Encoders.STRING))
             .select(
                 $"optionGroups.guid".as("variation_array"),
