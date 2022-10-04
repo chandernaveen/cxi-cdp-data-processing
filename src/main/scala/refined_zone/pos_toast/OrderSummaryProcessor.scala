@@ -98,7 +98,7 @@ object OrderSummaryProcessor {
         import orderSummary.sparkSession.implicits._
         orderSummary
             .withColumn("line_items", $"check.selections")
-            .withColumn("discount_id", $"check.appliedDiscounts.discount.guid") // array of discounts for an order
+            .withColumn("discount_id", lit(null))
             .withColumn("cxi_partner_id", lit(cxiPartnerId))
             .withColumn("ord_desc", lit(null))
             .withColumn("ord_total", $"check.totalAmount")

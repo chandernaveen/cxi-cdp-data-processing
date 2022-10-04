@@ -156,6 +156,7 @@ object PosIdentityProcessor {
         customerPreAuthAliased
             .join(paymentsAliased, customerPreAuthAliased("order_id") === paymentsAliased("order_id"), "full_outer")
             .withColumn("order_id_final", coalesce($"pre_auth.order_id", $"p.order_id"))
+            .withColumn("location_id_final", coalesce($"pre_auth.location_id", $"p.location_id"))
             .withColumn("card_brand_final", coalesce($"pre_auth.card_brand", $"p.card_brand"))
             .withColumn("bin_final", $"p.bin") // no bin in schema in preAuth
             .withColumn("pan_final", coalesce($"pre_auth.pan", $"p.pan"))
@@ -165,7 +166,7 @@ object PosIdentityProcessor {
             .withColumn("exp_year_final", coalesce($"pre_auth.exp_year", $"p.exp_year"))
             .select(
                 $"order_id_final" as "order_id",
-                $"p.location_id" as "location_id",
+                $"location_id_final" as "location_id",
                 $"customer_id",
                 $"card_brand_final" as "card_brand",
                 $"bin_final" as "bin",
