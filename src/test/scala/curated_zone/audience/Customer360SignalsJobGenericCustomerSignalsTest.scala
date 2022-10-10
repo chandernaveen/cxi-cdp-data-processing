@@ -4,7 +4,7 @@ package curated_zone.audience
 import curated_zone.audience.model.{SignalType, SignalUniverse}
 import support.BaseSparkBatchJobTest
 
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.{Dataset, Row}
 import org.apache.spark.sql.types.{ArrayType, StringType, StructField, StructType}
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper}
 
@@ -111,7 +111,23 @@ class Customer360SignalsJobGenericCustomerSignalsTest extends BaseSparkBatchJobT
             SignalType.GeneralCustomerSignal.code,
             "general_customer_signals"
         )
-        Seq(burgerAffinity, colaAffinity, deliveryPreferred, reachibilityEmail, ageCategory, gender).toDS()
+        val location = SignalUniverse(
+            "profile",
+            "Profile",
+            "location",
+            "Location",
+            "profile.location_geo_point",
+            "geo_point",
+            "test description",
+            "enumeration",
+            signalConfigCreateDate,
+            signalConfigCreateDate,
+            true,
+            true,
+            SignalType.GeneralCustomerSignal.code,
+            "general_customer_signals"
+        )
+        Seq(burgerAffinity, colaAffinity, deliveryPreferred, reachibilityEmail, ageCategory, gender, location).toDS()
     }
 
     test("test read generic customer signals") {
@@ -124,7 +140,8 @@ class Customer360SignalsJobGenericCustomerSignalsTest extends BaseSparkBatchJobT
             ("cust_id1", "campaign", "reachability_phone", "true", signalGenerationDate),
             // signal's generation date is different, should be ignored
             ("cust_id2", "channel_preferences", "delivery_preferred", "true", sqlDate(2021, 12, 10)),
-            ("cust_id3", "food_and_drink_preference", "burger_affinity", "true", signalGenerationDate)
+            ("cust_id3", "food_and_drink_preference", "burger_affinity", "true", signalGenerationDate),
+            ("cust_id3", "profile", "location", "26.08831,-80.18164", signalGenerationDate)
         ).toDF("customer_360_id", "signal_domain", "signal_name", "signal_value", "signal_generation_date")
         customer360SignalsDf.createOrReplaceTempView(customer360SignalsTable)
 
@@ -141,7 +158,8 @@ class Customer360SignalsJobGenericCustomerSignalsTest extends BaseSparkBatchJobT
             val expected = Seq(
                 ("cust_id1", "campaign", "reachability_email", "true", signalGenerationDate),
                 ("cust_id1", "campaign", "reachability_phone", "true", signalGenerationDate),
-                ("cust_id3", "food_and_drink_preference", "burger_affinity", "true", signalGenerationDate)
+                ("cust_id3", "food_and_drink_preference", "burger_affinity", "true", signalGenerationDate),
+                ("cust_id3", "profile", "location", "26.08831,-80.18164", signalGenerationDate)
             ).toDF("customer_360_id", "signal_domain", "signal_name", "signal_value", "signal_generation_date")
             actual.schema shouldEqual expected.schema
             actualData should contain theSameElementsAs expected.collect()
@@ -173,7 +191,8 @@ class Customer360SignalsJobGenericCustomerSignalsTest extends BaseSparkBatchJobT
             // signal's generation date is different, should be ignored
             ("cust_id2", "channel_preferences", "delivery_preferred", "true", sqlDate(2021, 12, 10)),
             // customer #3
-            ("cust_id3", "food_and_drink_preference", "burger_affinity", "true", signalGenerationDate)
+            ("cust_id3", "food_and_drink_preference", "burger_affinity", "true", signalGenerationDate),
+            ("cust_id3", "profile", "location", "26.08831,-80.18164", signalGenerationDate)
         ).toDF("customer_360_id", "signal_domain", "signal_name", "signal_value", "signal_generation_date")
         customer360GenericDailySignalsDf.createOrReplaceTempView(customer360SignalsTable)
 
@@ -217,7 +236,9 @@ class Customer360SignalsJobGenericCustomerSignalsTest extends BaseSparkBatchJobT
                     "cust_id3",
                     Map(
                         "food_and_drink_preference" ->
-                            Map("burger_affinity_boolean" -> "true")
+                            Map("burger_affinity_boolean" -> "true"),
+                        "profile" ->
+                            Map("location_geo_point" -> "26.08831,-80.18164")
                     )
                 )
             ).toDF("customer_360_id", "general_customer_signals")
@@ -242,7 +263,7 @@ class Customer360SignalsJobGenericCustomerSignalsTest extends BaseSparkBatchJobT
                 Seq(),
                 Seq(),
                 Seq(Row("burger_affinity_boolean", "true"), Row("cola_affinity_boolean", "true")),
-                Seq()
+                Seq(Row("location_geo_point", "26.08831,-80.18164"))
             )
         )
 
@@ -270,7 +291,7 @@ class Customer360SignalsJobGenericCustomerSignalsTest extends BaseSparkBatchJobT
         val actual = Customer360SignalsJob.normalizeSignals(signalsDf, signalUniverseDf.as[SignalUniverse].collect())
 
         // then
-        withClue("Normalized data data does not match") {
+        withClue("Normalized data does not match") {
             val expected = Seq(
                 ("cust_id1", null, Map("delivery_preferred_boolean" -> "true"), null, null),
                 (
@@ -285,7 +306,7 @@ class Customer360SignalsJobGenericCustomerSignalsTest extends BaseSparkBatchJobT
                     null,
                     null,
                     Map("burger_affinity_boolean" -> "true", "cola_affinity_boolean" -> "true"),
-                    null
+                    Map("location_geo_point" -> "26.08831,-80.18164")
                 )
             ).toDF("customer_360_id", "campaign", "channel_preferences", "food_and_drink_preference", "profile")
             actual.schema shouldEqual expected.schema
@@ -338,6 +359,14 @@ class Customer360SignalsJobGenericCustomerSignalsTest extends BaseSparkBatchJobT
                 "25-30"
             ),
             (
+                "profile",
+                "cust_id1",
+                "general_customer_signal",
+                Map("combination-bin" -> Array("combination-bin_1", "combination-bin_2")),
+                "location_geo_point",
+                "26.08831,-80.18164"
+            ),
+            (
                 "food_and_drink_preference",
                 "cust_id2",
                 "general_customer_signal",
@@ -385,7 +414,7 @@ class Customer360SignalsJobGenericCustomerSignalsTest extends BaseSparkBatchJobT
                     Seq(Row("reachability_email_boolean", "true")),
                     Seq(Row("delivery_preferred_boolean", "true")),
                     Seq(Row("burger_affinity_boolean", "true"), Row("cola_affinity_boolean", "true")),
-                    Seq(Row("age_category_keyword", "25-30"))
+                    Seq(Row("age_category_keyword", "25-30"), Row("location_geo_point", "26.08831,-80.18164"))
                 ),
                 Row(
                     "cust_id2",
