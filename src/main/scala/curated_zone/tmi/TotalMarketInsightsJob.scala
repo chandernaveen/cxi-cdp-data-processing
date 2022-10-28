@@ -293,6 +293,7 @@ object TotalMarketInsightsJob {
         val shardKey = """{"date": 1, "location_type": 1, "region": 1, "state": 1, "city": 1}"""
 
         val saveMode = if (fullReprocess) SaveMode.Overwrite else SaveMode.Append
+        val forceInsert = if (fullReprocess) true else false
 
         totalMarketInsights.write
             .format(MongoSparkConnectorClass)
@@ -302,6 +303,7 @@ object TotalMarketInsightsJob {
             .option("uri", mongoDbUri)
             .option("replaceDocument", "true")
             .option("shardKey", shardKey) // allow updates based on these fields
+            .option("forceInsert", forceInsert)
             .save()
     }
 

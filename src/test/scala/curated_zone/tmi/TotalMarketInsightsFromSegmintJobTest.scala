@@ -16,6 +16,8 @@ class TotalMarketInsightsFromSegmintJobTest extends BaseSparkBatchJobTest {
             .add("date", StringType)
             .add("merchant", StringType)
             .add("location_type", StringType)
+            .add("industry_category", StringType)
+            .add("cuisine_category", StringType)
             .add("state", StringType)
             .add("postal_code", StringType)
             .add("transaction_quantity", IntegerType)
@@ -24,10 +26,46 @@ class TotalMarketInsightsFromSegmintJobTest extends BaseSparkBatchJobTest {
             .add("region", StringType)
 
         val totalMarketInsightRefinedData = Seq(
-            Row("2022-02-06", "Example 1", "RESTAURANTS", "AZ", "1234", 2, 2.99, "City 1", "Region 1"),
-            Row("2022-02-06", "Example 1", "RESTAURANTS", "AZ", "1234", 2, 2.99, "City 1", "Region 1"),
-            Row("2022-02-06", "Example 1", "DINER", "AZ", "1234", 2, 2.99, "City 1", "Region 1"),
-            Row("2022-02-06", "Example 1", "HOTAL", "AZ", "1234", 2, 2.99, "City 1", "Region 1") // Not Restaurant
+            Row(
+                "2022-09-06",
+                "Example 1",
+                "RESTAURANTS",
+                "Fast Casual",
+                "American",
+                "AZ",
+                "1234",
+                2,
+                2.99,
+                "City 1",
+                "Region 1"
+            ),
+            Row(
+                "2022-09-06",
+                "Example 1",
+                "RESTAURANTS",
+                "Fast Casual",
+                "American",
+                "AZ",
+                "1234",
+                2,
+                2.99,
+                "City 1",
+                "Region 1"
+            ),
+            Row(
+                "2022-09-06",
+                "Example 2",
+                "DINER",
+                "Casual Dining",
+                "American-Diner",
+                "AZ",
+                "1234",
+                2,
+                2.99,
+                "City 1",
+                "Region 1"
+            ),
+            Row("2022-09-06", "Example 2", "BISTROS", "Cafe", "French", "AZ", "1234", 2, 2.99, "City 1", "Region 1")
         )
 
         import collection.JavaConverters._
@@ -48,9 +86,10 @@ class TotalMarketInsightsFromSegmintJobTest extends BaseSparkBatchJobTest {
         val actualTotalMarketInsightsData = actual.collect()
         withClue("Total market insights data do not match") {
             val expected = List(
-                ("RESTAURANTS", "Region 1", "AZ", "City 1", "2022-02-06", 2.99, 2),
-                ("RESTAURANTS", "Region 1", "AZ", "City 1", "2022-02-06", 2.99, 2),
-                ("DINER", "Region 1", "AZ", "City 1", "2022-02-06", 2.99, 2)
+                ("American", "Region 1", "AZ", "City 1", "2022-09-06", 2.99, 2),
+                ("American", "Region 1", "AZ", "City 1", "2022-09-06", 2.99, 2),
+                ("American-Diner", "Region 1", "AZ", "City 1", "2022-09-06", 2.99, 2),
+                ("French", "Region 1", "AZ", "City 1", "2022-09-06", 2.99, 2)
             ).toDF("location_type", "region", "state", "city", "date", "transaction_amount", "transaction_quantity")
                 .collect()
             actualTotalMarketInsightsData.length should equal(expected.length)
@@ -71,10 +110,10 @@ class TotalMarketInsightsFromSegmintJobTest extends BaseSparkBatchJobTest {
             .add("transaction_quantity", IntegerType)
 
         val totalMarketInsightData = Seq(
-            Row("RESTAURANTS", "Region 1", "AZ", "City 1", "2022-02-06", 2.99, 2),
-            Row("RESTAURANTS", "Region 1", "AZ", "City 1", "2022-02-06", 2.99, 2),
-            Row("RESTAURANTS", "Region 1", "AZ", "City 1", "2022-02-07", 2.99, 2),
-            Row("DINER", "Region 1", "AZ", "City 1", "2022-02-06", 2.99, 2)
+            Row("American", "Region 1", "AZ", "City 1", "2022-09-06", 2.99, 2),
+            Row("American", "Region 1", "AZ", "City 1", "2022-09-06", 2.99, 2),
+            Row("American", "Region 1", "AZ", "City 1", "2022-09-07", 2.99, 2),
+            Row("American-Diner", "Region 1", "AZ", "City 1", "2022-09-06", 2.99, 2)
         )
 
         import collection.JavaConverters._
@@ -92,8 +131,9 @@ class TotalMarketInsightsFromSegmintJobTest extends BaseSparkBatchJobTest {
         val actualTotalMarketInsightsData = actual.collect()
         withClue("Total market insights data do not match") {
             val expected = List(
-                ("Restaurant", "Region 1", "AZ", "City 1", "2022-02-06", 8.97, 6),
-                ("Restaurant", "Region 1", "AZ", "City 1", "2022-02-07", 2.99, 2)
+                ("American", "Region 1", "AZ", "City 1", "2022-09-06", 5.98, 4),
+                ("American", "Region 1", "AZ", "City 1", "2022-09-07", 2.99, 2),
+                ("American-Diner", "Region 1", "AZ", "City 1", "2022-09-06", 2.99, 2)
             ).toDF("location_type", "region", "state", "city", "date", "transaction_amount", "transaction_quantity")
                 .collect()
             actualTotalMarketInsightsData.length should equal(expected.length)

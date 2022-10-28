@@ -65,11 +65,9 @@ object TotalMarketInsightsFromSegmintJob {
         spark.sqlContext.sql(
             s"""
                 SELECT
-                    location_type, region, state, city, date AS date,
-                    transaction_amount AS transaction_amount,
-                    transaction_quantity AS transaction_quantity
+                    cuisine_category AS location_type, region, state,
+                    city, date, transaction_amount, transaction_quantity
                 FROM ${refinedSegmintTable}
-                where location_type like '%RESTAURANTS%' OR location_type like '%DINER%'
             """
         )
     }
@@ -79,8 +77,7 @@ object TotalMarketInsightsFromSegmintJob {
         spark.sqlContext.sql(
             s"""
                 SELECT
-                    "Restaurant" as location_type,--TODO: Taxonomy, ticket 1835
-                    region, state, city, date AS date,
+                    location_type, region, state, city, date,
                     SUM(transaction_amount)  AS transaction_amount,
                     SUM(transaction_quantity) AS transaction_quantity
                 FROM sourceData

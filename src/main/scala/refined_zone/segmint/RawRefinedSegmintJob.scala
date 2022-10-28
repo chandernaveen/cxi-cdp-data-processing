@@ -39,28 +39,35 @@ object RawRefinedSegmintJob {
     def run(cliArgs: CliArgs)(implicit spark: SparkSession): Unit = {
         val contract: ContractUtils = new ContractUtils(Paths.get("/mnt/" + cliArgs.contractPath))
         val feedDate = cliArgs.date.toString
+        val fullReprocess = cliArgs.fullReprocess.toBoolean
 
         // Source configuration, contract driven
         val srcDbName = contract.prop[String](getSchemaRawPath("db_name"))
         val srcTable = contract.prop[String](getSchemaRawPath("data_table"))
 
         // Supplement configuration, contract driven
-        val postalCodeDb = contract.prop[String](getSchemaRefinedHubPath("db_name"))
+        val refindHubDb = contract.prop[String](getSchemaRefinedHubPath("db_name"))
         val postalCodeTable = contract.prop[String](getSchemaRefinedHubPath("postal_table"))
+        val locationTypeTable = contract.prop[String](getSchemaRefinedHubPath("location_type_table"))
 
         // Target configuration, contract driven
         val refinedSegmingDb = contract.prop[String](getSchemaRefinedSegmintPath("db_name"))
         val segmintTable = contract.prop[String](getSchemaRefinedSegmintPath("segmint_table"))
+        val merchantTable = contract.prop[String](getSchemaRefinedSegmintPath("merchant_table"))
 
-        val segmintRawDf = readSegmint(spark, feedDate, s"${srcDbName}.${srcTable}")
-        val postalCodesDf = readPostalCodes(spark, s"$postalCodeDb.$postalCodeTable")
+        val segmintRawDf = readSegmint(spark, feedDate, s"${srcDbName}.${srcTable}", fullReprocess)
+        val postalCodesDf = readPostalCodes(spark, s"$refindHubDb.$postalCodeTable")
+        val locationTypesDf = readLocationTypes(spark, s"$refindHubDb.$locationTypeTable")
+        val merchantsDf = readMerchants(spark, s"$refinedSegmingDb.$merchantTable")
 
         val segmintTransformDf = transformSegmint(segmintRawDf, broadcast(postalCodesDf))
+        val segmintCategoryDf =
+            addIndustryAndCuisineCategory(segmintTransformDf, broadcast(locationTypesDf), broadcast(merchantsDf))
 
-        writeSegmint(segmintTransformDf, s"$refinedSegmingDb.$segmintTable")
+        writeSegmint(segmintCategoryDf, s"$refinedSegmingDb.$segmintTable")
     }
 
-    def readSegmint(spark: SparkSession, date: String, table: String): DataFrame = {
+    def readSegmint(spark: SparkSession, date: String, table: String, fullReprocess: Boolean): DataFrame = {
         import spark.implicits._
 
         val postalMerch = new StructType()
@@ -77,20 +84,37 @@ object RawRefinedSegmintJob {
 
         val iso8601DateConverterUdf = udf(convertYearWeekToIso8601Date _)
 
-        spark
-            .table(table)
-            .filter($"record_type" === "zip_merch" && $"feed_date" === date)
-            .select(from_csv($"record_value", postalMerch, Map("sep" -> "|")).as("postal_merch"))
-            .select(
-                iso8601DateConverterUdf($"postal_merch.date").as("date"),
-                $"postal_merch.merchant",
-                $"postal_merch.location_type",
-                $"postal_merch.state",
-                $"postal_merch.postal_code",
-                $"postal_merch.transaction_quantity",
-                $"postal_merch.transaction_amount"
-            )
-            .filter($"state" =!= "" && $"postal_code" =!= "" && $"location_type".isNotNull)
+        if (fullReprocess) {
+            spark
+                .table(table)
+                .filter($"record_type" === "zip_merch")
+                .select(from_csv($"record_value", postalMerch, Map("sep" -> "|")).as("postal_merch"))
+                .select(
+                    iso8601DateConverterUdf($"postal_merch.date").as("date"),
+                    $"postal_merch.merchant",
+                    $"postal_merch.location_type",
+                    $"postal_merch.state",
+                    $"postal_merch.postal_code",
+                    $"postal_merch.transaction_quantity",
+                    $"postal_merch.transaction_amount"
+                )
+                .filter($"state" =!= "" && $"postal_code" =!= "" && $"location_type".isNotNull)
+        } else {
+            spark
+                .table(table)
+                .filter($"record_type" === "zip_merch" && $"feed_date" === date)
+                .select(from_csv($"record_value", postalMerch, Map("sep" -> "|")).as("postal_merch"))
+                .select(
+                    iso8601DateConverterUdf($"postal_merch.date").as("date"),
+                    $"postal_merch.merchant",
+                    $"postal_merch.location_type",
+                    $"postal_merch.state",
+                    $"postal_merch.postal_code",
+                    $"postal_merch.transaction_quantity",
+                    $"postal_merch.transaction_amount"
+                )
+                .filter($"state" =!= "" && $"postal_code" =!= "" && $"location_type".isNotNull)
+        }
     }
 
     /** Converts date (string) in 'YYYY-WW' format to the date (string) in 'yyyy-MM-dd' format.
@@ -124,6 +148,27 @@ object RawRefinedSegmintJob {
                |""".stripMargin)
     }
 
+    def readLocationTypes(spark: SparkSession, table: String): DataFrame = {
+        spark.sql(s"""
+               |SELECT
+               |    location_type,
+               |    industry_category,
+               |    cuisine_category
+               |FROM $table
+               |""".stripMargin)
+    }
+
+    def readMerchants(spark: SparkSession, table: String): DataFrame = {
+        spark.sql(s"""
+               |SELECT
+               |    merchant,
+               |    location_type,
+               |    industry_category,
+               |    cuisine_category
+               |FROM $table
+               |""".stripMargin)
+    }
+
     def transformSegmint(segmintRaw: DataFrame, postalCodes: DataFrame): DataFrame = {
         segmintRaw
             .join(postalCodes, segmintRaw("postal_code") === postalCodes("postal_code"), "left") // adds city, region
@@ -133,6 +178,54 @@ object RawRefinedSegmintJob {
             .withColumn("region", coalesce(col("region"), lit("Unknown")))
             .withColumn("city", initcap(col("city")))
             .withColumn("location_type", upper(col("location_type")))
+    }
+
+    def addIndustryAndCuisineCategory(
+        segmintTransformed: DataFrame,
+        locationTypes: DataFrame,
+        merchants: DataFrame
+    ): DataFrame = {
+        segmintTransformed
+            .join(merchants, Seq("merchant", "location_type"), "left")
+            .join(locationTypes, segmintTransformed("location_type") === locationTypes("location_type"), "left")
+            .drop(merchants("merchant"))
+            .drop(merchants("location_type"))
+            .drop(locationTypes("location_type"))
+            .withColumn(
+                "industry_category_tmp",
+                when(
+                    merchants("industry_category") === "Other" || merchants("industry_category").isNull,
+                    when(locationTypes("industry_category").isNull, "Other").otherwise(
+                        locationTypes("industry_category")
+                    )
+                ).otherwise(merchants("industry_category"))
+            )
+            .withColumn(
+                "cuisine_category_tmp",
+                when(
+                    merchants("cuisine_category") === "Other" || merchants("cuisine_category").isNull,
+                    when(locationTypes("cuisine_category").isNull, "Other").otherwise(locationTypes("cuisine_category"))
+                ).otherwise(merchants("cuisine_category"))
+            )
+            .withColumnRenamed("industry_category_tmp", "industry_category")
+            .withColumnRenamed("cuisine_category_tmp", "cuisine_category")
+            .drop(merchants("industry_category"))
+            .drop(merchants("cuisine_category"))
+            .drop(locationTypes("industry_category"))
+            .drop(locationTypes("cuisine_category"))
+            .select(
+                "date",
+                "merchant",
+                "location_type",
+                "industry_category",
+                "cuisine_category",
+                "state",
+                "postal_code",
+                "transaction_quantity",
+                "transaction_amount",
+                "city",
+                "region"
+            )
     }
 
     def writeSegmint(df: DataFrame, destTable: String): Unit = {
@@ -150,7 +243,12 @@ object RawRefinedSegmintJob {
                |""".stripMargin)
     }
 
-    case class CliArgs(contractPath: String, date: LocalDate, sourceDateDirFormat: String = "yyyyMMdd") {
+    case class CliArgs(
+        contractPath: String,
+        date: LocalDate,
+        sourceDateDirFormat: String = "yyyyMMdd",
+        fullReprocess: String = "false"
+    ) {
         val sourceDateDirFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(sourceDateDirFormat)
     }
 
@@ -161,6 +259,8 @@ object RawRefinedSegmintJob {
                 case Seq(contractPath, rawDate, sourceDateDirFormat) =>
                     CliArgs(contractPath, parseDate(rawDate), sourceDateDirFormat)
                 case Seq(contractPath, rawDate) => CliArgs(contractPath, parseDate(rawDate))
+                case Seq(contractPath, rawDate, sourceDateDirFormat, fullReprocess) =>
+                    CliArgs(contractPath, parseDate(rawDate), sourceDateDirFormat, fullReprocess)
                 case _ =>
                     throw new IllegalArgumentException(
                         "Expected CLI arguments: <contractPath> <date (yyyy-MM-dd)> <sourceDateDirFormat?>"

@@ -71,7 +71,7 @@ class RawRefinedSegmintJobTest extends BaseSparkBatchJobTest {
         rawSource.createOrReplaceTempView(tempTableName)
 
         // when
-        val actual = RawRefinedSegmintJob.readSegmint(spark, "2022-02-06", tempTableName)
+        val actual = RawRefinedSegmintJob.readSegmint(spark, "2022-02-06", tempTableName, false)
 
         // then
         val actualFieldsReturned = actual.schema.fields.map(f => f.name)
@@ -186,6 +186,192 @@ class RawRefinedSegmintJobTest extends BaseSparkBatchJobTest {
                 "date",
                 "merchant",
                 "location_type",
+                "state",
+                "postal_code",
+                "transaction_quantity",
+                "transaction_amount",
+                "city",
+                "region"
+            ).collect()
+            actualSegmintRefinedData.length should equal(expected.length)
+            actualSegmintRefinedData should contain theSameElementsAs expected
+        }
+    }
+
+    test("test add industry and cuisine category") {
+
+        // given
+        import spark.implicits._
+        val segmintTransformedStruct = new StructType()
+            .add("date", StringType)
+            .add("merchant", StringType)
+            .add("location_type", StringType)
+            .add("state", StringType)
+            .add("postal_code", StringType)
+            .add("transaction_quantity", IntegerType)
+            .add("transaction_amount", DoubleType)
+            .add("city", StringType)
+            .add("region", StringType)
+
+        val segmintTransformedData = Seq(
+            Row("2022-09-11", "MCDONALD'S", "FAST FOOD RESTAURANTS", "AK", "99504", 10, 2.99, "City 1", "Region 1"),
+            Row("2022-09-18", "MCDONALD'S", "FAST FOOD RESTAURANTS", "AK", "99504", 10, 5.99, "City 1", "Region 1"),
+            Row("2022-09-11", "STARBUCKS", "COFFEE SHOPS", "AK", "99503", 5, 5.99, "City 2", "Region 1"),
+            Row("2022-09-18", "STARBUCKS", "COFFEE SHOPS", "AK", "99503", 4, 5.99, "City 2", "Region 1"),
+            Row("2022-09-25", "STARBUCKS", "COFFEE SHOPS", "AK", "99503", 3, 5.99, "City 2", "Region 1"),
+            Row("2022-09-11", "MOOSE'S TOOTH", "PIZZA PARLORS", "AK", "99502", 1, 1.99, "City 3", "Region 1"),
+            Row("2022-09-11", "TACO BELL", "MEXICAN RESTAURANTS", "AK", "99504", 2, 3.00, "City 1", "Region 1")
+        )
+
+        import collection.JavaConverters._
+        val segmintTransformedDf = spark.createDataFrame(segmintTransformedData.asJava, segmintTransformedStruct)
+
+        val locationTypeStruct = new StructType()
+            .add("location_type", StringType)
+            .add("industry_category", StringType)
+            .add("cuisine_category", StringType)
+
+        val locationTypeData = Seq(
+            Row("FAST FOOD RESTAURANTS", "QSR", "Other"),
+            Row("COFFEE SHOPS", "Cafe", null),
+            Row("PIZZA PARLORS", "Fast Casual", "Italian")
+        )
+
+        val merchantStruct = new StructType()
+            .add("merchant", StringType)
+            .add("location_type", StringType)
+            .add("industry_category", StringType)
+            .add("cuisine_category", StringType)
+
+        val merchantData = Seq(
+            Row("MCDONALD'S", "FAST FOOD RESTAURANTS", null, "American"),
+            Row("STARBUCKS", "COFFEE SHOPS", "QSR", "American")
+        )
+
+        val locationTypeDf = spark.createDataFrame(locationTypeData.asJava, locationTypeStruct)
+        val merchantDf = spark.createDataFrame(merchantData.asJava, merchantStruct)
+
+        // when
+        val actual =
+            RawRefinedSegmintJob.addIndustryAndCuisineCategory(segmintTransformedDf, locationTypeDf, merchantDf)
+
+        // then
+        val actualFieldsReturned = actual.schema.fields.map(f => f.name)
+        withClue("Actual fields returned:\n" + actual.schema.treeString) {
+            actualFieldsReturned shouldEqual Array(
+                "date",
+                "merchant",
+                "location_type",
+                "industry_category",
+                "cuisine_category",
+                "state",
+                "postal_code",
+                "transaction_quantity",
+                "transaction_amount",
+                "city",
+                "region"
+            )
+        }
+        val actualSegmintRefinedData = actual.collect()
+        withClue("Segmint refined add categories do not match") {
+            val expected = List(
+                (
+                    "2022-09-11",
+                    "MCDONALD'S",
+                    "FAST FOOD RESTAURANTS",
+                    "QSR",
+                    "American",
+                    "AK",
+                    "99504",
+                    10,
+                    2.99,
+                    "City 1",
+                    "Region 1"
+                ),
+                (
+                    "2022-09-18",
+                    "MCDONALD'S",
+                    "FAST FOOD RESTAURANTS",
+                    "QSR",
+                    "American",
+                    "AK",
+                    "99504",
+                    10,
+                    5.99,
+                    "City 1",
+                    "Region 1"
+                ),
+                (
+                    "2022-09-11",
+                    "STARBUCKS",
+                    "COFFEE SHOPS",
+                    "QSR",
+                    "American",
+                    "AK",
+                    "99503",
+                    5,
+                    5.99,
+                    "City 2",
+                    "Region 1"
+                ),
+                (
+                    "2022-09-18",
+                    "STARBUCKS",
+                    "COFFEE SHOPS",
+                    "QSR",
+                    "American",
+                    "AK",
+                    "99503",
+                    4,
+                    5.99,
+                    "City 2",
+                    "Region 1"
+                ),
+                (
+                    "2022-09-25",
+                    "STARBUCKS",
+                    "COFFEE SHOPS",
+                    "QSR",
+                    "American",
+                    "AK",
+                    "99503",
+                    3,
+                    5.99,
+                    "City 2",
+                    "Region 1"
+                ),
+                (
+                    "2022-09-11",
+                    "MOOSE'S TOOTH",
+                    "PIZZA PARLORS",
+                    "Fast Casual",
+                    "Italian",
+                    "AK",
+                    "99502",
+                    1,
+                    1.99,
+                    "City 3",
+                    "Region 1"
+                ),
+                (
+                    "2022-09-11",
+                    "TACO BELL",
+                    "MEXICAN RESTAURANTS",
+                    "Other",
+                    "Other",
+                    "AK",
+                    "99504",
+                    2,
+                    3.00,
+                    "City 1",
+                    "Region 1"
+                )
+            ).toDF(
+                "date",
+                "merchant",
+                "location_type",
+                "industry_category",
+                "cuisine_category",
                 "state",
                 "postal_code",
                 "transaction_quantity",
