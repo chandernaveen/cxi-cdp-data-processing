@@ -1,7 +1,13 @@
 package com.cxi.cdp.data_processing
 package curated_zone.signal_framework.transactional_insights
 
-import curated_zone.model.signal.transactional_insights.{ChannelMetric, OrderMetric, TenderTypeMetric, TimeOfDayMetric}
+import curated_zone.model.signal.transactional_insights.{
+    ChannelMetric,
+    HourOfDayMetric,
+    OrderMetric,
+    TenderTypeMetric,
+    TimeOfDayMetric
+}
 import curated_zone.model.CustomerMetricsTimePeriod
 import support.utils.ContractUtils
 import support.SparkSessionFactory
@@ -88,11 +94,12 @@ object TransactionalInsightsSignalsJob {
                 ChannelMetric.signalDomainName,
                 OrderMetric.signalDomainName,
                 TenderTypeMetric.signalDomainName,
-                TimeOfDayMetric.signalDomainName
+                TimeOfDayMetric.signalDomainName,
+                HourOfDayMetric.signalDomainName
             )
 
         val transactionalInsightsSignalNames =
-            ChannelMetric.signalNames ++ OrderMetric.signalNames ++ TenderTypeMetric.signalNames ++ TimeOfDayMetric.signalNames
+            ChannelMetric.signalNames ++ OrderMetric.signalNames ++ TenderTypeMetric.signalNames ++ TimeOfDayMetric.signalNames ++ HourOfDayMetric.signalNames
 
         val srcTable = "new_customer_360_partner_location_daily_signals"
         df.createOrReplaceTempView(srcTable)

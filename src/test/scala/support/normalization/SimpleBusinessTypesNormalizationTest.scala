@@ -11,7 +11,7 @@ import org.scalatest.Matchers.convertToAnyShouldWrapper
 
 import java.sql.Timestamp
 import java.sql.Timestamp.from
-import java.time.LocalDate
+import java.time.{LocalDate, ZoneId}
 import java.time.LocalDateTime.of
 import java.time.ZoneOffset.UTC
 
@@ -106,10 +106,10 @@ class SimpleBusinessTypesNormalizationTest extends FunSuite {
                 Some(from(of(2021, 5, 13, 21, 50, 55, 435000000).toInstant(UTC)))
             ),
             TimestampNormalizationTestCase(
-                "2022-12-03T10:15:30+02:00",
+                "2022-12-03T11:15:30+02:00",
                 None, // +02:00 timezone
                 None,
-                Some(from(of(2022, 12, 3, 8, 15, 30).toInstant(UTC)))
+                Some(from(of(2022, 12, 3, 9, 15, 30).toInstant(UTC)))
             ),
             TimestampNormalizationTestCase(
                 "20220224T07.15.00+0300",
@@ -144,6 +144,41 @@ class SimpleBusinessTypesNormalizationTest extends FunSuite {
                 testcase.value,
                 testcase.pattern,
                 testcase.timeZone
+            ) shouldBe testcase.expected
+        }
+    }
+
+    test("Convert to LTC from UTC") {
+
+        val testCases = Seq(
+            TimestampNormalizationLTCTestCase(
+                java.sql.Timestamp.valueOf("2022-04-30 10:10:00"),
+                None,
+                Some("America/Los_Angeles"),
+                Some(java.sql.Timestamp.valueOf("2022-04-30 3:10:00"))
+            ),
+            TimestampNormalizationLTCTestCase(
+                from(of(2021, 2, 24, 6, 30, 0, 0).atZone(UTC).toInstant),
+                None,
+                None,
+                Some(from(of(2021, 2, 24, 6, 30, 0, 0).atZone(UTC).toInstant))
+            ),
+            TimestampNormalizationLTCTestCase(null, None, None, None)
+        )
+        for (testcase <- testCases) {
+            println(
+                "actual" + TimestampNormalization.parseTimeStampToLTC(
+                    testcase.value,
+                    testcase.timeZone,
+                    testcase.pattern
+                )
+            )
+            println("Expected" + testcase.expected)
+            println("sent" + testcase.value)
+            TimestampNormalization.parseTimeStampToLTC(
+                testcase.value,
+                testcase.timeZone,
+                testcase.pattern
             ) shouldBe testcase.expected
         }
     }
@@ -202,6 +237,14 @@ class SimpleBusinessTypesNormalizationTest extends FunSuite {
         timeZone: Option[String],
         expected: Option[Timestamp]
     )
+
+    case class TimestampNormalizationLTCTestCase(
+        value: Timestamp,
+        pattern: Option[String],
+        timeZone: Option[String],
+        expected: Option[Timestamp]
+    )
+
     case class SqlDateNormalizationTestCase(value: String, pattern: String, expected: Option[java.sql.Date])
     case class ZipCodeNormalizationTestCase(value: String, expected: Option[String])
     case class MoneyNormalizationTestCase(value: String, expected: Option[java.math.BigDecimal])

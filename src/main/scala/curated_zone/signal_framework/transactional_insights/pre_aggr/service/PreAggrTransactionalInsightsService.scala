@@ -57,6 +57,7 @@ private[pre_aggr] object PreAggrTransactionalInsightsService {
             addTenderTypeMetrics(_, orderTenders),
             addOrderMetrics _,
             addTimeOfDayMetrics _,
+            addHourOfDayMetrics _,
             addChannelMetrics _
         )
 

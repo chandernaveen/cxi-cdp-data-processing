@@ -9,7 +9,7 @@ import org.apache.spark.sql.functions._
 
 private[pre_aggr] object MetricsService {
 
-    final val AllSignalDomains = Seq(TenderTypeMetric, OrderMetric, TimeOfDayMetric, ChannelMetric)
+    final val AllSignalDomains = Seq(TenderTypeMetric, OrderMetric, TimeOfDayMetric, HourOfDayMetric, ChannelMetric)
 
     final val AllMetricColumns = MetricsServiceHelper.getMetricColumns(AllSignalDomains: _*)
 
@@ -29,6 +29,13 @@ private[pre_aggr] object MetricsService {
         orderSummary.convertSignalValuesToMetrics(
             signalColumn = MetricsServiceHelper.hourToTimeOfDayUdf(hour(col("ord_timestamp"))),
             signalDomain = TimeOfDayMetric
+        )
+    }
+
+    def addHourOfDayMetrics(orderSummary: DataFrame): DataFrame = {
+        orderSummary.convertSignalValuesToMetrics(
+            signalColumn = MetricsServiceHelper.hourToHourOfDayUdf(hour(col("ord_timestamp"))),
+            signalDomain = HourOfDayMetric
         )
     }
 

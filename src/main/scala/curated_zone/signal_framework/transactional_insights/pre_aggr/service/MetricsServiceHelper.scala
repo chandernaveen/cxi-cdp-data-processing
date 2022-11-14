@@ -20,6 +20,10 @@ private[pre_aggr] object MetricsServiceHelper {
         maybeHour.map(hour => TimeOfDayMetric.fromHour(hour).signalName)
     })
 
+    val hourToHourOfDayUdf = udf((maybeHour: Option[Int]) => {
+        maybeHour.map(hour => HourOfDayMetric.fromHour(hour).signalName)
+    })
+
     def channelMetric(
         ordOriginateChannelType: OrderChannelType,
         ordTargetChannelType: OrderChannelType

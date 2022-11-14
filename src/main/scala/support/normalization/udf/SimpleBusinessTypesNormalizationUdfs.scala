@@ -7,6 +7,8 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, to_date, to_timestamp, udf}
 import org.apache.spark.sql.Column
 
+import java.sql.Timestamp
+
 sealed trait SimpleBusinessTypesNormalizationUdfs extends NormalizationUdfs
 
 case object TimestampNormalizationUdfs extends SimpleBusinessTypesNormalizationUdfs {
@@ -37,6 +39,9 @@ case object TimestampNormalizationUdfs extends SimpleBusinessTypesNormalizationU
       */
     def convertToTimestamp: UserDefinedFunction =
         udf((value: Long) => TimestampNormalization.convertToTimestamp(value))
+
+    def parseTimeStampToLTC: UserDefinedFunction =
+        udf((time: Timestamp, timezone: Option[String]) => TimestampNormalization.parseTimeStampToLTC(time, timezone))
 }
 
 case object DateNormalizationUdfs extends SimpleBusinessTypesNormalizationUdfs {

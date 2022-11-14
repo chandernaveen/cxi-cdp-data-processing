@@ -1,16 +1,17 @@
 package com.cxi.cdp.data_processing
 package curated_zone.signal_framework.transactional_insights.pre_aggr
 
-import com.cxi.cdp.data_processing.curated_zone.signal_framework.transactional_insights.pre_aggr.model._
-import com.cxi.cdp.data_processing.curated_zone.signal_framework.transactional_insights.pre_aggr.service._
-import com.cxi.cdp.data_processing.refined_zone.hub.ChangeDataFeedViews
-import com.cxi.cdp.data_processing.support.change_data_feed.ChangeDataFeedSource
-import com.cxi.cdp.data_processing.support.utils.ContractUtils
-import com.cxi.cdp.data_processing.support.SparkSessionFactory
+import curated_zone.signal_framework.transactional_insights.pre_aggr.model._
+import curated_zone.signal_framework.transactional_insights.pre_aggr.service._
+import refined_zone.hub.ChangeDataFeedViews
+import support.change_data_feed.ChangeDataFeedSource
+import support.normalization.udf.TimestampNormalizationUdfs.parseTimeStampToLTC
+import support.utils.ContractUtils
+import support.SparkSessionFactory
 
 import org.apache.log4j.Logger
 import org.apache.spark.sql.{DataFrame, Dataset, SaveMode, SparkSession}
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, to_date}
 
 import java.nio.file.Paths
 
@@ -75,11 +76,13 @@ object PreAggrTransactionalInsightsJob {
         val orderSummaryCdf = getOrderSummaryCdf(contract)
         val orderTenders = spark.table(getOrderTenderTable(contract))
         val customer360 = spark.table(getCustomer360Table(contract))
+        val location = spark.table(getLocationTable(contract))
         val destTable = getDestTable(contract)
 
         if (fullReprocess) {
             val cdfResult = orderSummaryCdf.queryAllData(CdfConsumerId)
-            cdfResult.data.map(orderSummary => {
+            val orderSummaryLTC = Some(getOrderSummaryLTC(cdfResult.data.get, location))
+            orderSummaryLTC.map(orderSummary => {
                 ProcessingContext(
                     orderSummary = getOrderSummaryWithNonNullKeyFields(orderSummary),
                     orderTenders = orderTenders,
@@ -92,11 +95,13 @@ object PreAggrTransactionalInsightsJob {
         } else {
             val cdfResult = orderSummaryCdf.queryChangeData(CdfConsumerId)
             for {
-                orderSummaryChangeData <- cdfResult.data
+                orderSummaryChangeData <- Some(getOrderSummaryLTC(cdfResult.data.get, location))
                 orderDates = getOrderDatesToProcess(orderSummaryChangeData)
                 _ = logger.info(s"Order dates to reprocess: $orderDates")
                 if orderDates.nonEmpty
-                orderSummaryFull <- orderSummaryCdf.queryAllData(CdfConsumerId).data
+                orderSummaryFull <- Some(
+                    getOrderSummaryLTC(orderSummaryCdf.queryAllData(CdfConsumerId).data.get, location)
+                )
             } yield {
                 val orderSummaryForDates = orderSummaryFull.filter(ordDateColumn.isInCollection(orderDates))
                 ProcessingContext(
@@ -147,6 +152,27 @@ object PreAggrTransactionalInsightsJob {
         processingContext.finalizeOnSuccessFn()
     }
 
+    private def getOrderSummaryLTC(orderSummary: DataFrame, location: DataFrame): DataFrame = {
+
+        val locationselect = location.select("location_id", "cxi_partner_id", "timezone")
+        val orderSuryTransformed = orderSummary
+            .join(locationselect, Seq("location_id", "cxi_partner_id"), "left") // adds city, state_code, region
+            .drop(locationselect("location_id"))
+            .drop(locationselect("cxi_partner_id"))
+            .drop(col("ord_date"))
+            .withColumnRenamed("ord_timestamp", "ord_timestamp_UTC")
+            .withColumn(
+                "ord_timestamp",
+                parseTimeStampToLTC(col("ord_timestamp_UTC"), col("timezone"))
+            )
+            // .withColumn("ord_date", parseToSqlDateIsoFormat(col("ord_timestamp")))
+            .withColumn("ord_date", to_date(col("ord_timestamp")))
+            .drop(col("ord_timestamp_UTC"))
+            .drop(locationselect("timezone"))
+            .select("*")
+        orderSuryTransformed
+
+    }
     private def getOrderSummaryCdf(contract: ContractUtils): ChangeDataFeedSource = {
         val orderSummaryTables = contract.prop[Seq[String]]("datalake.order_summary_tables")
         ChangeDataFeedViews.orderSummary(getCdfTrackerTable(contract), orderSummaryTables)
@@ -167,6 +193,12 @@ object PreAggrTransactionalInsightsJob {
     private def getCustomer360Table(contract: ContractUtils): String = {
         val db = contract.prop[String]("datalake.curated_hub.db_name")
         val table = contract.prop[String]("datalake.curated_hub.customer_360_table")
+        s"$db.$table"
+    }
+
+    private def getLocationTable(contract: ContractUtils): String = {
+        val db = contract.prop[String]("datalake.refined_hub.db_name")
+        val table = contract.prop[String]("datalake.refined_hub.location_table")
         s"$db.$table"
     }
 

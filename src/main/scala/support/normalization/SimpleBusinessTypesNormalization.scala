@@ -9,6 +9,7 @@ import org.apache.log4j.Logger
 import java.sql.Timestamp
 import java.time.{Instant, LocalDate, LocalDateTime, ZoneId}
 import java.time.format.DateTimeFormatter
+import java.time.LocalDateTime._
 
 sealed trait SimpleBusinessTypesNormalization extends Normalization
 
@@ -86,7 +87,7 @@ case object TimestampNormalization extends SimpleBusinessTypesNormalization {
       */
     def convertToTimestamp(epoch: Long): Option[Timestamp] = {
         try {
-            val instant = Instant.ofEpochSecond(epoch);
+            val instant = Instant.ofEpochSecond(epoch)
             Some(Timestamp.from(instant))
         } catch {
             case _: RuntimeException =>
@@ -94,6 +95,39 @@ case object TimestampNormalization extends SimpleBusinessTypesNormalization {
                 None
         }
     }
+
+    def parseTimeStampToLTC(
+        timestamp: Timestamp,
+        timeZone: Option[String] = None,
+        pattern: Option[String] = None
+    ): Option[Timestamp] = {
+
+        try {
+            /*   val formatter = pattern match {
+                case Some(value) => DateTimeFormatter.ofPattern(value)
+                case None => DateTimeFormatter.ISO_DATE_TIME
+            }
+          //  val temporalAccessor = formatter.parse(timestamp)*/
+            val timeZoneInstant = timeZone match {
+                case Some(tz) => tz
+                case None => "UTC"
+            }
+
+            val instant = timestamp.toInstant
+
+            val local_instant = ofInstant(instant, ZoneId.of(timeZoneInstant))
+
+            Some(Timestamp.valueOf(local_instant))
+
+        } catch {
+
+            case _: RuntimeException =>
+                logger.warn(s"Cannot parse to timestamp: '$timestamp' with pattern '$pattern'")
+                None
+        }
+
+    }
+
 }
 
 case object EmailNormalization extends SimpleBusinessTypesNormalization {
