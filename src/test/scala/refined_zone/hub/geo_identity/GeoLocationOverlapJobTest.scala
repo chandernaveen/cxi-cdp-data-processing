@@ -129,7 +129,7 @@ class GeoLocationOverlapJobTest extends BaseSparkBatchJobTest with Matchers with
         val verasetDf = List(
             // horizontal_accuracy is too high - filtered out before join
             VerasetRow(
-                utc_timestamp = parseAsUnixTime("2022-06-10T00:01:15Z"),
+                utc_timestamp = "2022-06-10T00:01:15Z",
                 latitude = 38.00002,
                 longitude = -122.00003,
                 horizontal_accuracy = 17.0,
@@ -139,7 +139,7 @@ class GeoLocationOverlapJobTest extends BaseSparkBatchJobTest with Matchers with
             ),
             // matches location_1
             VerasetRow(
-                utc_timestamp = parseAsUnixTime("2022-06-12T00:02:10Z"),
+                utc_timestamp = "2022-06-12T00:02:10Z",
                 latitude = 38.00002,
                 longitude = -122.00003,
                 horizontal_accuracy = 3.5,
@@ -149,7 +149,7 @@ class GeoLocationOverlapJobTest extends BaseSparkBatchJobTest with Matchers with
             ),
             // matches location_1 and location_2
             VerasetRow(
-                utc_timestamp = parseAsUnixTime("2022-06-09T23:20:00Z"),
+                utc_timestamp = "2022-06-09T23:20:00Z",
                 latitude = 38.00001,
                 longitude = -121.99997,
                 horizontal_accuracy = 9.5,
@@ -159,7 +159,7 @@ class GeoLocationOverlapJobTest extends BaseSparkBatchJobTest with Matchers with
             ),
             // too far from our locations
             VerasetRow(
-                utc_timestamp = parseAsUnixTime("2022-06-09T21:45:00Z"),
+                utc_timestamp = "2022-06-09T21:45:00Z",
                 latitude = 37.9,
                 longitude = -121.9,
                 horizontal_accuracy = 3.0,
@@ -254,7 +254,7 @@ class GeoLocationOverlapJobTest extends BaseSparkBatchJobTest with Matchers with
 object GeoLocationOverlapJobTest {
 
     private[GeoLocationOverlapJobTest] case class VerasetRow(
-        utc_timestamp: Long, // unix time
+        utc_timestamp: String, // unix time
         latitude: Double,
         longitude: Double,
         horizontal_accuracy: Double,

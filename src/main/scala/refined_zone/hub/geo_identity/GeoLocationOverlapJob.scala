@@ -175,9 +175,9 @@ object GeoLocationOverlapJob {
             .filter(expr(dateFilter) && ($"advertiser_id_AAID".isNotNull || $"advertiser_id_IDFA".isNotNull))
             .select(
                 $"utc_timestamp",
-                $"latitude",
-                $"longitude",
-                $"horizontal_accuracy",
+                $"latitude".cast("double"),
+                $"longitude".cast("double"),
+                $"horizontal_accuracy".cast("double"),
                 $"id_type",
                 $"advertiser_id_AAID",
                 $"advertiser_id_IDFA"
