@@ -125,14 +125,6 @@ class FileIngestionFrameworkParbrinkTransformationTest extends BaseSparkBatchJob
                 ),
                 ParbrinkRawZoneModel(
                     record_type = "orders",
-                    record_value = null,
-                    location_id = "loc1",
-                    feed_date = "2022-02-24",
-                    file_name = "location=loc1/orders_a2.json",
-                    cxi_id = "cxi_id_2"
-                ),
-                ParbrinkRawZoneModel(
-                    record_type = "orders",
                     record_value = """{"Entries":[],"Id":567,"IsClosed":false,"Name":"ord_3",
                           |"Payments":[{"Amount":42.42,"CardNumber":"123456789012","Id":1}],"Total":99.99}""".stripMargin
                         .replace("\n", ""),

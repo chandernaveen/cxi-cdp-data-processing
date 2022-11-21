@@ -181,6 +181,8 @@ object OrderSummaryProcessor {
                 CxiIdentityIds,
                 "feed_date"
             )
+            .filter(col("ord_timestamp").isNotNull)
+            .filter(col("ord_date").isNotNull)
             .dropDuplicates("ord_id", "location_id", "ord_date", "item_id", "guest_check_line_item_id")
 
     }

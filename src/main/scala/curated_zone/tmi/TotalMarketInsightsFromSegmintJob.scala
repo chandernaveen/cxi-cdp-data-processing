@@ -45,7 +45,12 @@ object TotalMarketInsightsFromSegmintJob {
         val totalMarketInsightsSource: DataFrame =
             readTotalMarketInsights(s"$refinedSegmintDb.$refinedSegmintTable")
 
-        val totalMarketInsights: DataFrame = transformTotalMarketInsights(totalMarketInsightsSource).cache()
+        val totalMarketInsightsTableData =
+            readTotalMarketInsightsData(s"$curatedDb.$totalMarketInsightsTable")
+
+        val totalMarketInsights: DataFrame =
+            transformTotalMarketInsights(totalMarketInsightsSource, totalMarketInsightsTableData, cliArgs.overwrite)
+                .cache()
 
         writeToDatalakeTotalMarketInsights(
             totalMarketInsights,
@@ -72,9 +77,24 @@ object TotalMarketInsightsFromSegmintJob {
         )
     }
 
-    def transformTotalMarketInsights(refinedSegmintTable: DataFrame)(implicit spark: SparkSession): DataFrame = {
-        refinedSegmintTable.createOrReplaceTempView("sourceData")
+    def readTotalMarketInsightsData(totalMarketTable: String)(implicit spark: SparkSession): DataFrame = {
         spark.sqlContext.sql(
+            s"""
+                SELECT
+                    location_type, region, state,
+                    city, date, transaction_amount, transaction_quantity
+                FROM ${totalMarketTable}
+            """
+        )
+    }
+
+    def transformTotalMarketInsights(
+        refinedSegmintTable: DataFrame,
+        TotalMarketInsightData: DataFrame,
+        fullReprocess: Boolean = false
+    )(implicit spark: SparkSession): DataFrame = {
+        refinedSegmintTable.createOrReplaceTempView("sourceData")
+        val dfTMI = spark.sqlContext.sql(
             s"""
                 SELECT
                     location_type, region, state, city, date,
@@ -84,6 +104,11 @@ object TotalMarketInsightsFromSegmintJob {
                 group by 1, 2, 3, 4, 5
             """
         )
+        if (!fullReprocess) {
+            dfTMI.except(TotalMarketInsightData)
+        } else {
+            dfTMI
+        }
     }
 
     case class CliArgs(contractPath: String, overwrite: Boolean = false)

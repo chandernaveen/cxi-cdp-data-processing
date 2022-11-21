@@ -135,6 +135,7 @@ object OrderSummaryProcessor {
             .withColumn(
                 "service_charge_amount",
                 if (columnDataTypeIsArrayOfStrings(orderSummary, "check.appliedServiceCharges")) {
+
                     lit(0d)
                 } else {
                     expr(
@@ -204,6 +205,8 @@ object OrderSummaryProcessor {
                 "ord_sub_total",
                 "feed_date"
             )
+            .filter(col("ord_timestamp").isNotNull)
+            .filter(col("ord_date").isNotNull)
             .join(
                 posIdentitiesByOrderIdAndLocationId,
                 orderSummary("ord_id") === posIdentitiesByOrderIdAndLocationId("order_id") && orderSummary(

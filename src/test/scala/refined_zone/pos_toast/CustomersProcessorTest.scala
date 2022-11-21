@@ -67,6 +67,27 @@ class CustomersProcessorTest extends BaseSparkBatchJobTest {
             (
                 s"""
                    {
+                       "approvalStatus":"APPROVED",
+                       "businessDate":20220428,
+                       "guid": "0af3975e-d9bd-49d5-bf1a-db36cf70258b",
+                       "checks":[
+                          {
+                             "amount":14.74,
+                             "closedDate":"2022-04-28T16:54:24.768+0000",
+                             "createdDate":"2022-04-28T16:54:24.775+0000",
+                             "entityType":"Check",
+                             "guid":"1d820fc7-14ff-4c78-b293-b46d8d687c34"
+                          }
+                       ]
+                    }
+                   """,
+                "d8858e8e-67bc-4bd5-9b48-be29682aa03d",
+                "orders",
+                "2022-02-24"
+            ),
+            (
+                s"""
+                   {
                        "approvalStatus":"NEEDS_APPROVAL",
                        "businessDate":20220311,
                        "checks":[],
@@ -100,7 +121,8 @@ class CustomersProcessorTest extends BaseSparkBatchJobTest {
         withClue("POS Toast refined order customer data do not match") {
             val expected = List(
                 ("858c82f6-60b2-4bc2-8f9d-8c4c721aab50", null, null, null, null),
-                ("fb2e2cc0-3788-43e7-8175-89044ae8bcbe", "email_hash", "phone_hash", "John", "Doe")
+                ("fb2e2cc0-3788-43e7-8175-89044ae8bcbe", "email_hash", "phone_hash", "John", "Doe"),
+                (null, null, null, null, null)
             ).toDF(
                 "customer_id",
                 "email_address",
@@ -120,7 +142,8 @@ class CustomersProcessorTest extends BaseSparkBatchJobTest {
         val readCustomers = List(
             ("858c82f6-60b2-4bc2-8f9d-8c4c721aab50", null, null, null, null),
             ("858c82f6-60b2-4bc2-8f9d-8c4c721aab50", null, null, null, null), // duplicate
-            ("fb2e2cc0-3788-43e7-8175-89044ae8bcbe", "email_hash", "phone_hash", "John", "Doe")
+            ("fb2e2cc0-3788-43e7-8175-89044ae8bcbe", "email_hash", "phone_hash", "John", "Doe"),
+            (null, null, null, null, null)
         ).toDF(
             "customer_id",
             "email_address",
@@ -159,7 +182,8 @@ class CustomersProcessorTest extends BaseSparkBatchJobTest {
                     cxiPartnerId,
                     null,
                     null
-                )
+                ),
+                (null, null, null, null, null, cxiPartnerId, null, null)
             ).toDF(
                 "customer_id",
                 "email_address",

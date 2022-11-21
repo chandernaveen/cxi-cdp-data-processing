@@ -1,12 +1,13 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_toast
 
+import com.cxi.cdp.data_processing.raw_zone.pos_toast.model.{Checks, Customer}
 import refined_zone.pos_toast.config.ProcessorConfig
 import refined_zone.pos_toast.RawRefinedToastPartnerJob.getSchemaRefinedPath
 
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{DataFrame, Encoders, SparkSession}
 import org.apache.spark.sql.functions._
-
+import org.apache.spark.sql.types._
 object CustomersProcessor {
     def process(spark: SparkSession, config: ProcessorConfig, destDbName: String): Unit = {
 
@@ -28,10 +29,14 @@ object CustomersProcessor {
             .select("record_value")
             .as[String]
 
-        val df = spark.read
-            .json(rawChecksAsStrings)
-            .select(explode($"checks").as("check"))
-            .select($"check.customer" as "customer")
+        val df = rawChecksAsStrings
+            .withColumn("checks", get_json_object($"record_value", "$.checks"))
+            .withColumn(
+                "checks_array",
+                from_json($"checks", DataTypes.createArrayType(Encoders.product[Checks].schema))
+            )
+            .select(explode($"checks_array").as("check_exploded"))
+            .select($"check_exploded.customer" as "customer")
             .select("customer.*")
 
         Seq("guid", "email", "phone", "firstName", "lastName")

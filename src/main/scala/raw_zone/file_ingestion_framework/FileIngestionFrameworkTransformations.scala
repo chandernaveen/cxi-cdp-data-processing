@@ -157,6 +157,7 @@ object FileIngestionFrameworkTransformations {
                 "record_value",
                 coalesce(squareColPerType.map(c => when(col(c).isNotNull, col(c)).otherwise(lit(null))): _*)
             )
+            .filter(col("record_value").isNotNull)
             .select(outputColumns: _*)
     }
 
@@ -182,6 +183,7 @@ object FileIngestionFrameworkTransformations {
                 coalesce(omnivoreColPerType.map(c => when(col(c).isNotNull, col(c)).otherwise(lit(null))): _*)
             )
             .filter(col("record_type").isNotNull)
+            .filter(col("record_value").isNotNull)
             .select(outputColumns: _*)
     }
 
@@ -225,6 +227,7 @@ object FileIngestionFrameworkTransformations {
                 coalesce(parbrinkRecordTypes.map(c => when(col(c).isNotNull, col(c)).otherwise(lit(null))): _*)
             )
             .select(outputColumns: _*)
+            .filter(col("record_value").isNotNull)
 
     }
 
@@ -314,6 +317,7 @@ object FileIngestionFrameworkTransformations {
                 "record_value",
                 coalesce(toastRecordTypesExceptMenus.map(c => when(col(c).isNotNull, col(c)).otherwise(lit(null))): _*)
             )
+            .filter(col("record_value").isNotNull)
             .select(outputColumns: _*)
             .unionByName(menusRecordTypeDf.withColumnRenamed("value", "record_value"))
     }

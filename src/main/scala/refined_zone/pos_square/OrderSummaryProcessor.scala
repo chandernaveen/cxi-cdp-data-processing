@@ -155,6 +155,8 @@ object OrderSummaryProcessor {
                 "ord_sub_total",
                 "feed_date"
             )
+            .filter(col("ord_timestamp").isNotNull)
+            .filter(col("ord_date").isNotNull)
             .join(
                 cxiIdentityIdsByOrder,
                 orderSummary("ord_id") === cxiIdentityIdsByOrder("ord_id"),

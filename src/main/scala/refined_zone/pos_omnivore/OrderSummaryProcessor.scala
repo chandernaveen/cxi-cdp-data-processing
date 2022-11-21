@@ -161,6 +161,8 @@ object OrderSummaryProcessor {
                 "ord_pay_total",
                 "feed_date"
             )
+            .filter(col("ord_timestamp").isNotNull)
+            .filter(col("ord_date").isNotNull)
             .join(
                 posIdentityIdsByOrder,
                 Seq("ord_id", "location_id"),
