@@ -96,7 +96,7 @@ object MenuCategoryInsights {
         )
 
     }
-    private def getItemOrderDatesToProcess(itemInsightsChangeData: DataFrame): Set[String] = {
+    def getItemOrderDatesToProcess(itemInsightsChangeData: DataFrame): Set[String] = {
         val ordDateColumnName = "ord_date"
         val ordDateColumn = col(ordDateColumnName)
 
@@ -109,8 +109,8 @@ object MenuCategoryInsights {
             .toSet
     }
 
-    private def readItemInsightsUniv(orderDates: Set[String], itemInsightsTable: String, itemUniverseTable: String)(
-        implicit spark: SparkSession
+    def readItemInsightsUniv(orderDates: Set[String], itemInsightsTable: String, itemUniverseTable: String)(implicit
+        spark: SparkSession
     ): DataFrame = {
         import spark.implicits._
 
@@ -137,11 +137,11 @@ object MenuCategoryInsights {
                 $"ingt.item_quantity".as("item_quantity"),
                 $"ingt.item_total".as("item_total"),
                 coalesce($"univ.item_category_modified", $"univ.cxi_item_category").as("item_category"),
-                $"univ.item_nm_modified".as("item_nm")
+                coalesce($"univ.item_nm_modified", $"univ.pos_item_nm").as("item_nm")
             )
     }
 
-    private def computeCategoryInsights(itemInsightsData: DataFrame): DataFrame = {
+    def computeCategoryInsights(itemInsightsData: DataFrame): DataFrame = {
         import itemInsightsData.sparkSession.implicits._
 
         itemInsightsData
@@ -161,14 +161,14 @@ object MenuCategoryInsights {
                 sum("item_total") as "item_total"
             )
             .select(
+                $"ord_date",
                 $"cxi_partner_id",
                 $"region",
                 $"state_code",
                 $"city",
                 $"location_id",
                 $"location_nm",
-                $"ord_date",
-                $"transaction_amount",
+                $"transaction_quantity",
                 $"item_quantity",
                 $"item_category",
                 $"item_total"
