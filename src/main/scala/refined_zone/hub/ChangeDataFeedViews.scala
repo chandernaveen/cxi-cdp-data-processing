@@ -10,4 +10,9 @@ object ChangeDataFeedViews {
         new ChangeDataFeedSource.SimpleUnion(cdfService, orderSummaryTables)
     }
 
+    def cdfSingleTable(cdfTrackerTable: String, sourceTableName: String): ChangeDataFeedSource = {
+        val cdfService = new ChangeDataFeedService(cdfTrackerTable)
+        new ChangeDataFeedSource.SingleTable(cdfService, sourceTableName)
+    }
+
 }
