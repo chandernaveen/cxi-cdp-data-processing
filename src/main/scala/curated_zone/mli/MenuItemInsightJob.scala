@@ -199,7 +199,7 @@ object MenuItemInsightJob {
                 "pos_item_nm"
             )
             .agg(
-                countDistinct("ord_id") as "transaction_quantity",
+
                 sum("item_quantity") as "item_quantity",
                 sum("item_total") as "item_total",
                 collect_set("customer_360_id") as "customer_360_ids"
