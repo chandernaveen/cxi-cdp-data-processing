@@ -10,7 +10,6 @@ import support.SparkSessionFactory
 import org.apache.log4j.Logger
 import org.apache.spark.sql.{DataFrame, SaveMode, SparkSession}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.IntegerType
 
 import java.nio.file.Paths
 object MenuItemInsightJob {
@@ -65,39 +64,38 @@ object MenuItemInsightJob {
         spark: SparkSession
     ): Unit = {
         val refinedHubDb = contract.prop[String]("schema.refined_hub.db_name")
+        val curatedInsightDb = contract.prop[String]("schema.curated_cxi_insights.db_name")
+        val curatedHubDb = contract.prop[String]("schema.curated_hub.db_name")
+
         val orderSummaryTable = contract.prop[String]("schema.refined_hub.order_summary_table")
         val locationTable = contract.prop[String]("schema.refined_hub.location_table")
         val itemTable = contract.prop[String]("schema.refined_hub.item_table")
-        val curatedhubDB = contract.prop[String]("schema.curated_hub.db_name")
         val customer360table = contract.prop[String]("schema.curated_hub.customer_360_table")
-        val itemUniversetable = contract.prop[String]("schema.curated_hub.item_universe_table")
-        val curatedcxiInsightDB = contract.prop[String]("schema.curated_cxi_insights_db_name")
+
         val partnerItemInsightsTable = contract.prop[String]("schema.curated_cxi_insight.partner_item_insights_table")
-        val partnerCategoryInsightsTable =
-            contract.prop[String]("schema.curated_cxi_insight.partner_category_insights_table")
+
         val mongoDbConfig = MongoDbConfigUtils.getMongoDbConfig(spark, contract)
         val mongoDbName = contract.prop[String]("mongo.db")
         val partnerItemInsightsMongoCollectionName = contract.prop[String]("mongo.partner_item_insights_collection")
-        val partnerCategoryInsightsMongoCollectionName =
-            contract.prop[String]("mongo.partner_category_insights_collection")
+
         val orderSummary: DataFrame =
             readOrderSummary(
                 orderDates,
                 s"$refinedHubDb.$orderSummaryTable",
                 s"$refinedHubDb.$locationTable",
-                s"$refinedHubDb.$itemTable")
+                s"$refinedHubDb.$itemTable"
+            )
+
         val customer360: DataFrame =
             readCustomer360(
-                s"$curatedhubDB.$customer360table",
-                s"$refinedHubDb.$orderSummaryTable",
-                s"$curatedhubDB.itemuniversetable",
-                s"$refinedHubDb.$orderSummaryTable")
-        val item: DataFrame =
-            readitem(s"$refinedHubDb.$itemTable")
-        val partnerItemInsights: DataFrame = computePartnerItemInsights(orderSummary).cache()
+                s"$curatedHubDb.$customer360table"
+            )
+
+        val partnerItemInsights: DataFrame = computePartnerItemInsights(orderSummary, customer360)
+
         writeToDatalakePartnerItemInsights(
             partnerItemInsights,
-            s"$curatedcxiInsightDB.$partnerItemInsightsTable",
+            s"$curatedInsightDb.$partnerItemInsightsTable",
             fullReprocess
         )
         writeToMongoPartnerItemInsights(
@@ -106,14 +104,6 @@ object MenuItemInsightJob {
             mongoDbName,
             partnerItemInsightsMongoCollectionName,
             fullReprocess
-        )
-
-    }
-
-    private def shouldComputePartnerCategoryInsights(contract: ContractUtils): Boolean = {
-        contract.propOrElse[Boolean](
-            "jobs.databricks.total_Item_insights_job.job_config.compute_total_Item_insights",
-            true
         )
 
     }
@@ -131,89 +121,73 @@ object MenuItemInsightJob {
             .toSet
     }
 
-    def readitem(itemTable: String)(implicit spark: SparkSession): DataFrame = {
-        val itemDf = spark.table(itemTable)
+    def readOrderSummary(orderDates: Set[String], orderSummaryTable: String, locationTable: String, itemTable: String)(
+        implicit spark: SparkSession
+    ): DataFrame = {
 
-        spark.sql(
-            " create or replace temp view pos_item as" +
-                " select item_id, cxi_partner_id, item_nm, item_desc, item_type, main_category_name, item_plu, item_barcode from refined_toast.item" +
-                "\nUnion" +
-                "\nselect item_id, cxi_partner_id, item_nm, item_desc, item_type, main_category_name, item_plu, item_barcode from refined_square.item" +
-                "\nUnion" +
-                "\nselect item_id, cxi_partner_id, item_nm, item_desc, item_type, main_category_name, item_plu, item_barcode from refined_omnivore.item" +
-                "\nUnion" +
-                "\nselect item_id, cxi_partner_id, item_nm, item_desc, item_type, main_category_name, item_plu, item_barcode from refined_parbrink.item"
-        )
+        import spark.implicits._
+
+        val orderSummaryDF = spark.table(orderSummaryTable)
+
+        val locationDF = spark.table(locationTable)
+
+        val itemTableDF = spark.table(itemTable).filter("a") /// ###chnage the filter, consult with Puspendra
+
+        orderSummaryDF
+            .filter($"ord_state_id" === OrderStateType.Completed.code && $"ord_date".isInCollection(orderDates))
+            .join(broadcast(locationDF), usingColumns = Seq("cxi_partner_id", "location_id"), "inner")
+            .join(broadcast(itemTableDF), usingColumns = Seq("cxi_partner_id", "item_id"), "inner")
+            .select(
+                orderSummaryDF("ord_id"),
+                orderSummaryDF("cxi_partner_id"),
+                orderSummaryDF("item_id"),
+                locationDF("region"),
+                upper(locationDF("state_code")).as("state_code"),
+                initcap(locationDF("city")).as("city"),
+                col("location_id"),
+                col("location_nm"),
+                orderSummaryDF("ord_date"),
+                orderSummaryDF("item_quantity"),
+                orderSummaryDF("item_total"),
+                itemTableDF("item_nm").as("pos_item_nm"),
+                orderSummaryDF("cxi_identity_ids").as("cxi_identity_ids"),
+                explode(col("cxi_identity_ids")).as("id"),
+                concat(col(s"id.identity_type"), lit(":"), col(s"id.cxi_identity_id")).as("qualified_identity")
+            )
+            .dropDuplicates("ord_id", "cxi_partner_id", "location_id")
+            .drop("id", "cxi_identity_ids", "item_id")
+        /*
         spark.sql(
             "select item_id, cxi_partner_id, item_nm from pos_item where item_type != 'variation' and " +
                 "item_nm is not null and item_nm not in ('Small', 'Large', 'Medium', 'Spicy', 'Plain', 'null', '') " +
                 "and item_nm not rlike '^([Aa][Dd][Dd]|[Nn][Oo][Tt]?|[Ss][Ii]" +
                 "[Dd][Ee]|[Ss][Uu][Bb]|[Ee][Xx][Tt][Rr][Aa]|[Ll][Ii][Gg][Hh][Tt]) |^[0-9]+ [Oo][Zz]$'"
-        )
+        )*/
 
     }
 
     def readCustomer360(
-        customer360table: String,
-        orderSummaryTable: String,
-        itemTable: String,
-        itemuniversetable: String
+        customer360Table: String
     )(implicit spark: SparkSession): DataFrame = {
 
-        val customer360 = spark.table(customer360table)
-        val orderSummaryDF = spark.table(orderSummaryTable)
-        val itemUniverseDf = spark.table(itemuniversetable)
-        val itemDf = spark.table(itemTable)
+        import spark.implicits._
 
-        spark
-            .sql("select customer_360_id, identities from $customer360table where active_flag = 1")
+        val customer360DF = spark
+            .table(customer360Table)
+            .filter($"active_flag" === 1)
             .select(col("customer_360_id"), explode(col("identities")).as("type" :: "ids" :: Nil))
             .withColumn("id", explode(col("ids")))
             .select(col("customer_360_id"), concat(col("type"), lit(":"), col("id")).as("qualified_identity"))
-        orderSummaryDF
-            .select(col("*"), explode(col("cxi_identity_ids")).as("id"))
-            .withColumn("qualified_identity", concat(col("id.identity_type"), lit(":"), col(s"id.cxi_identity_id")))
-            .join(customer360, Seq("qualified_identity"), "inner") // Inner??
-            .drop("qualified_identity", "cxi_identity_ids", "id")
-            .dropDuplicates("ord_id", "cxi_partner_id", "location_id")
-            .join(itemDf, Seq("cxi_partner_id", "item_id"), "inner")
+        customer360DF
 
     }
 
-    def readOrderSummary(orderDates: Set[String], orderSummaryTable: String, locationTable: String, itemTable: String)(
-        implicit spark: SparkSession
-    ): DataFrame = {
-        import spark.implicits._
-
-        val orderSummaryDF = spark.table(orderSummaryTable)
-        val locationDF = spark.table(locationTable)
-        val getLocationTypeUdf = udf(getLocationType _)
-
-        orderSummaryDF
-            .filter($"ord_state_id" === OrderStateType.Completed.code && $"ord_date".isInCollection(orderDates))
-            .join(locationDF, usingColumns = Seq("cxi_partner_id", "location_id"))
-            .select(
-                orderSummaryDF("cxi_partner_id"),
-                getLocationTypeUdf(locationDF("location_type")).as("location_type"),
-                locationDF("region"),
-                upper(locationDF("state_code")).as("state"),
-                initcap(locationDF("city")).as("city"),
-                col("location_id"),
-                col("location_nm"),
-                orderSummaryDF("ord_date"),
-                orderSummaryDF("ord_pay_total"),
-                orderSummaryDF("ord_id")
-            )
-    }
-
-    def getLocationType(locationTypeCode: Int): String = {
-        LocationType.withValueOpt(locationTypeCode).getOrElse(LocationType.Unknown).name
-    }
-
-    def computePartnerItemInsights(orderSummary: DataFrame): DataFrame = {
+    private def computePartnerItemInsights(orderSummary: DataFrame, customer360: DataFrame): DataFrame = {
         import orderSummary.sparkSession.implicits._
 
         orderSummary
+            .join(customer360, Seq("qualified_identity"), "inner")
+            .drop("qualified_identity")
             .groupBy(
                 "ord_date",
                 "cxi_partner_id",
@@ -222,7 +196,7 @@ object MenuItemInsightJob {
                 "region",
                 "state_code",
                 "city",
-                "item_nm"
+                "pos_item_nm"
             )
             .agg(
                 countDistinct("ord_id") as "transaction_quantity",
@@ -230,7 +204,6 @@ object MenuItemInsightJob {
                 sum("item_total") as "item_total",
                 collect_set("customer_360_id") as "customer_360_ids"
             )
-            .withColumnRenamed("ord_date", "date")
             .select(
                 $"cxi_partner_id",
                 $"location_type",
@@ -262,7 +235,7 @@ object MenuItemInsightJob {
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.cxi_partner_id <=> $srcTable.cxi_partner_id
-               | AND $destTable.date <=> $srcTable.date
+               | AND $destTable.ord_date <=> $srcTable.ord_date
                | AND $destTable.location_id <=> $srcTable.location_id
                |WHEN MATCHED
                |  THEN UPDATE SET *
@@ -281,7 +254,7 @@ object MenuItemInsightJob {
         val saveMode = if (fullReprocess) SaveMode.Overwrite else SaveMode.Append
 
         // either insert or update a document in Mongo based on these fields
-        val shardKey = """{"cxi_partner_id": 1, "date": 1, "location_id": 1}"""
+        val shardKey = """{"cxi_partner_id": 1, "ord_date": 1 }"""
 
         partnerItemInsights.write
             .format(MongoSparkConnectorClass)
@@ -291,87 +264,6 @@ object MenuItemInsightJob {
             .option("uri", mongoDbUri)
             .option("replaceDocument", "true")
             .option("shardKey", shardKey)
-            .save()
-    }
-
-    def computePartnerCategoryInsights(partnerItemInsights: DataFrame): DataFrame = {
-        partnerItemInsights
-            .groupBy(
-                "ord_date",
-                "cxi_partner_id",
-                "location_type",
-                "location_nm",
-                "region",
-                "state_code",
-                "city",
-                "item_category"
-            )
-            .agg(
-                sum("transaction_quantity") as "transaction_quantity",
-                sum("item_quantity") as "item_quantity",
-                sum("item_total") as "item_total"
-            )
-            .select(
-                "location_type",
-                "region",
-                "state",
-                "city",
-                "date",
-                "item_quantity",
-                "item_total",
-                "transaction_quantity"
-            )
-    }
-
-    def writeToDatalakePartnerCategoryInsights(
-        partnerCategoryInsights: DataFrame,
-        destTable: String,
-        fullReprocess: Boolean = false
-    ): Unit = {
-        if (fullReprocess) {
-            partnerCategoryInsights.sqlContext.sql(s"DELETE FROM $destTable")
-        }
-
-        val srcTable = "partnerCategoryInsight"
-        partnerCategoryInsights.createOrReplaceTempView(srcTable)
-
-        partnerCategoryInsights.sqlContext.sql(s"""
-               |MERGE INTO $destTable
-               |USING $srcTable
-               |ON $destTable.location_type <=> $srcTable.location_type
-               | AND $destTable.date <=> $srcTable.date
-               | AND $destTable.region <=> $srcTable.region
-               | AND $destTable.state <=> $srcTable.state
-               | AND $destTable.city <=> $srcTable.city
-               |WHEN MATCHED
-               |  THEN UPDATE SET *
-               |WHEN NOT MATCHED
-               |  THEN INSERT *
-               |""".stripMargin)
-    }
-
-    def writeToMongoPartnerCategoryInsights(
-        partnerCategoryInsights: DataFrame,
-        mongoDbUri: String,
-        dbName: String,
-        collectionName: String,
-        fullReprocess: Boolean = false
-    ): Unit = {
-        // either insert or update a document in Mongo based on these fields
-        val shardKey = """{"date": 1, "location_type": 1, "region": 1, "state": 1, "city": 1}"""
-
-        val saveMode = if (fullReprocess) SaveMode.Overwrite else SaveMode.Append
-        val forceInsert = if (fullReprocess) true else false
-
-        partnerCategoryInsights.write
-            .format(MongoSparkConnectorClass)
-            .mode(saveMode)
-            .option("database", dbName)
-            .option("collection", collectionName)
-            .option("uri", mongoDbUri)
-            .option("replaceDocument", "true")
-            .option("shardKey", shardKey) // allow updates based on these fields
-            .option("forceInsert", forceInsert)
             .save()
     }
 

@@ -214,7 +214,7 @@ object MenuCategoryInsights {
         val saveMode = if (fullReprocess) SaveMode.Overwrite else SaveMode.Append
 
         // either insert or update a document in Mongo based on these fields
-        val shardKey = """{"cxi_partner_id": 1, "ord_date": 1, "item_category": 1}"""
+        val shardKey = """{"cxi_partner_id": 1, "ord_date": 1 }"""
         categoryInsightsData.write // Change
             .format(MongoSparkConnectorClass)
             .mode(saveMode)
