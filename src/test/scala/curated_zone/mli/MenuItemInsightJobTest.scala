@@ -191,7 +191,7 @@ class MenuItemInsightJobTest extends BaseSparkBatchJobTest {
 
     }
 
-    test("test ite, aggr read customer360 ") {
+    test("test item, aggr read customer360 ") {
 
         import spark.implicits._
 
@@ -271,7 +271,7 @@ class MenuItemInsightJobTest extends BaseSparkBatchJobTest {
 
         // Create DF for orderSummary output of readOrdeerSummary
 
-        val itemInsightsDataDf = List(
+        val OrderSummaryDataDf = List(
             (
                 "400000014629071478",
                 "cxi-usa-sluttyvegan",
@@ -353,7 +353,7 @@ class MenuItemInsightJobTest extends BaseSparkBatchJobTest {
 
         // when
         val actual = MenuItemInsightJob.computePartnerItemInsights(
-            itemInsightsDataDf,
+            OrderSummaryDataDf,
             readCustomer360Df
         ) /// ###Include Customer360 DF
 
@@ -376,7 +376,7 @@ class MenuItemInsightJobTest extends BaseSparkBatchJobTest {
                     "item_nm"
                 )
         }
-        val actualItemInsightsData = actual.collect()
+        val actualOrderSummaryDataDf = actual.collect()
         withClue("Menu Item aggr insights data do not match") {
             val expected = List( // validate proper data items
                 (
@@ -437,8 +437,8 @@ class MenuItemInsightJobTest extends BaseSparkBatchJobTest {
                 "item_category",
                 "item_total"
             ).collect()
-            actualItemInsightsData.length should equal(expected.length)
-            actualItemInsightsData should contain theSameElementsAs expected
+            actualOrderSummaryDataDf.length should equal(expected.length)
+            actualOrderSummaryDataDf should contain theSameElementsAs expected
         }
         val actualCustomer360sReturned = actual.schema.fields.map(f => f.name)
         withClue("Actual fields returned:\n" + actual.schema.treeString) {
