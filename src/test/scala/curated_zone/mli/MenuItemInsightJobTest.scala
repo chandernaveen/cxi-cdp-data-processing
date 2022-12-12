@@ -72,12 +72,13 @@ class MenuItemInsightJobTest extends BaseSparkBatchJobTest {
         )
         val orderSummaryTable: String = "orderSummaryTable"
         orderSummaryDf.createOrReplaceGlobalTempView(orderSummaryTable)
+
         val orderDates: Set[String] = Set("2022-12-10", "2022-12-12")
 
         val ItemDf = List(
-            ("037d5042-20d9-4d8", "cxi-usa-toastbrea", "CATER Guac & Roll"),
-            ("037d5042-20d9-4d8", "cxi-usa-toastbrea", "CATER Guac & Roll"),
-            ("037d5042-20d9-4d8", "cxi-usa-toastbrea", "CATER Guac & Roll")
+            ("009fd956-19e3-479a-941e-2f98e24b83da", "cxi-usa-toastbrea", "CATER Guac & Roll Bar-rito GF"),
+            ("030ac764-f3fe-4c3f-8b30-d8084ab08ebd", "cxi-usa-toastbrea", "Basic Beach"),
+            ("0032653d-f836-4e0d-87c8-2f368434a8da", "cxi-usa-toastbrea", "Hippie")
         ).toDF(
             "item_id",
             "cxi_partner_id",
