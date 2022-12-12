@@ -182,7 +182,7 @@ object MenuItemInsightJob {
 
     }
 
-    private def computePartnerItemInsights(orderSummary: DataFrame, customer360: DataFrame): DataFrame = {
+    def computePartnerItemInsights(orderSummary: DataFrame, customer360: DataFrame): DataFrame = {
         import orderSummary.sparkSession.implicits._
 
         orderSummary

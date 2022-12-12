@@ -6,11 +6,9 @@ import support.BaseSparkBatchJobTest
 import org.apache.spark.sql.DataFrame
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal}
 
-class MenuItemInsightJobTest {
+class MenuItemInsightJobTest   extends BaseSparkBatchJobTest {
 
-    class MenuItemInsightJobTest extends BaseSparkBatchJobTest {
-
-        test("test category read order_summary and join with item & location table")
+    test("test category read order_summary and join with item & location table") {
         // given
 
         import spark.implicits._
@@ -28,7 +26,7 @@ class MenuItemInsightJobTest {
             "state_code",
             "city"
         )
-        val locationTable: String = "itemInsightsTable"
+        val locationTable: String = "locationTable"
         locationDf.createOrReplaceGlobalTempView(locationTable)
 
         val orderSummaryDf = List(
@@ -72,7 +70,7 @@ class MenuItemInsightJobTest {
             "item_total",
             "cxi_identity_ids"
         )
-        val orderSummaryTable: String = "itemInsightsTable"
+        val orderSummaryTable: String = "orderSummaryTable"
         orderSummaryDf.createOrReplaceGlobalTempView(orderSummaryTable)
         val orderDates: Set[String] = Set("2022-12-10", "2022-12-12")
 
@@ -86,11 +84,11 @@ class MenuItemInsightJobTest {
             "item_nm"
         )
 
-        val itemTable: String = "itemInsightsTable"
+        val itemTable: String = "itemTable"
         ItemDf.createOrReplaceGlobalTempView(itemTable)
 
         // when
-        val actual = MenuItemInsightJob.readOrderSummary(
+        val actualOrderSummary = MenuItemInsightJob.readOrderSummary(
             orderDates,
             s"global_temp.$orderSummaryTable",
             s"global_temp.$locationTable",
@@ -98,9 +96,10 @@ class MenuItemInsightJobTest {
         )(spark)
 
         // then
-        val actualFieldsReturned = actual.schema.fields.map(f => f.name)
-        withClue("Actual fields returned:\n" + actual.schema.treeString) {
-            actualFieldsReturned should contain theSameElementsAs
+        val actualOrderFieldsReturned = actualOrderSummary.schema.fields.map(f => f.name)
+
+        withClue("Actual fields returned:\n" + actualOrderSummary.schema.treeString) {
+            actualOrderFieldsReturned should contain theSameElementsAs
                 Seq(
                     "location_id",
                     "cxi_partner_id",
@@ -117,47 +116,63 @@ class MenuItemInsightJobTest {
                     "cxi_identity_ids",
                     "item_nm"
                 )
+        }
 
-            val customer360Df = List(
-                ("00051449-8e6c-4c1", "{phone -> [fa3998", "2022-03-17", "2022-07-22", "true"),
-                ("00051449-8e6c-4c1", "{phone -> [fa3998", "2022-03-17", "2022-07-22", "true"),
-                ("00051449-8e6c-4c1", "{phone -> [fa3998", "2022-03-17", "2022-07-22", "true")
-            ).toDF(
-                "customer_360_id",
-                "identities",
-                "create_date",
-                "update_date",
-                "active_flag"
-            )
-            val customer360Table: String = "itemInsightsTable"
-            customer360Df.createOrReplaceGlobalTempView(customer360Table)
-            val actual = MenuItemInsightJob.readCustomer360(
-                s"global_temp.$customer360Table"
-            )(spark)
+        val actualReadOrderSummaryData = actualOrderSummary.collect()
+        withClue("Read Order Summary Do not match") {
 
-            val actualFieldsReturned = actual.schema.fields.map(f => f.name)
-            withClue("Actual fields returned:\n" + actual.schema.treeString) {
-                actualFieldsReturned should contain theSameElementsAs
-                    Seq(
-                        "customer_360_id",
-                        "ord_date",
-                        "cxi_partner_id",
-                        "region",
-                        "state_code",
-                        "city",
-                        "location_id",
-                        "location_nm",
-                        "transaction_quantity",
-                        "item_quantity",
-                        "item_total",
-                        "item_category",
-                        "item_nm"
-                    )
+           // #######for a DF of read
 
-            }
-            val actualPartnerItemInsightsData = actual.collect()
-            withClue("Menu Item category insights Read data do not match") {
-                val expected = List(
+        }
+
+
+    }
+
+    test("test ite, aggr read customer360 ") {
+
+        import spark.implicits._
+
+        val customer360Df = List(
+            ("00051449-8e6c-4c1", "{phone -> [fa3998", "2022-03-17", "2022-07-22", "true"),///fix the identities values
+            ("00051449-8e6c-4c1", "{phone -> [fa3998", "2022-03-17", "2022-07-22", "true"),
+            ("00051449-8e6c-4c1", "{phone -> [fa3998", "2022-03-17", "2022-07-22", "true")
+        ).toDF(
+            "customer_360_id",
+            "identities",
+            "create_date",
+            "update_date",
+            "active_flag"
+        )
+
+        val customer360Table: String = "customer360Table"
+        customer360Df.createOrReplaceGlobalTempView(customer360Table)
+        val actualCustomer360 = MenuItemInsightJob.readCustomer360(
+            s"global_temp.$customer360Table"
+        )(spark)
+
+        val actualCustomer360FieldsReturned = actualCustomer360.schema.fields.map(f => f.name)
+        withClue("Actual fields returned:\n" + actualCustomer360.schema.treeString) {
+            actualCustomer360FieldsReturned should contain theSameElementsAs
+                Seq(//fix the column list
+                    "customer_360_id",
+                    "ord_date",
+                    "cxi_partner_id",
+                    "region",
+                    "state_code",
+                    "city",
+                    "location_id",
+                    "location_nm",
+                    "transaction_quantity",
+                    "item_quantity",
+                    "item_total",
+                    "item_category",
+                    "item_nm"
+                )
+
+
+            val actualCustomer360Data = actualCustomer360.collect()
+            withClue("Read Customer360 data do not match") {
+                val expected = List(//fix the expected data
                     (
                         "2021-08-01",
                         "cxi-usa-goldbowl",
@@ -213,81 +228,63 @@ class MenuItemInsightJobTest {
                     "item_quantity",
                     "item_total"
                 ).collect()
-                actualPartnerItemInsightsData.length should equal(expected.length)
-                actualPartnerItemInsightsData should contain theSameElementsAs expected
+                actualCustomer360Data.length should equal(expected.length)
+                actualCustomer360Data should contain theSameElementsAs expected
             }
+
         }
+    }
 
-        test("test category aggregation insights computation") {
-            // given
-            import spark.implicits._
+             test("test item aggregation insights computation") {
+                    // given
+                    import spark.implicits._
 
-            val itemInsightsDataDf = List(
-                (
-                    "2021-08-01",
-                    "cxi-usa-goldbowl",
-                    "6",
-                    "Michigan Ave",
-                    "MidWest",
-                    "IL",
-                    "Chicago",
-                    "High Protein Brownie",
-                    "2",
-                    "2",
-                    "4.46",
-                    "81a91b4d-9cb1-4c4"
-                ),
-                (
-                    "2021-08-01",
-                    "cxi-usa-toastbreadless",
-                    "2",
-                    "Clybourn",
-                    "SouthEast",
-                    "GA",
-                    "Atlanta",
-                    "Fussy Hussy",
-                    "1",
-                    "3",
-                    "50.09",
-                    "589254fc-4830-4ec"
-                ),
-                (
-                    "2021-08-01",
-                    "cxi-usa-goldbowl",
-                    "6",
-                    "Michigan Ave",
-                    "MidWest",
-                    "IL",
-                    "Chicago",
-                    "High Protein Brownie",
-                    "2",
-                    "2",
-                    "4.46",
-                    "81a91b4d-9cb1-4c4"
-                )
-            ).toDF(
-                "ord_date",
-                "cxi_partner_id",
-                "region",
-                "state_code",
-                "city",
-                "location_id",
-                "location_nm",
-                "transaction_quantity",
-                "item_quantity",
-                "item_total",
-                "item_category",
-                "item_nm"
-            )
+                 //Create DF for orderSummary output of readOrdeerSummary
 
-            // when
-            val actual = MenuItemInsightJob.computePartnerItemInsights(itemInsightsDataDf)
-
-            // then
-            val actualFieldsReturned = actual.schema.fields.map(f => f.name)
-            withClue("Actual fields returned:\n" + actual.schema.treeString) {
-                actualFieldsReturned should contain theSameElementsAs
-                    Seq(
+                    val itemInsightsDataDf = List(
+                        (
+                            "2021-08-01",
+                            "cxi-usa-goldbowl",
+                            "6",
+                            "Michigan Ave",
+                            "MidWest",
+                            "IL",
+                            "Chicago",
+                            "High Protein Brownie",
+                            "2",
+                            "2",
+                            "4.46",
+                            "81a91b4d-9cb1-4c4"
+                        ),
+                        (
+                            "2021-08-01",
+                            "cxi-usa-toastbreadless",
+                            "2",
+                            "Clybourn",
+                            "SouthEast",
+                            "GA",
+                            "Atlanta",
+                            "Fussy Hussy",
+                            "1",
+                            "3",
+                            "50.09",
+                            "589254fc-4830-4ec"
+                        ),
+                        (
+                            "2021-08-01",
+                            "cxi-usa-goldbowl",
+                            "6",
+                            "Michigan Ave",
+                            "MidWest",
+                            "IL",
+                            "Chicago",
+                            "High Protein Brownie",
+                            "2",
+                            "2",
+                            "4.46",
+                            "81a91b4d-9cb1-4c4"
+                        )
+                    ).toDF(
                         "ord_date",
                         "cxi_partner_id",
                         "region",
@@ -297,88 +294,115 @@ class MenuItemInsightJobTest {
                         "location_nm",
                         "transaction_quantity",
                         "item_quantity",
+                        "item_total",
                         "item_category",
-                        "item_total"
+                        "item_nm"
                     )
+
+                 //Create DF for customer360 output of readCustomer360
+
+                    // when
+                    val actual = MenuItemInsightJob.computePartnerItemInsights(itemInsightsDataDf) ///###Include Customer360 DF
+
+                    // then
+                    val actualFieldsReturned = actual.schema.fields.map(f => f.name)
+                    withClue("Actual fields returned:\n" + actual.schema.treeString) {
+                        actualFieldsReturned should contain theSameElementsAs
+                            Seq(///validate proper field names
+                                "ord_date",
+                                "cxi_partner_id",
+                                "region",
+                                "state_code",
+                                "city",
+                                "location_id",
+                                "location_nm",
+                                "transaction_quantity",
+                                "item_quantity",
+                                "item_category",
+                                "item_total"
+                            )
+                    }
+                    val actualItemInsightsData = actual.collect()
+                    withClue("Menu Item aggr insights data do not match") {
+                        val expected = List(//validate proper data items
+                            (
+                                "2021-08-01",
+                                "cxi-usa-goldbowl",
+                                "6",
+                                "Michigan Ave",
+                                "MidWest",
+                                "IL",
+                                "Chicago",
+                                "High Protein Brownie",
+                                "2",
+                                "2",
+                                "4.46",
+                                "81a91b4d-9cb1-4c4"
+                            ),
+                            (
+                                "2021-08-01",
+                                "cxi-usa-toastbreadless",
+                                "2",
+                                "Clybourn",
+                                "SouthEast",
+                                "GA",
+                                "Atlanta",
+                                "Fussy Hussy",
+                                "1",
+                                "3",
+                                "50.09",
+                                "589254fc-4830-4ec"
+                            ),
+                            (
+                                "2021-08-01",
+                                "cxi-usa-goldbowl",
+                                "6",
+                                "Michigan Ave",
+                                "MidWest",
+                                "IL",
+                                "Chicago",
+                                "High Protein Brownie",
+                                "2",
+                                "2",
+                                "4.46",
+                                "81a91b4d-9cb1-4c4"
+                            )
+                        ).toDF(//validate proper dataframe columns
+                            "ord_date",
+                            "cxi_partner_id",
+                            "region",
+                            "state_code",
+                            "city",
+                            "location_id",
+                            "location_nm",
+                            "transaction_amount",
+                            "item_quantity",
+                            "item_category",
+                            "item_total"
+                        ).collect()
+                        actualItemInsightsData.length should equal(expected.length)
+                        actualItemInsightsData should contain theSameElementsAs expected
+                    }
+                }
+
+            test("test getOrderDatesToProcess for empty change data") {
+                import spark.implicits._
+                val df = List.empty[java.sql.Date].toDF("ord_date")
+                MenuItemInsightJob.getOrderDatesToProcess(df) shouldBe Set.empty
             }
-            val actualItemInsightsData = actual.collect()
-            withClue("Menu Item category insights aggr data do not match") {
-                val expected = List(
-                    (
-                        "2021-08-01",
-                        "cxi-usa-goldbowl",
-                        "6",
-                        "Michigan Ave",
-                        "MidWest",
-                        "IL",
-                        "Chicago",
-                        "High Protein Brownie",
-                        "2",
-                        "2",
-                        "4.46",
-                        "81a91b4d-9cb1-4c4"
-                    ),
-                    (
-                        "2021-08-01",
-                        "cxi-usa-toastbreadless",
-                        "2",
-                        "Clybourn",
-                        "SouthEast",
-                        "GA",
-                        "Atlanta",
-                        "Fussy Hussy",
-                        "1",
-                        "3",
-                        "50.09",
-                        "589254fc-4830-4ec"
-                    ),
-                    (
-                        "2021-08-01",
-                        "cxi-usa-goldbowl",
-                        "6",
-                        "Michigan Ave",
-                        "MidWest",
-                        "IL",
-                        "Chicago",
-                        "High Protein Brownie",
-                        "2",
-                        "2",
-                        "4.46",
-                        "81a91b4d-9cb1-4c4"
-                    )
-                ).toDF(
-                    "ord_date",
-                    "cxi_partner_id",
-                    "region",
-                    "state_code",
-                    "city",
-                    "location_id",
-                    "location_nm",
-                    "transaction_amount",
-                    "item_quantity",
-                    "item_category",
-                    "item_total"
-                ).collect()
-                actualItemInsightsData.length should equal(expected.length)
-                actualItemInsightsData should contain theSameElementsAs expected
+
+            test("test getOrderDatesToProcess for non-empty change data with nulls") {
+                import spark.implicits._
+                val df = List(sqlDate(2021, 10, 1), null, sqlDate(2021, 10, 2)).toDF("ord_date")
+                MenuItemInsightJob.getOrderDatesToProcess(df) shouldBe Set("2021-10-01", "2021-10-02")
             }
-        }
 
-        test("test getOrderDatesToProcess for empty change data") {
-            import spark.implicits._
-            val df = List.empty[java.sql.Date].toDF("ord_date")
-            MenuItemInsightJob.getOrderDatesToProcess(df) shouldBe Set.empty
-        }
+            def sqlDate(year: Int, month: Int, day: Int): java.sql.Date = {
+                java.sql.Date.valueOf(java.time.LocalDate.of(year, java.time.Month.of(month), day))
+            }
 
-        test("test getOrderDatesToProcess for non-empty change data with nulls") {
-            import spark.implicits._
-            val df = List(sqlDate(2021, 10, 1), null, sqlDate(2021, 10, 2)).toDF("ord_date")
-            MenuItemInsightJob.getOrderDatesToProcess(df) shouldBe Set("2021-10-01", "2021-10-02")
-        }
 
-        private def sqlDate(year: Int, month: Int, day: Int): java.sql.Date = {
-            java.sql.Date.valueOf(java.time.LocalDate.of(year, java.time.Month.of(month), day))
-        }
-
-    }
 }
+
+
+
