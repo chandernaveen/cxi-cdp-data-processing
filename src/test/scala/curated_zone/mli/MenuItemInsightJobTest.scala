@@ -11,7 +11,6 @@ class MenuItemInsightJobTest extends BaseSparkBatchJobTest {
 
     test("test category read order_summary and join with item & location table") {
         // given
-
         import spark.implicits._
 
         val locationDf = List(
