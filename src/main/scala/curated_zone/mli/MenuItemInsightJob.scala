@@ -131,10 +131,10 @@ object MenuItemInsightJob {
 
         val locationDF = spark.table(locationTable)
 
-        val itemTableDF = spark.table(itemTable).filter("a") /// ###chnage the filter, consult with Puspendra
+        val itemTableDF = spark.table(itemTable) /// ###chnage the filter, consult with Puspendra
 
         orderSummaryDF
-            .filter($"ord_state_id" === OrderStateType.Completed.code && $"ord_date".isInCollection(orderDates))
+            .filter($"ord_date".isInCollection(orderDates))
             .join(broadcast(locationDF), usingColumns = Seq("cxi_partner_id", "location_id"), "inner")
             .join(broadcast(itemTableDF), usingColumns = Seq("cxi_partner_id", "item_id"), "inner")
             .select(
@@ -174,7 +174,7 @@ object MenuItemInsightJob {
 
         val customer360DF = spark
             .table(customer360Table)
-            .filter($"active_flag" === 1)
+            .filter($"active_flag" === "true")
             .select(col("customer_360_id"), explode(col("identities")).as("type" :: "ids" :: Nil))
             .withColumn("id", explode(col("ids")))
             .select(col("customer_360_id"), concat(col("type"), lit(":"), col("id")).as("qualified_identity"))
@@ -191,7 +191,7 @@ object MenuItemInsightJob {
             .groupBy(
                 "ord_date",
                 "cxi_partner_id",
-                "location_type",
+                "location_id",
                 "location_nm",
                 "region",
                 "state_code",
@@ -199,23 +199,24 @@ object MenuItemInsightJob {
                 "pos_item_nm"
             )
             .agg(
-
+                countDistinct("ord_id") as "transaction_quantity",
                 sum("item_quantity") as "item_quantity",
                 sum("item_total") as "item_total",
                 collect_set("customer_360_id") as "customer_360_ids"
             )
             .select(
+                $"ord_date",
                 $"cxi_partner_id",
-                $"location_type",
                 $"region",
-                $"state",
+                $"state_code",
                 $"city",
                 $"location_id",
                 $"location_nm",
-                $"date",
+                $"pos_item_nm",
+                $"transaction_quantity",
+                $"item_quantity",
                 $"item_total",
-                $"transaction_amount",
-                $"transaction_quantity"
+                $"customer_360_ids"
             )
     }
 
