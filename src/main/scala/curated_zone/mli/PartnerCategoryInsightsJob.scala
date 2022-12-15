@@ -33,7 +33,7 @@ object PartnerCategoryInsightsJob {
         val dataServicesDb = contract.prop[String]("schema.data_services.db_name")
         val cdfTrackerTable = contract.prop[String]("schema.data_services.cdf_tracker_table")
 
-        val itemInsightsTables = contract.prop[String]("schema.curated_cxi_insights.partner_item_insights")
+        val itemInsightsTables = contract.prop[String]("schema.curated_cxi_insights.partner_item_insights_table")
 
         val itemInsightsCDF =
             ChangeDataFeedViews.cdfSingleTable(s"$dataServicesDb.$cdfTrackerTable", itemInsightsTables)
@@ -68,13 +68,13 @@ object PartnerCategoryInsightsJob {
 
         val curatedInsightsDb = contract.prop[String]("schema.curated_cxi_insights.db_name")
         val curatedDb = contract.prop[String]("schema.curated_hub.db_name")
-        val itemInsightsTable = contract.prop[String]("schema.curated_cxi_insights.partner_item_insights")
+        val itemInsightsTable = contract.prop[String]("schema.curated_cxi_insights.partner_item_insights_table")
         val itemUniverseTable = contract.prop[String]("schema.curated_hub.item_universe")
-        val categoryInsightsTable = contract.prop[String]("schema.curated_cxi_insights.partner_category_insights")
+        val categoryInsightsTable = contract.prop[String]("schema.curated_cxi_insights.partner_category_insights_table")
 
         val mongoDbConfig = MongoDbConfigUtils.getMongoDbConfig(spark, contract)
         val mongoDbName = contract.prop[String]("mongo.db")
-        val categoryInsightsMongoCollectionName = contract.prop[String]("mongo.partner_category_insights_collection")
+        val categoryInsightsMongoCollectionName = contract.prop[String]("mongo.partner_category_insights_table")
 
         val itemInsightsData: DataFrame =
             readItemInsightsUniv(orderDates, s"$curatedInsightsDb.$itemInsightsTable", s"$curatedDb.$itemUniverseTable")
