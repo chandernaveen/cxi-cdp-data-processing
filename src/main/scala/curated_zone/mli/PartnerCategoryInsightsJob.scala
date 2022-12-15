@@ -33,10 +33,11 @@ object PartnerCategoryInsightsJob {
         val dataServicesDb = contract.prop[String]("schema.data_services.db_name")
         val cdfTrackerTable = contract.prop[String]("schema.data_services.cdf_tracker_table")
 
+        val curatedCxiInsightsDb = contract.prop[String]("schema.curated_cxi_insights.db_name")
         val itemInsightsTables = contract.prop[String]("schema.curated_cxi_insights.partner_item_insights_table")
 
         val itemInsightsCDF =
-            ChangeDataFeedViews.cdfSingleTable(s"$dataServicesDb.$cdfTrackerTable", itemInsightsTables)
+            ChangeDataFeedViews.cdfSingleTable(s"$dataServicesDb.$cdfTrackerTable", s"$curatedCxiInsightsDb.$itemInsightsTables")
 
         val itemInsightsCdfResult =
             if (cliArgs.fullReprocess) {
