@@ -5,7 +5,7 @@ import support.BaseSparkBatchJobTest
 
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal}
 
-class MenuCategoryInsightsTest extends BaseSparkBatchJobTest {
+class PartnerCategoryInsightsJobTest extends BaseSparkBatchJobTest {
 
     test("test category read item aggr and join with item univ table ") {
         // given
@@ -52,7 +52,7 @@ class MenuCategoryInsightsTest extends BaseSparkBatchJobTest {
         val itemUniverseTable: String = "itemUniverseTable"
         itemUniverseDF.createOrReplaceGlobalTempView(itemUniverseTable)
         // when
-        val actual = MenuCategoryInsights.readItemInsightsUniv(
+        val actual = PartnerCategoryInsightsJob.readItemInsightsUniv(
             orderDates,
             s"global_temp.$itemInsightsTable",
             s"global_temp.$itemUniverseTable"
@@ -206,7 +206,7 @@ class MenuCategoryInsightsTest extends BaseSparkBatchJobTest {
         )
 
         // when
-        val actual = MenuCategoryInsights.computeCategoryInsights(itemInsightsDataDf)
+        val actual = PartnerCategoryInsightsJob.computeCategoryInsights(itemInsightsDataDf)
 
         // then
         val actualFieldsReturned = actual.schema.fields.map(f => f.name)
@@ -277,13 +277,13 @@ class MenuCategoryInsightsTest extends BaseSparkBatchJobTest {
     test("test getOrderDatesToProcess for empty change data") {
         import spark.implicits._
         val df = List.empty[java.sql.Date].toDF("ord_date")
-        MenuCategoryInsights.getItemOrderDatesToProcess(df) shouldBe Set.empty
+        PartnerCategoryInsightsJob.getItemOrderDatesToProcess(df) shouldBe Set.empty
     }
 
     test("test getOrderDatesToProcess for non-empty change data with nulls") {
         import spark.implicits._
         val df = List(sqlDate(2021, 10, 1), null, sqlDate(2021, 10, 2)).toDF("ord_date")
-        MenuCategoryInsights.getItemOrderDatesToProcess(df) shouldBe Set("2021-10-01", "2021-10-02")
+        PartnerCategoryInsightsJob.getItemOrderDatesToProcess(df) shouldBe Set("2021-10-01", "2021-10-02")
     }
 
     private def sqlDate(year: Int, month: Int, day: Int): java.sql.Date = {

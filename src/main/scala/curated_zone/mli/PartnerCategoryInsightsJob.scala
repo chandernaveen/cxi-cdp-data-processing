@@ -13,10 +13,10 @@ import org.apache.spark.sql.functions._
 
 import java.nio.file.Paths
 
-object MenuCategoryInsights {
+object PartnerCategoryInsightsJob {
 
     private val logger = Logger.getLogger(this.getClass.getName)
-    final val CdfConsumerId = "menu_category_insights_job"
+    final val CdfConsumerId = "partner_category_insights_job"
 
     def main(args: Array[String]): Unit = {
         logger.info(s"""Received following args: ${args.mkString(",")}""")
@@ -183,7 +183,7 @@ object MenuCategoryInsights {
         if (fullReprocess) {
             categoryInsightsData.sqlContext.sql(s"DELETE FROM $destTable")
         }
-        val srcTable = "newItemsInsight"
+        val srcTable = "newCategoryInsights"
 
         categoryInsightsData.createOrReplaceTempView(srcTable)
 
@@ -193,8 +193,9 @@ object MenuCategoryInsights {
             s"""
                |MERGE INTO $destTable
                |USING $srcTable
-               |ON $destTable.cxi_partner_id <=> $srcTable.cxi_partner_id
-               | AND $destTable.ord_date <=> $srcTable.ord_date
+               |ON $destTable.ord_date <=> $srcTable.ord_date
+               | AND $destTable.cxi_partner_id <=> $srcTable.cxi_partner_id
+               | AND $destTable.location_id <=> $srcTable.location_id
                | AND $destTable.item_category <=> $srcTable.item_category
                |WHEN MATCHED
                |  THEN UPDATE SET *
