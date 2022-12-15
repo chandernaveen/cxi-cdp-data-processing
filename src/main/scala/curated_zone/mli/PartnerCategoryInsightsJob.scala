@@ -69,12 +69,12 @@ object PartnerCategoryInsightsJob {
         val curatedInsightsDb = contract.prop[String]("schema.curated_cxi_insights.db_name")
         val curatedDb = contract.prop[String]("schema.curated_hub.db_name")
         val itemInsightsTable = contract.prop[String]("schema.curated_cxi_insights.partner_item_insights_table")
-        val itemUniverseTable = contract.prop[String]("schema.curated_hub.item_universe")
+        val itemUniverseTable = contract.prop[String]("schema.curated_hub.item_universe_table")
         val categoryInsightsTable = contract.prop[String]("schema.curated_cxi_insights.partner_category_insights_table")
 
         val mongoDbConfig = MongoDbConfigUtils.getMongoDbConfig(spark, contract)
         val mongoDbName = contract.prop[String]("mongo.db")
-        val categoryInsightsMongoCollectionName = contract.prop[String]("mongo.partner_category_insights_table")
+        val categoryInsightsMongoCollectionName = contract.prop[String]("mongo.partner_category_insights_collection")
 
         val itemInsightsData: DataFrame =
             readItemInsightsUniv(orderDates, s"$curatedInsightsDb.$itemInsightsTable", s"$curatedDb.$itemUniverseTable")
