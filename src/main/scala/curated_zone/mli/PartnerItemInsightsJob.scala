@@ -18,7 +18,7 @@ object PartnerItemInsightsJob {
 
     private val logger = Logger.getLogger(this.getClass.getName)
 
-    final val consumer_id = "partner_item_insights_Job"
+    final val consumer_id = "partner_item_insights_job"
 
     def main(args: Array[String]): Unit = {
         logger.info(s"""Received following args: ${args.mkString(",")}""")
