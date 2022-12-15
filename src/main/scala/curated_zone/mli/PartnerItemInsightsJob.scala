@@ -239,7 +239,7 @@ object PartnerItemInsightsJob {
                |ON $destTable.ord_date <=> $srcTable.ord_date
                | AND $destTable.cxi_partner_id <=> $srcTable.cxi_partner_id
                | AND $destTable.location_id <=> $srcTable.location_id
-               | AND $destTable.item_nm <=> $srcTable.item_nm
+               | AND $destTable.pos_item_nm <=> $srcTable.pos_item_nm
                |WHEN MATCHED
                |  THEN UPDATE SET *
                |WHEN NOT MATCHED
