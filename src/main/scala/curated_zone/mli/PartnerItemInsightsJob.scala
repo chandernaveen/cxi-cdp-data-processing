@@ -74,7 +74,7 @@ object PartnerItemInsightsJob {
         val customer360Table = contract.prop[String]("schema.curated_hub.customer_360_table")
 
         val curatedcxiInsightDb = contract.prop[String]("schema.curated_cxi_insights.db_name")
-        val partnerItemInsightsTable = contract.prop[String]("schema.curated_cxi_insight.partner_item_insights_table")
+        val partnerItemInsightsTable = contract.prop[String]("schema.curated_cxi_insights.partner_item_insights_table")
 
         val mongoDbConfig = MongoDbConfigUtils.getMongoDbConfig(spark, contract)
         val mongoDb = contract.prop[String]("mongo.db")
