@@ -214,10 +214,11 @@ object PartnerCategoryInsightsJob {
         fullReprocess: Boolean = false
     ): Unit = {
         val saveMode = if (fullReprocess) SaveMode.Overwrite else SaveMode.Append
+        val forceInsert = if (fullReprocess) true else false
 
         // either insert or update a document in Mongo based on these fields
-        val shardKey = """{"cxi_partner_id": 1, "ord_date": 1 }"""
-        categoryInsightsData.write // Change
+        val shardKey = """{"ord_date": 1, "cxi_partner_id": 1, "location_id", "item_category"}"""
+        categoryInsightsData.write
             .format(MongoSparkConnectorClass)
             .mode(saveMode)
             .option("database", dbName)
@@ -225,6 +226,7 @@ object PartnerCategoryInsightsJob {
             .option("uri", mongoDbUri)
             .option("replaceDocument", "true")
             .option("shardKey", shardKey)
+            .option("forceInsert", forceInsert)
             .save()
     }
 

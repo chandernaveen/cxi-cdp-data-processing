@@ -151,7 +151,7 @@ object PartnerItemInsightsJob {
         spark
             .table(itemTable)
             .filter(
-                (col("item_type") !== "variation") && col("item_nm").isNotNull && !col("item_nm").isInCollection(
+                (col("item_type").rlike("[Ff][Oo][Oo][Dd]")) && col("item_nm").isNotNull && !col("item_nm").isInCollection(
                     excludeItemNames
                 ) && !col("item_nm").rlike(excludeItemNamesRegex)
             )
@@ -255,9 +255,10 @@ object PartnerItemInsightsJob {
         fullReprocess: Boolean = false
     ): Unit = {
         val saveMode = if (fullReprocess) SaveMode.Overwrite else SaveMode.Append
+        val forceInsert = if (fullReprocess) true else false
 
         // either insert or update a document in Mongo based on these fields
-        val shardKey = """{"ord_date": 1, "cxi_partner_id": 1, "location_id": 1, "item_nm": 1}"""
+        val shardKey = """{"ord_date": 1, "cxi_partner_id": 1, "location_id": 1, "pos_item_nm": 1}"""
 
         partnerItemInsights.write
             .format(MongoSparkConnectorClass)
@@ -267,6 +268,7 @@ object PartnerItemInsightsJob {
             .option("uri", mongoDbUri)
             .option("replaceDocument", "true")
             .option("shardKey", shardKey)
+            .option("forceInsert", forceInsert)
             .save()
     }
 
