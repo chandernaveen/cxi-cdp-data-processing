@@ -151,9 +151,10 @@ object PartnerItemInsightsJob {
         spark
             .table(itemTable)
             .filter(
-                (col("item_type").rlike("[Ff][Oo][Oo][Dd]")) && col("item_nm").isNotNull && !col("item_nm").isInCollection(
-                    excludeItemNames
-                ) && !col("item_nm").rlike(excludeItemNamesRegex)
+                (col("item_type").rlike("[Ff][Oo][Oo][Dd]")) && col("item_nm").isNotNull && !col("item_nm")
+                    .isInCollection(
+                        excludeItemNames
+                    ) && !col("item_nm").rlike(excludeItemNamesRegex)
             )
             .select("item_id", "cxi_partner_id", "item_nm")
             .dropDuplicates()
