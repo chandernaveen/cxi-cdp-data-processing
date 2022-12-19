@@ -29,6 +29,38 @@ class PartnerItemInsightsJobTest extends BaseSparkBatchJobTest {
                         "cxi_identity_id" -> "fa3998a6b3d42d65ebabb3fdf11f67ace7e2a419902db7673194ec8e80f4126f"
                     )
                 )
+            ),
+            (
+                "XHlPQnEKH74HHB7ioKD0xayeV",
+                sqlDate(2022, 5, 1),
+                "cxi-usa-goldbowl",
+                "L0P0DJ340FXF0",
+                "YY7ZT6JP2YTZK2DXZNLUSW5S",
+                1,
+                2,
+                2.11,
+                Array(
+                    Map(
+                        "identity_type" -> "phone",
+                        "cxi_identity_id" -> "fa3998a6b3d42d65ebabb3fdf11f67ace7e2a419902db7673194ec8e80f4126f"
+                    )
+                )
+            ),
+            (
+                "dMWbKnd3gbnqJNpiACKhEFzeV",
+                sqlDate(2022, 5, 1),
+                "cxi-usa-goldbowl",
+                "L18BR1P2QB88W",
+                "S2FOIIUKBCS47GLJBY5ET5WC",
+                1,
+                1,
+                9.49,
+                Array(
+                    Map(
+                        "identity_type" -> "phone",
+                        "cxi_identity_id" -> "fa3998a6b3d42d65ebabb3fdf11f67ace7e2a419902db7673194ec8e80f4126f"
+                    )
+                )
             )
         ).toDF(
             "ord_id",
@@ -43,7 +75,9 @@ class PartnerItemInsightsJobTest extends BaseSparkBatchJobTest {
         )
 
         val locationDf = List(
-            ("L04HB3ZDYYD2M", "cxi-usa-goldbowl", "TestLocationa71", "SouthEast", "GA", "Atlanta")
+            ("L04HB3ZDYYD2M", "cxi-usa-goldbowl", "TestLocationa71", "SouthEast", "GA", "Atlanta"),
+            ("L0P0DJ340FXF0", "cxi-usa-goldbowl", "DesertRidge", "NorthWest", "NV", "LasVegas"),
+            ("L18BR1P2QB88W", "cxi-usa-goldbowl", "TestLocation6b", "SouthEast", "ID", "IdahoFalls")
         ).toDF(
             "location_id",
             "cxi_partner_id",
@@ -54,7 +88,9 @@ class PartnerItemInsightsJobTest extends BaseSparkBatchJobTest {
         )
 
         val itemDf = List(
-            ("KYYDC4ULFYATEZ7XY", "cxi-usa-goldbowl", "Roll Bar-rito")
+            ("KYYDC4ULFYATEZ7XY", "cxi-usa-goldbowl", "Roll Bar-rito"),
+            ("YY7ZT6JP2YTZK2DXZNLUSW5S", "cxi-usa-goldbowl", "Super-bop"),
+            ("S2FOIIUKBCS47GLJBY5ET5WC", "cxi-usa-goldbowl", "SideVeggie")
         ).toDF(
             "item_id",
             "cxi_partner_id",
@@ -70,8 +106,15 @@ class PartnerItemInsightsJobTest extends BaseSparkBatchJobTest {
                 true
             ),
             (
-                "000691ea-8314-4a8c-955e-49e8303261ab",
-                Map("phone" -> Array("11d63c05d848647daebd254ec8394c25f1695b460b77c5097eb790093a850b8a")),
+                "00097e86-e151-4f19-9472-7feb8f095632",
+                Map("phone" -> Array("fa3998a6b3d42d65ebabb3fdf11f67ace7e2a419902db7673194ec8e80f4126f")),
+                sqlDate(2022, 7, 14),
+                sqlDate(2022, 7, 22),
+                true
+            ),
+            (
+                "000b648e-6095-4ff2-88a6-1135d9626844",
+                Map("phone" -> Array("fa3998a6b3d42d65ebabb3fdf11f67ace7e2a419902db7673194ec8e80f4126f")),
                 sqlDate(2022, 7, 14),
                 sqlDate(2022, 7, 22),
                 true
@@ -87,6 +130,8 @@ class PartnerItemInsightsJobTest extends BaseSparkBatchJobTest {
         // when
         val actualOrderSummary =
             PartnerItemInsightsJob.transformOrderSummary(orderSummaryDf, locationDf, itemDf, customer360Df)
+
+        actualOrderSummary.show()
 
         // then
         val actualOrderFieldsReturned = actualOrderSummary.schema.fields.map(f => f.name)
@@ -125,6 +170,34 @@ class PartnerItemInsightsJobTest extends BaseSparkBatchJobTest {
                     1,
                     9.01,
                     "00051449-8e6c-4c10-b51f-afbfd5425887"
+                ),
+                (
+                    "XHlPQnEKH74HHB7ioKD0xayeV",
+                    sqlDate(2022, 5, 1),
+                    "cxi-usa-goldbowl",
+                    "NorthWest",
+                    "NV",
+                    "LasVegas",
+                    "L0P0DJ340FXF0",
+                    "DesertRidge",
+                    "Super-bop",
+                    2,
+                    2.11,
+                    "00097e86-e151-4f19-9472-7feb8f095632"
+                ),
+                (
+                    "dMWbKnd3gbnqJNpiACKhEFzeV",
+                    sqlDate(2022, 5, 1),
+                    "cxi-usa-goldbowl",
+                    "SouthEast",
+                    "ID",
+                    "IdahoFalls",
+                    "L18BR1P2QB88W",
+                    "TestLocation6b",
+                    "SideVeggie",
+                    1,
+                    9.49,
+                    "000b648e-6095-4ff2-88a6-1135d9626844"
                 )
             ).toDF(
                 "ord_id",
@@ -163,6 +236,34 @@ class PartnerItemInsightsJobTest extends BaseSparkBatchJobTest {
                 1,
                 9.01,
                 "00051449-8e6c-4c10-b51f-afbfd5425887"
+            ),
+            (
+                "XHlPQnEKH74HHB7ioKD0xayeV",
+                sqlDate(2022, 5, 1),
+                "cxi-usa-goldbowl",
+                "NorthWest",
+                "NV",
+                "LasVegas",
+                "L0P0DJ340FXF0",
+                "DesertRidge",
+                "Super bop",
+                2,
+                2.11,
+                "00097e86-e151-4f19-9472-7feb8f095632"
+            ),
+            (
+                "dMWbKnd3gbnqJNpiACKhEFzeV",
+                sqlDate(2022, 5, 1),
+                "cxi-usa-goldbowl",
+                "SouthEast",
+                "ID",
+                "Idaho Falls",
+                "L18BR1P2QB88W",
+                "TestLocation6b",
+                "SideVeggie",
+                1,
+                9.49,
+                "000b648e-6095-4ff2-88a6-1135d9626844"
             )
         ).toDF(
             "ord_id",
@@ -218,6 +319,34 @@ class PartnerItemInsightsJobTest extends BaseSparkBatchJobTest {
                     1,
                     9.01,
                     Array("00051449-8e6c-4c10-b51f-afbfd5425887")
+                ),
+                (
+                    sqlDate(2022, 5, 1),
+                    "cxi-usa-goldbowl",
+                    "NorthWest",
+                    "NV",
+                    "LasVegas",
+                    "L0P0DJ340FXF0",
+                    "DesertRidge",
+                    "Super bop",
+                    1,
+                    2,
+                    2.11,
+                    Array("00097e86-e151-4f19-9472-7feb8f095632")
+                ),
+                (
+                    sqlDate(2022, 5, 1),
+                    "cxi-usa-goldbowl",
+                    "SouthEast",
+                    "ID",
+                    "Idaho Falls",
+                    "L18BR1P2QB88W",
+                    "TestLocation6b",
+                    "SideVeggie",
+                    1,
+                    1,
+                    9.49,
+                    Array("000b648e-6095-4ff2-88a6-1135d9626844")
                 )
             ).toDF(
                 "ord_date",
@@ -227,9 +356,9 @@ class PartnerItemInsightsJobTest extends BaseSparkBatchJobTest {
                 "city",
                 "location_id",
                 "location_nm",
-                "transaction_amount",
+                "pos_item_nm",
+                "transaction_quantity",
                 "item_quantity",
-                "item_category",
                 "item_total",
                 "customer_360_ids"
             ).collect()
