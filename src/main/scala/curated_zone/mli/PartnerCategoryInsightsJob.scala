@@ -220,7 +220,7 @@ object PartnerCategoryInsightsJob {
         val forceInsert = if (fullReprocess) true else false
 
         // either insert or update a document in Mongo based on these fields
-        val shardKey = """{"ord_date": 1, "cxi_partner_id": 1, "location_id", "item_category"}"""
+        val shardKey = """{"ord_date": 1, "cxi_partner_id": 1, "location_id": 1, "item_category": 1}"""
         categoryInsightsData.write
             .format(MongoSparkConnectorClass)
             .mode(saveMode)
