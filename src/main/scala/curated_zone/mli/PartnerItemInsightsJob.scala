@@ -1,5 +1,6 @@
 package com.cxi.cdp.data_processing
 package curated_zone.mli
+import refined_zone.hub.identity.model.IdentityType
 import refined_zone.hub.model.{LocationType, OrderStateType}
 import refined_zone.hub.ChangeDataFeedViews
 import support.utils.mongodb.MongoDbConfigUtils
@@ -83,7 +84,7 @@ object PartnerItemInsightsJob {
         val orderSummaryDf = readOrderSummary(orderDates, s"$refinedHubDb.$orderSummaryTable")
         val locationDf = readLocation(s"$refinedHubDb.$locationTable")
         val itemDf = readItem(s"$refinedHubDb.$itemTable")
-        val customer360Df = readCustomer360WithExplode(s"$curatedHubDb.$customer360Table")
+        val customer360Df = readCustomer360(s"$curatedHubDb.$customer360Table")
 
         val orderSummaryTransformed = transformOrderSummary(orderSummaryDf, locationDf, itemDf, customer360Df)
 
@@ -160,7 +161,7 @@ object PartnerItemInsightsJob {
             .dropDuplicates()
     }
 
-    def readCustomer360WithExplode(customer360Table: String)(implicit spark: SparkSession): DataFrame = {
+    def readCustomer360(customer360Table: String)(implicit spark: SparkSession): DataFrame = {
         spark
             .table(customer360Table)
             .where(col("active_flag") === true)
@@ -172,9 +173,11 @@ object PartnerItemInsightsJob {
         itemDf: DataFrame,
         customer360Df: DataFrame
     ): DataFrame = {
+        val nonPosIdentityTypes = Array(IdentityType.ThrotleId.code, IdentityType.MaidAAID.code, IdentityType.MaidIDFA.code)
 
         val customer360ExplodeDf = customer360Df
             .select(col("customer_360_id"), explode(col("identities")).as("type" :: "ids" :: Nil))
+            .filter(!col("type").isInCollection(nonPosIdentityTypes))
             .withColumn("id", explode(col("ids")))
             .select(col("customer_360_id"), concat(col("type"), lit(":"), col("id")).as("qualified_identity"))
 
@@ -183,7 +186,7 @@ object PartnerItemInsightsJob {
             .join(itemDf, Seq("cxi_partner_id", "item_id"), "inner")
             .withColumn("id", explode(col("cxi_identity_ids")))
             .withColumn("qualified_identity", concat(col("id.identity_type"), lit(":"), col(s"id.cxi_identity_id")))
-            .join(customer360ExplodeDf, Seq("qualified_identity"), "inner") // Inner??
+            .join(customer360ExplodeDf, Seq("qualified_identity"), "left")
             .dropDuplicates("ord_id", "ord_date", "cxi_partner_id", "location_id", "item_nm")
             .select(
                 "ord_id",
