@@ -42,7 +42,7 @@ class PartnerItemInsightsJobTest extends BaseSparkBatchJobTest {
                 Array(
                     Map(
                         "identity_type" -> "phone",
-                        "cxi_identity_id" -> "fa3998a6b3d42d65ebabb3fdf11f67ace7e2a419902db7673194ec8e80f4126f"
+                        "cxi_identity_id" -> "ef9ff3c6122618676c42c40f009862264e0e947e2a5916354572aa0d97b43f11"
                     )
                 )
             ),
@@ -58,7 +58,7 @@ class PartnerItemInsightsJobTest extends BaseSparkBatchJobTest {
                 Array(
                     Map(
                         "identity_type" -> "phone",
-                        "cxi_identity_id" -> "fa3998a6b3d42d65ebabb3fdf11f67ace7e2a419902db7673194ec8e80f4126f"
+                        "cxi_identity_id" -> "9e4b7049ee2d413583fb575d9536d43a90d0c45510d479be95f14df3766d89d6"
                     )
                 )
             )
@@ -107,14 +107,14 @@ class PartnerItemInsightsJobTest extends BaseSparkBatchJobTest {
             ),
             (
                 "00097e86-e151-4f19-9472-7feb8f095632",
-                Map("phone" -> Array("fa3998a6b3d42d65ebabb3fdf11f67ace7e2a419902db7673194ec8e80f4126f")),
+                Map("phone" -> Array("ef9ff3c6122618676c42c40f009862264e0e947e2a5916354572aa0d97b43f11")),
                 sqlDate(2022, 7, 14),
                 sqlDate(2022, 7, 22),
                 true
             ),
             (
                 "000b648e-6095-4ff2-88a6-1135d9626844",
-                Map("phone" -> Array("fa3998a6b3d42d65ebabb3fdf11f67ace7e2a419902db7673194ec8e80f4126f")),
+                Map("phone" -> Array("9e4b7049ee2d413583fb575d9536d43a90d0c45510d479be95f14df3766d89d6")),
                 sqlDate(2022, 7, 14),
                 sqlDate(2022, 7, 22),
                 true
@@ -131,7 +131,6 @@ class PartnerItemInsightsJobTest extends BaseSparkBatchJobTest {
         val actualOrderSummary =
             PartnerItemInsightsJob.transformOrderSummary(orderSummaryDf, locationDf, itemDf, customer360Df)
 
-        actualOrderSummary.show()
 
         // then
         val actualOrderFieldsReturned = actualOrderSummary.schema.fields.map(f => f.name)
