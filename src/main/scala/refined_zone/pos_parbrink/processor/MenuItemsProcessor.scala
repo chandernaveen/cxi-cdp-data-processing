@@ -17,22 +17,29 @@ object MenuItemsProcessor {
 
         val menuItemsTable = config.contract.prop[String](getSchemaRefinedPath("item_table"))
 
-        val categories = readCategories(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
+        val categories =
+            readCategories(spark, config.dateRaw, config.refinedFullProcess, s"${config.srcDbName}.${config.srcTable}")
         val transformedCategories = transformCategories(categories)
 
-        val menuItems = readMenuItems(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
+        val menuItems =
+            readMenuItems(spark, config.dateRaw, config.refinedFullProcess, s"${config.srcDbName}.${config.srcTable}")
         val processedMenuItems = transformMenuItems(menuItems, transformedCategories, config.cxiPartnerId)
 
         writeMenuItems(processedMenuItems, config.cxiPartnerId, s"$refinedDbName.$menuItemsTable")
     }
 
-    def readCategories(spark: SparkSession, date: String, table: String): DataFrame = {
+    def readCategories(spark: SparkSession, date: String, refinedFullProcess: String, table: String): DataFrame = {
         import spark.implicits._
         val fromRecordValue = path => get_json_object($"record_value", path)
 
         spark
             .table(table)
-            .filter($"record_type" === ParbrinkRecordType.Categories.value && $"feed_date" === date)
+            .filter(
+                $"record_type" === ParbrinkRecordType.Categories.value && $"feed_date" === when(
+                    lit(refinedFullProcess).equalTo("true"),
+                    $"feed_date"
+                ).otherwise(date)
+            )
             .filter(fromRecordValue("$.IsDeleted") === false)
             .select(
                 col("location_id"),
@@ -59,13 +66,18 @@ object MenuItemsProcessor {
             .agg(collect_set("cat_id").as("category_array"))
     }
 
-    def readMenuItems(spark: SparkSession, date: String, srcTable: String): DataFrame = {
+    def readMenuItems(spark: SparkSession, date: String, refinedFullProcess: String, srcTable: String): DataFrame = {
         import spark.implicits._
         val fromRecordValue = path => get_json_object($"record_value", path)
 
         spark
             .table(srcTable)
-            .filter($"record_type" === ParbrinkRecordType.MenuItems.value && $"feed_date" === date)
+            .filter(
+                $"record_type" === ParbrinkRecordType.MenuItems.value && $"feed_date" === when(
+                    lit(refinedFullProcess).equalTo("true"),
+                    $"feed_date"
+                ).otherwise(date)
+            )
             .filter(col("record_value").isNotNull)
             .filter(fromRecordValue("$.IsDeleted") === false)
             .select(

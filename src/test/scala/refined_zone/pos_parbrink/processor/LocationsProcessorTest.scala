@@ -148,7 +148,7 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
         rawData.createOrReplaceTempView(rawTable)
 
         // when
-        val locationsOnRead = LocationsProcessor.readLocations(spark, "2022-02-24", rawTable)
+        val locationsOnRead = LocationsProcessor.readLocations(spark, "2022-02-24", "false", rawTable)
 
         // then
         withClue("read Parbrink locations data does not match") {

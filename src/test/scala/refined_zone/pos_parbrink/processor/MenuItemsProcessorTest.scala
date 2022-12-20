@@ -127,7 +127,7 @@ class MenuItemsProcessorTest extends BaseSparkBatchJobTest {
         rawData.createOrReplaceTempView(rawTable)
 
         // when
-        val menuItemsOnRead = MenuItemsProcessor.readMenuItems(spark, "2022-02-24", rawTable)
+        val menuItemsOnRead = MenuItemsProcessor.readMenuItems(spark, "2022-02-24", "false", rawTable)
 
         // then
         withClue("read Parbrink menu items data does not match") {
@@ -193,7 +193,7 @@ class MenuItemsProcessorTest extends BaseSparkBatchJobTest {
         rawData.createOrReplaceTempView(rawTable)
 
         // when
-        val categoriesOnRead = MenuItemsProcessor.readCategories(spark, "2022-02-24", rawTable)
+        val categoriesOnRead = MenuItemsProcessor.readCategories(spark, "2022-02-24", "false", rawTable)
 
         // then
         withClue("read Parbrink categories data does not match") {

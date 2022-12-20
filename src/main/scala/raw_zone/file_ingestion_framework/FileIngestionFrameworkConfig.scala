@@ -13,6 +13,7 @@ case class FileIngestionFrameworkConfig(
     targetPartitionColumns: Seq[String],
     processName: String,
     sourceEntity: String,
+    subEntity: String,
     logTable: String,
     pathParts: Int,
     fileFormat: String,
@@ -41,14 +42,14 @@ object FileIngestionFrameworkConfig {
     ): FileIngestionFrameworkConfig = {
         val baseSourcePath = "/mnt/" + contractUtils.prop(jobConfigPropName(basePropName, "read.path"))
         val targetPath = "/mnt/" + contractUtils.prop(jobConfigPropName(basePropName, "write.path"))
-
         FileIngestionFrameworkConfig(
             sourcePath = getSourcePath(baseSourcePath, feedDate, sourceDateDirFormatter),
             targetPath = targetPath,
             targetPartitionColumns =
                 contractUtils.propOrElse(jobConfigPropName(basePropName, "write.partitionColumns"), Seq("feed_date")),
-            processName = contractUtils.prop(jobConfigPropName(basePropName, "audit.processName")),
+            processName = contractUtils.propOrElse(jobConfigPropName(basePropName, "audit.processName"), ""),
             sourceEntity = contractUtils.prop(jobConfigPropName(basePropName, "audit.entity")),
+            subEntity = contractUtils.prop(jobConfigPropName(basePropName, "audit.subEntity")),
             logTable = contractUtils.prop(jobConfigPropName(basePropName, "audit.logTable")),
             pathParts = contractUtils.propOrElse[Int](jobConfigPropName(basePropName, "read.pathParts"), 1),
             fileFormat = contractUtils.propOrElse[String](jobConfigPropName(basePropName, "read.fileFormat"), ""),

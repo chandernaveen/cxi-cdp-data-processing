@@ -1,8 +1,8 @@
 package com.cxi.cdp.data_processing
 package refined_zone.pos_parbrink.processor
 
-import com.cxi.cdp.data_processing.refined_zone.pos_parbrink.model.ParbrinkRawModels.PhoneNumber
 import refined_zone.hub.identity.model.IdentityType
+import refined_zone.pos_parbrink.model.ParbrinkRawModels.PhoneNumber
 import refined_zone.pos_parbrink.model.ParbrinkRecordType
 import refined_zone.pos_parbrink.processor.CustomersProcessorTest.{
     CustomerOnRead,
@@ -181,7 +181,7 @@ class CustomersProcessorTest extends BaseSparkBatchJobTest {
         rawData.createOrReplaceTempView(rawTable)
 
         // when
-        val customersOnRead = CustomersProcessor.readCustomers(spark, feedDate, rawTable)
+        val customersOnRead = CustomersProcessor.readCustomers(spark, feedDate, "false", rawTable)
 
         // then
         withClue("read Parbrink customers data does not match") {

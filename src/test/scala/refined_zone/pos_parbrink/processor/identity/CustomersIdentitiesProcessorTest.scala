@@ -62,7 +62,7 @@ class CustomersIdentitiesProcessorTest extends BaseSparkBatchJobTest {
         rawData.createOrReplaceTempView(rawTable)
 
         // when
-        val orders = CustomersIdentitiesProcessor.readOrders(spark, "2022-02-24", rawTable)
+        val orders = CustomersIdentitiesProcessor.readOrders(spark, "2022-02-24", "false", rawTable)
 
         // then
         withClue("read Parbrink orders data does not match") {

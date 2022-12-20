@@ -92,7 +92,7 @@ class HouseAccountsIdentitiesProcessorTest extends BaseSparkBatchJobTest {
         rawData.createOrReplaceTempView(rawTable)
 
         // when
-        val actual = HouseAccountsIdentitiesProcessor.readHouseAccountCharges(spark, "2022-02-24", rawTable)
+        val actual = HouseAccountsIdentitiesProcessor.readHouseAccountCharges(spark, "2022-02-24", "false", rawTable)
 
         // then
         withClue("read Parbrink house accounts charges data does not match") {
@@ -168,7 +168,8 @@ class HouseAccountsIdentitiesProcessorTest extends BaseSparkBatchJobTest {
         rawData.createOrReplaceTempView(rawTable)
 
         // when
-        val houseAccountsOnRead = HouseAccountsIdentitiesProcessor.readHouseAccounts(spark, "2022-02-24", rawTable)
+        val houseAccountsOnRead =
+            HouseAccountsIdentitiesProcessor.readHouseAccounts(spark, "2022-02-24", "false", rawTable)
 
         // then
         withClue("read Parbrink house accounts data does not match") {
