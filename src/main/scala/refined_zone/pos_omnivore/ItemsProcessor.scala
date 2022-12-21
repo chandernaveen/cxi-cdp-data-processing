@@ -53,21 +53,22 @@ object ItemsProcessor {
                 "modifiers",
                 col("itemsEmbedded.modifiers.id")
             )
-            .withColumn("variation_array", concat_ws(",", col("modifiers")))
+            .withColumn("variation_array", col("modifiers"))
             .withColumn(
                 "item_type",
-                when(col("variation_array").isNull || col("variation_array") === "", lit("FOOD")).otherwise(
+                when(col("variation_array").isNull || size(col("variation_array")) === 0, lit("FOOD")).otherwise(
                     lit("VARIATION")
                 )
             )
             .withColumn("item_id", col("item.id"))
             .withColumn("item_nm", col("item.name"))
-            .withColumn("Category_Array", concat_ws(",", col("itemsEmbedded.menu_item._embedded.menu_categories.name")))
+            .withColumn("category_array", col("itemsEmbedded.menu_item._embedded.menu_categories.name"))
+            .withColumn("category_array_str", concat_ws(",", col("category_array")))
             .withColumn(
                 "main_category_name",
-                when(upper(col("Category_Array")).contains("FOOD"), lit("FOOD")).otherwise(
-                    when(upper(col("Category_Array")).contains("DRINKS"), lit("DRINKS"))
-                        .otherwise(array_min(split(col("Category_Array"), ",")))
+                when(upper(col("category_array_str")).contains("FOOD"), lit("FOOD")).otherwise(
+                    when(upper(col("category_array_str")).contains("DRINKS"), lit("DRINKS"))
+                        .otherwise(array_min(col("category_array")))
                 )
             )
             .withColumn("item_desc", lit(null))

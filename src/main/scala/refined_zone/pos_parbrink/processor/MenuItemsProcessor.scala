@@ -108,6 +108,8 @@ object MenuItemsProcessor {
             .drop("variations", "included_modifiers")
             .join(transformedCategories, Seq("item_id", "location_id"), "left_outer")
             .withColumn("main_category_name", array_max(col("category_array")))
+            .drop("location_id")
+            .dropDuplicates("cxi_partner_id", "item_id")
     }
 
     def writeMenuItems(df: DataFrame, cxiPartnerId: String, destTable: String): Unit = {
@@ -118,7 +120,6 @@ object MenuItemsProcessor {
                |MERGE INTO $destTable
                |USING $srcTable
                |ON $destTable.cxi_partner_id = "$cxiPartnerId"
-               |    AND $destTable.location_id = $srcTable.location_id
                |    AND $destTable.item_id = $srcTable.item_id
                |WHEN MATCHED
                |  THEN UPDATE SET *
