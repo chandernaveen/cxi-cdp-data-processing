@@ -92,7 +92,7 @@ class CategoriesProcessorTest extends BaseSparkBatchJobTest {
         rawData.createOrReplaceTempView(rawTable)
 
         // when
-        val categoriesOnRead = CategoriesProcessor.readCategories(spark, "2022-02-24", rawTable)
+        val categoriesOnRead = CategoriesProcessor.readCategories(spark, "2022-02-24", "false", rawTable)
 
         // then
         withClue("read Parbrink categories data does not match") {

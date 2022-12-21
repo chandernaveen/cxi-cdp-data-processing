@@ -36,9 +36,15 @@ object OrderSummaryProcessor {
 
         val orderSummaryTable = config.contract.prop[String](getSchemaRefinedPath("order_summary_table"))
 
-        val orders = readOrders(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
+        val orders =
+            readOrders(spark, config.dateRaw, config.refinedFullProcess, s"${config.srcDbName}.${config.srcTable}")
 
-        val destinations = readDestinations(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
+        val destinations = readDestinations(
+            spark,
+            config.dateRaw,
+            config.refinedFullProcess,
+            s"${config.srcDbName}.${config.srcTable}"
+        )
 
         val processedOrders =
             transformOrders(orders, destinations, identitiesByOrder, config.cxiPartnerId, config.dateRaw)
@@ -48,13 +54,18 @@ object OrderSummaryProcessor {
         }
     }
 
-    def readDestinations(spark: SparkSession, date: String, table: String): DataFrame = {
+    def readDestinations(spark: SparkSession, date: String, refinedFullProcess: String, table: String): DataFrame = {
         import spark.implicits._
         val fromRecordValue = path => get_json_object($"record_value", path)
 
         spark
             .table(table)
-            .filter($"record_type" === ParbrinkRecordType.Destinations.value && $"feed_date" === date)
+            .filter(
+                $"record_type" === ParbrinkRecordType.Destinations.value && $"feed_date" === when(
+                    lit(refinedFullProcess).equalTo("true"),
+                    $"feed_date"
+                ).otherwise(date)
+            )
             .filter(col("record_value").isNotNull)
             .select(
                 col("location_id"),
@@ -63,13 +74,18 @@ object OrderSummaryProcessor {
             )
     }
 
-    def readOrders(spark: SparkSession, date: String, table: String): DataFrame = {
+    def readOrders(spark: SparkSession, date: String, refinedFullProcess: String, table: String): DataFrame = {
         import spark.implicits._
         val fromRecordValue = path => get_json_object($"record_value", path)
 
         spark
             .table(table)
-            .filter($"record_type" === ParbrinkRecordType.Orders.value && $"feed_date" === date)
+            .filter(
+                $"record_type" === ParbrinkRecordType.Orders.value && $"feed_date" === when(
+                    lit(refinedFullProcess).equalTo("true"),
+                    $"feed_date"
+                ).otherwise(date)
+            )
             .filter(col("record_value").isNotNull)
             .select(
                 col("location_id"),

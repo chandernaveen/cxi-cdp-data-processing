@@ -20,7 +20,6 @@ class MenuItemsProcessorIntegrationTest extends BaseSparkBatchJobTest with Befor
         val cxiPartnerId = "cxi-usa-partner-1"
 
         val menuItem_A = MenuItemTransformed(
-            location_id = "loc_id_1",
             item_id = "1",
             item_nm = "Sauce",
             item_type = "Normal",
@@ -41,7 +40,6 @@ class MenuItemsProcessorIntegrationTest extends BaseSparkBatchJobTest with Befor
 
         // then
         val menuItem_A_Refined = MenuItemRefined(
-            location_id = "loc_id_1",
             item_id = "1",
             item_nm = "Sauce",
             item_type = "Normal",
@@ -77,7 +75,6 @@ class MenuItemsProcessorIntegrationTest extends BaseSparkBatchJobTest with Befor
         // given
         val menuItem_A_modified = menuItem_A.copy(item_plu = "modified")
         val menuItem_B = MenuItemTransformed(
-            location_id = "loc_id_1",
             item_id = "3",
             item_nm = "Pizza",
             item_type = "Composite",
@@ -100,7 +97,6 @@ class MenuItemsProcessorIntegrationTest extends BaseSparkBatchJobTest with Befor
         val menuItem_A_Refined_Modified = menuItem_A_Refined.copy(item_plu = "modified")
 
         val menuItem_B_Refined = MenuItemRefined(
-            location_id = "loc_id_1",
             item_id = "3",
             item_nm = "Pizza",
             item_type = "Composite",
@@ -137,7 +133,6 @@ class MenuItemsProcessorIntegrationTest extends BaseSparkBatchJobTest with Befor
                |(
                |    `item_id`            STRING,
                |    `cxi_partner_id`     STRING,
-               |    `location_id`        STRING,
                |    `item_nm`            STRING,
                |    `item_desc`          STRING,
                |    `item_type`          STRING,
@@ -160,7 +155,6 @@ class MenuItemsProcessorIntegrationTest extends BaseSparkBatchJobTest with Befor
 object MenuItemsProcessorIntegrationTest {
 
     case class MenuItemRefined(
-        location_id: String,
         item_id: String,
         item_nm: String,
         item_type: String,

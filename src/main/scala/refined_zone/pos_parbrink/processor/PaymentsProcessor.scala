@@ -18,8 +18,14 @@ object PaymentsProcessor {
 
         val paymentTable = config.contract.prop[String](getSchemaRefinedPath("payment_table"))
 
-        val payments = readPayments(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
-        val orderTenders = readOrderTenders(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
+        val payments =
+            readPayments(spark, config.dateRaw, config.refinedFullProcess, s"${config.srcDbName}.${config.srcTable}")
+        val orderTenders = readOrderTenders(
+            spark,
+            config.dateRaw,
+            config.refinedFullProcess,
+            s"${config.srcDbName}.${config.srcTable}"
+        )
 
         val processedPayments = transformPayments(payments, orderTenders, config.cxiPartnerId)
 
@@ -28,13 +34,18 @@ object PaymentsProcessor {
         processedPayments
     }
 
-    def readOrderTenders(spark: SparkSession, date: String, table: String): DataFrame = {
+    def readOrderTenders(spark: SparkSession, date: String, refinedFullProcess: String, table: String): DataFrame = {
         import spark.implicits._
         val fromRecordValue = path => get_json_object($"record_value", path)
 
         spark
             .table(table)
-            .filter($"record_type" === ParbrinkRecordType.OrderTenders.value && $"feed_date" === date)
+            .filter(
+                $"record_type" === ParbrinkRecordType.OrderTenders.value && $"feed_date" === when(
+                    lit(refinedFullProcess).equalTo("true"),
+                    $"feed_date"
+                ).otherwise(date)
+            )
             .filter(col("record_value").isNotNull)
             .select(
                 col("location_id"),
@@ -45,13 +56,18 @@ object PaymentsProcessor {
             .dropDuplicates("location_id", "tender_id")
     }
 
-    def readPayments(spark: SparkSession, date: String, table: String): DataFrame = {
+    def readPayments(spark: SparkSession, date: String, refinedFullProcess: String, table: String): DataFrame = {
         import spark.implicits._
         val fromRecordValue = path => get_json_object($"record_value", path)
 
         spark
             .table(table)
-            .filter($"record_type" === ParbrinkRecordType.Orders.value && $"feed_date" === date)
+            .filter(
+                $"record_type" === ParbrinkRecordType.Orders.value && $"feed_date" === when(
+                    lit(refinedFullProcess).equalTo("true"),
+                    $"feed_date"
+                ).otherwise(date)
+            )
             .select(
                 col("location_id"),
                 fromRecordValue("$.Id").as("order_id"),
@@ -73,7 +89,7 @@ object PaymentsProcessor {
             .withColumn("tender_id", col("payments.TenderId"))
             .join(tenders, Seq("tender_id", "location_id"), "left_outer")
             .withColumn("payment_id", concat(col("order_id"), lit("_"), col("payments.Id")))
-            .withColumn("name", col("payments.CardHolderName"))
+            .withColumn("name", regexp_replace(trim(col("payments.CardHolderName")), "( +)", " "))
             .withColumn("pan", col("payments.CardNumber"))
             .withColumn("status", normalizePaymentStatus(col("payments.IsDeleted"), col("is_active_tender")))
             .withColumn("card_brand", getPaymentCardBrand(col("tender_card_type")))

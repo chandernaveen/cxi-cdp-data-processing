@@ -14,6 +14,7 @@ object AuditLogs {
                 StructType(List(StructField("processName", StringType, true)))
             )
             .withColumn("entity", lit(logContext.entity))
+            .withColumn("subEntity", lit(logContext.subEntity))
             .withColumn("runID", lit(logContext.runID))
             .withColumn("dpYear", lit(logContext.dpYear))
             .withColumn("dpMonth", lit(logContext.dpMonth))
@@ -27,4 +28,5 @@ object AuditLogs {
             .withColumn("readRowCount", lit(-1))
         auditRecordDf.write.mode("append").saveAsTable(logContext.logTable)
     }
+
 }

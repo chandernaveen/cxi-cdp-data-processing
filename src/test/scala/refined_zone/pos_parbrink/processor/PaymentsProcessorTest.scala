@@ -37,9 +37,9 @@ class PaymentsProcessorTest extends BaseSparkBatchJobTest {
     )
 
     val payment_1 =
-        PaymentRaw(Id = 11, CardHolderName = "name_1", CardNumber = "1234", IsDeleted = false, TenderId = 1)
+        PaymentRaw(Id = 11, CardHolderName = "name_1   last_name", CardNumber = "1234", IsDeleted = false, TenderId = 1)
     val payment_2 =
-        PaymentRaw(Id = 12, CardHolderName = "name_2", CardNumber = null, IsDeleted = true, TenderId = 2)
+        PaymentRaw(Id = 12, CardHolderName = "name_2/   last_name", CardNumber = null, IsDeleted = true, TenderId = 2)
     val payment_3 =
         PaymentRaw(Id = 13, CardHolderName = null, CardNumber = null, IsDeleted = false, TenderId = 3)
 
@@ -106,7 +106,7 @@ class PaymentsProcessorTest extends BaseSparkBatchJobTest {
         rawData.createOrReplaceTempView(rawTable)
 
         // when
-        val orderTendersOnRead = PaymentsProcessor.readOrderTenders(spark, "2022-02-24", rawTable)
+        val orderTendersOnRead = PaymentsProcessor.readOrderTenders(spark, "2022-02-24", "false", rawTable)
 
         // then
         withClue("read Parbrink order tenders data does not match") {
@@ -171,7 +171,7 @@ class PaymentsProcessorTest extends BaseSparkBatchJobTest {
         rawData.createOrReplaceTempView(rawTable)
 
         // when
-        val paymentsOnRead = PaymentsProcessor.readPayments(spark, "2022-02-24", rawTable)
+        val paymentsOnRead = PaymentsProcessor.readPayments(spark, "2022-02-24", "false", rawTable)
 
         // then
         withClue("read Parbrink payments data does not match") {
@@ -208,7 +208,7 @@ class PaymentsProcessorTest extends BaseSparkBatchJobTest {
                     order_id = "111",
                     location_id = "loc_id_1",
                     status = PaymentStatusType.Active.value,
-                    name = "name_1",
+                    name = "name_1 last_name",
                     card_brand = CardBrandType.None.name,
                     pan = "1234"
                 ),
@@ -218,7 +218,7 @@ class PaymentsProcessorTest extends BaseSparkBatchJobTest {
                     order_id = "111",
                     location_id = "loc_id_1",
                     status = PaymentStatusType.Deleted.value,
-                    name = "name_2",
+                    name = "name_2/ last_name",
                     card_brand = CardBrandType.AmericanExpress.name,
                     pan = null
                 ),

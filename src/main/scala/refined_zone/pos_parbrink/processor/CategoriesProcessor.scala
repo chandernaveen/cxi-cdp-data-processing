@@ -6,7 +6,7 @@ import refined_zone.pos_parbrink.model.ParbrinkRecordType
 import refined_zone.pos_parbrink.RawRefinedParbrinkPartnerJob.getSchemaRefinedPath
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{col, get_json_object, lit}
+import org.apache.spark.sql.functions.{col, get_json_object, lit, when}
 
 object CategoriesProcessor {
 
@@ -14,20 +14,26 @@ object CategoriesProcessor {
 
         val categoryTable = config.contract.prop[String](getSchemaRefinedPath("category_table"))
 
-        val categories = readCategories(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
+        val categories =
+            readCategories(spark, config.dateRaw, config.refinedFullProcess, s"${config.srcDbName}.${config.srcTable}")
 
         val processedCategories = transformCategories(categories, config.cxiPartnerId)
 
         writeCategories(processedCategories, config.cxiPartnerId, s"$refinedDbName.$categoryTable")
     }
 
-    def readCategories(spark: SparkSession, date: String, table: String): DataFrame = {
+    def readCategories(spark: SparkSession, date: String, refinedFullProcess: String, table: String): DataFrame = {
         import spark.implicits._
         val fromRecordValue = path => get_json_object($"record_value", path)
 
         spark
             .table(table)
-            .filter($"record_type" === ParbrinkRecordType.Categories.value && $"feed_date" === date)
+            .filter(
+                $"record_type" === ParbrinkRecordType.Categories.value && $"feed_date" === when(
+                    lit(refinedFullProcess).equalTo("true"),
+                    $"feed_date"
+                ).otherwise(date)
+            )
             .filter(col("record_value").isNotNull)
             .filter(fromRecordValue("$.IsDeleted") === false)
             .select(

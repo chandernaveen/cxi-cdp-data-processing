@@ -39,7 +39,8 @@ object CustomersProcessor {
 
         val customersTable = config.contract.prop[String](getSchemaRefinedPath("customer_table"))
 
-        val customers = readCustomers(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
+        val customers =
+            readCustomers(spark, config.dateRaw, config.refinedFullProcess, s"${config.srcDbName}.${config.srcTable}")
 
         inAuthorizedContext(spark, readWorkspaceConfig(spark, cryptoShreddingConfig.workspaceConfigPath)) {
             val privacyLookupPhones = readPrivacyLookupPhones(spark, config.contract, cryptoShreddingConfig)
@@ -55,13 +56,18 @@ object CustomersProcessor {
 
     }
 
-    def readCustomers(spark: SparkSession, date: String, table: String): DataFrame = {
+    def readCustomers(spark: SparkSession, date: String, refinedFullProcess: String, table: String): DataFrame = {
         import spark.implicits._
         val fromRecordValue = path => get_json_object($"record_value", path)
 
         spark
             .table(table)
-            .filter($"record_type" === ParbrinkRecordType.Customers.value && $"feed_date" === date)
+            .filter(
+                $"record_type" === ParbrinkRecordType.Customers.value && $"feed_date" === when(
+                    lit(refinedFullProcess).equalTo("true"),
+                    $"feed_date"
+                ).otherwise(date)
+            )
             .filter(col("record_value").isNotNull)
             .filter(fromRecordValue("$.IsDisabled") === false)
             .select(

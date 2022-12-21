@@ -8,7 +8,7 @@ import refined_zone.pos_parbrink.RawRefinedParbrinkPartnerJob.getSchemaRefinedPa
 import support.normalization.udf.OrderTenderTypeNormalizationUdfs.normalizeIntOrderTenderType
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{col, get_json_object, lit}
+import org.apache.spark.sql.functions.{col, get_json_object, lit, when}
 import org.apache.spark.sql.types.BooleanType
 
 object OrderTendersProcessor {
@@ -17,7 +17,13 @@ object OrderTendersProcessor {
 
         val orderTenderTable = config.contract.prop[String](getSchemaRefinedPath("order_tender_table"))
 
-        val orderTenders = readOrderTenders(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
+        val orderTenders =
+            readOrderTenders(
+                spark,
+                config.dateRaw,
+                config.refinedFullProcess,
+                s"${config.srcDbName}.${config.srcTable}"
+            )
 
         val processedOrderTenders = transformOrderTenders(orderTenders, config.cxiPartnerId)
 
@@ -26,13 +32,18 @@ object OrderTendersProcessor {
         processedOrderTenders
     }
 
-    def readOrderTenders(spark: SparkSession, date: String, table: String): DataFrame = {
+    def readOrderTenders(spark: SparkSession, date: String, refinedFullProcess: String, table: String): DataFrame = {
         import spark.implicits._
         val fromRecordValue = path => get_json_object($"record_value", path)
 
         spark
             .table(table)
-            .filter($"record_type" === ParbrinkRecordType.OrderTenders.value && $"feed_date" === date)
+            .filter(
+                $"record_type" === ParbrinkRecordType.OrderTenders.value && $"feed_date" === when(
+                    lit(refinedFullProcess).equalTo("true"),
+                    $"feed_date"
+                ).otherwise(date)
+            )
             .filter(col("record_value").isNotNull)
             .select(
                 col("location_id"),

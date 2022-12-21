@@ -88,7 +88,7 @@ class OrderTendersProcessorTest extends BaseSparkBatchJobTest {
         rawData.createOrReplaceTempView(rawTable)
 
         // when
-        val orderTendersOnRead = OrderTendersProcessor.readOrderTenders(spark, "2022-02-24", rawTable)
+        val orderTendersOnRead = OrderTendersProcessor.readOrderTenders(spark, "2022-02-24", "false", rawTable)
 
         // then
         withClue("read Parbrink order tenders data does not match") {

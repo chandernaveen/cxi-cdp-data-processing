@@ -43,13 +43,22 @@ object PaymentsIdentitiesProcessor {
         } else {
             val lastFirstName = holderName.split(LastFirstNameDelimiter)
             if (lastFirstName.size < 2) {
-                None
+
+                Some(
+                    Seq(holderName.trim, cardBrand.trim, pan.trim)
+                        .mkString(HolderNameBrandPanDelimiter)
+                        .toLowerCase
+                )
             } else {
                 val lastName = lastFirstName(0)
                 val firstName = lastFirstName(1)
 
                 if (isEmpty(lastName) || isEmpty(firstName)) {
-                    None
+                    Some(
+                        Seq(holderName.trim, cardBrand.trim, pan.trim)
+                            .mkString(HolderNameBrandPanDelimiter)
+                            .toLowerCase
+                    )
                 } else {
                     Some(
                         Seq(s"${lastName.trim}${LastFirstNameDelimiter}${firstName.trim}", cardBrand.trim, pan.trim)

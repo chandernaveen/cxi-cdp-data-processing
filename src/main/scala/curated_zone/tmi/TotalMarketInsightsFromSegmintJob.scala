@@ -52,16 +52,17 @@ object TotalMarketInsightsFromSegmintJob {
             transformTotalMarketInsights(totalMarketInsightsSource, totalMarketInsightsTableData, cliArgs.overwrite)
                 .cache()
 
-        writeToDatalakeTotalMarketInsights(
-            totalMarketInsights,
-            s"$curatedDb.$totalMarketInsightsTable",
-            cliArgs.overwrite
-        )
         writeToMongoTotalMarketInsights(
             totalMarketInsights,
             mongoDbConfig.uri,
             mongoDbName,
             totalMarketInsightsMongoCollectionName,
+            cliArgs.overwrite
+        )
+
+        writeToDatalakeTotalMarketInsights(
+            totalMarketInsights,
+            s"$curatedDb.$totalMarketInsightsTable",
             cliArgs.overwrite
         )
     }

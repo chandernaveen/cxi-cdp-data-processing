@@ -197,13 +197,13 @@ class ItemsProcessorTest extends BaseSparkBatchJobTest with Matchers {
                 "partner-1",
                 "63323-1",
                 "Coffee",
-                "APPETIZERS,FOOD",
+                Array("APPETIZERS", "FOOD"),
                 null,
                 "VARIATION",
                 "FOOD",
                 null,
                 "a,b",
-                "Variation-1,Variation-2"
+                Array("Variation-1", "Variation-2")
             )
         )
 
@@ -212,13 +212,13 @@ class ItemsProcessorTest extends BaseSparkBatchJobTest with Matchers {
                 StructField("cxi_partner_id", StringType, false),
                 StructField("item_id", StringType),
                 StructField("item_nm", StringType),
-                StructField("category_array", StringType, false),
+                StructField("category_array", DataTypes.createArrayType(StringType)),
                 StructField("item_desc", NullType),
                 StructField("item_type", StringType, false),
                 StructField("main_category_name", StringType),
                 StructField("item_plu", NullType),
                 StructField("item_barcode", StringType),
-                StructField("variation_array", StringType, false)
+                StructField("variation_array", DataTypes.createArrayType(StringType))
             )
         )
 
