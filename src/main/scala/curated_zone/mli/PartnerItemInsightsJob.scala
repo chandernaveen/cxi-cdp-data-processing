@@ -152,7 +152,7 @@ object PartnerItemInsightsJob {
         spark
             .table(itemTable)
             .filter(
-                (col("item_type").rlike("[Ff][Oo][Oo][Dd]")) && col("item_nm").isNotNull && !col("item_nm")
+                (col("item_type").rlike("[Ff][Oo][Oo][Dd]|Normal")) && col("item_nm").isNotNull && !col("item_nm")
                     .isInCollection(
                         excludeItemNames
                     ) && !col("item_nm").rlike(excludeItemNamesRegex)
@@ -173,7 +173,8 @@ object PartnerItemInsightsJob {
         itemDf: DataFrame,
         customer360Df: DataFrame
     ): DataFrame = {
-        val nonPosIdentityTypes = Array(IdentityType.ThrotleId.code, IdentityType.MaidAAID.code, IdentityType.MaidIDFA.code)
+        val nonPosIdentityTypes =
+            Array(IdentityType.ThrotleId.code, IdentityType.MaidAAID.code, IdentityType.MaidIDFA.code)
 
         val customer360ExplodeDf = customer360Df
             .select(col("customer_360_id"), explode(col("identities")).as("type" :: "ids" :: Nil))
