@@ -65,19 +65,19 @@ class PaymentsIdentitiesProcessorTest extends BaseSparkBatchJobTest {
                 "/RICHARD",
                 "MasterCard",
                 "9621",
-                None
+                Some("/richard-mastercard-9621")
             ),
             CardHolderNameTypeNumberTestCase(
                 "GARCIARICHARD",
                 "MasterCard",
                 "9621",
-                None
+                Some("garciarichard-mastercard-9621")
             ),
             CardHolderNameTypeNumberTestCase(
                 "GARCIA RICHARD /",
                 "MasterCard",
                 "9621",
-                None
+                Some("garcia richard /-mastercard-9621")
             )
         )
 
@@ -139,6 +139,13 @@ class PaymentsIdentitiesProcessorTest extends BaseSparkBatchJobTest {
                     "111",
                     "loc_id_1",
                     Hash.sha256Hash("garcia/richard-visa-1234", cryptoShredding.SaltTest),
+                    IdentityType.CardHolderNameTypeNumber.code,
+                    2
+                ),
+                (
+                    "111",
+                    "loc_id_1",
+                    Hash.sha256Hash("some_name-american express-2345", cryptoShredding.SaltTest),
                     IdentityType.CardHolderNameTypeNumber.code,
                     2
                 )

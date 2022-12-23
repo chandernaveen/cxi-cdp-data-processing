@@ -52,6 +52,42 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
             ),
             (
                 s"""
+                    {
+                       "general":{
+                          "closeoutHour":1,
+                          "description":"398 7th Street NW Washington, DC 20004",
+                          "locationCode":"6",
+                          "managementGroupGuid":"327841ee-0ce2-4a33-9256-341fadd8e269",
+                          "name":"Protein Bar & Kitchen",
+                          "timeZone":"America/New_York"
+                       },
+                       "guid":"d8858e8e-67bc-4bd5-9b48-be29682aa03da",
+                       "location":{
+                          "address1":"398 7th Street NW",
+                          "address2":"",
+                          "city":"Washington",
+                          "country":"US",
+                          "latitude":38.8946484,
+                          "longitude":-77.022111,
+                          "phone":"2026219574",
+                          "stateCode":"DC",
+                          "zipCode":"20004"
+                       },
+                       "urls":{
+                          "checkGiftCard":"https://www.toasttab.com/fake-short-url/findcard",
+                          "facebook":"",
+                          "orderOnline":"https://www.toasttab.com/fake-short-url/",
+                          "purchaseGiftCard":"https://www.toasttab.com/fake-short-url/giftcards",
+                          "twitter":"https://twitter.com/",
+                          "website":"http://www.theproteinbar.com/location-details?loc=pennquarter7thd"
+                       }
+                    }
+                """,
+                "restaurants",
+                "2022-02-24"
+            ),
+            (
+                s"""
                    {
                        "id":"P910DJ120AQA0",
                        "name":"#9 Desert Ridge",
@@ -118,6 +154,19 @@ class LocationsProcessorTest extends BaseSparkBatchJobTest {
                             timezone = "America/New_York",
                             country_code = "US",
                             location_nm = "Penn Quarter,Protein Bar & Kitchen"
+                        ),
+                        LocationReadOutputModel(
+                            location_id = "d8858e8e-67bc-4bd5-9b48-be29682aa03da",
+                            address_1 = "398 7th Street NW",
+                            address_2 = "",
+                            lat = Some(38.8946484),
+                            `lon` = Some(-77.022111),
+                            phone = "2026219574",
+                            zip_code = "20004",
+                            location_website = "http://www.theproteinbar.com/location-details?loc=pennquarter7thd",
+                            timezone = "America/New_York",
+                            country_code = "US",
+                            location_nm = "Protein Bar & Kitchen"
                         )
                     )
                 )

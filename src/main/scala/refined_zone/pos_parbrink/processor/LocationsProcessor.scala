@@ -8,7 +8,7 @@ import refined_zone.pos_parbrink.RawRefinedParbrinkPartnerJob.{getSchemaRefinedH
 import support.normalization.udf.LocationNormalizationUdfs.locationSpecialCharacter
 import support.normalization.PhoneNumberNormalization
 
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 
@@ -25,7 +25,8 @@ object LocationsProcessor {
         val refinedHubDb = config.contract.prop[String](getSchemaRefinedHubPath("db_name"))
         val postalCodeTable = config.contract.prop[String](getSchemaRefinedHubPath("postal_code_table"))
 
-        val locations = readLocations(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
+        val locations =
+            readLocations(spark, config.dateRaw, config.refinedFullProcess, s"${config.srcDbName}.${config.srcTable}")
 
         val processedLocations =
             transformLocations(spark, locations, s"$refinedHubDb.$postalCodeTable", config.cxiPartnerId)
@@ -33,13 +34,18 @@ object LocationsProcessor {
         writeLocations(processedLocations, config.cxiPartnerId, s"$refinedDbName.$locationTable")
     }
 
-    def readLocations(spark: SparkSession, date: String, table: String): DataFrame = {
+    def readLocations(spark: SparkSession, date: String, refinedFullProcess: String, table: String): DataFrame = {
         import spark.implicits._
         val fromRecordValue = path => get_json_object($"record_value", path)
 
         spark
             .table(table)
-            .filter($"record_type" === ParbrinkRecordType.Locations.value && $"feed_date" === date)
+            .filter(
+                $"record_type" === ParbrinkRecordType.Locations.value && $"feed_date" === when(
+                    lit(refinedFullProcess).equalTo("true"),
+                    $"feed_date"
+                ).otherwise(date)
+            )
             .filter(col("record_value").isNotNull)
             .select(
                 col("location_id"),

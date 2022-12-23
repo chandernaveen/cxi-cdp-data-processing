@@ -155,6 +155,7 @@ object FileIngestionFramework {
             logTable = config.logTable,
             processName = config.processName,
             entity = config.sourceEntity,
+            subEntity = config.subEntity,
             runID = config.auditRunId,
             dpYear = config.dpYear,
             dpMonth = config.dpMonth,

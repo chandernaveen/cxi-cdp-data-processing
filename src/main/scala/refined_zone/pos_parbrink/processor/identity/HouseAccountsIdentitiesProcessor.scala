@@ -7,15 +7,25 @@ import refined_zone.pos_parbrink.config.ProcessorConfig
 import refined_zone.pos_parbrink.model.ParbrinkRecordType
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{col, get_json_object, lit}
+import org.apache.spark.sql.functions.{col, get_json_object, lit, when}
 
 object HouseAccountsIdentitiesProcessor {
 
     def process(spark: SparkSession, config: ProcessorConfig): DataFrame = {
         val houseAccountCharges =
-            readHouseAccountCharges(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
+            readHouseAccountCharges(
+                spark,
+                config.dateRaw,
+                config.refinedFullProcess,
+                s"${config.srcDbName}.${config.srcTable}"
+            )
         val houseAccounts =
-            readHouseAccounts(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
+            readHouseAccounts(
+                spark,
+                config.dateRaw,
+                config.refinedFullProcess,
+                s"${config.srcDbName}.${config.srcTable}"
+            )
         val houseAccountsWithOrder = transformHouseAccounts(houseAccounts, houseAccountCharges)
 
         computeIdentitiesFromHouseAccounts(houseAccountsWithOrder)
@@ -44,13 +54,23 @@ object HouseAccountsIdentitiesProcessor {
         emails.unionByName(phones)
     }
 
-    def readHouseAccountCharges(spark: SparkSession, date: String, table: String): DataFrame = {
+    def readHouseAccountCharges(
+        spark: SparkSession,
+        date: String,
+        refinedFullProcess: String,
+        table: String
+    ): DataFrame = {
         import spark.implicits._
         val fromRecordValue = path => get_json_object($"record_value", path)
 
         spark
             .table(table)
-            .filter($"record_type" === ParbrinkRecordType.HouseAccountCharges.value && $"feed_date" === date)
+            .filter(
+                $"record_type" === ParbrinkRecordType.HouseAccountCharges.value && $"feed_date" === when(
+                    lit(refinedFullProcess).equalTo("true"),
+                    $"feed_date"
+                ).otherwise(date)
+            )
             .filter(col("record_value").isNotNull)
             .select(
                 col("location_id"),
@@ -59,13 +79,18 @@ object HouseAccountsIdentitiesProcessor {
             )
     }
 
-    def readHouseAccounts(spark: SparkSession, date: String, table: String): DataFrame = {
+    def readHouseAccounts(spark: SparkSession, date: String, refinedFullProcess: String, table: String): DataFrame = {
         import spark.implicits._
         val fromRecordValue = path => get_json_object($"record_value", path)
 
         spark
             .table(table)
-            .filter($"record_type" === ParbrinkRecordType.HouseAccounts.value && $"feed_date" === date)
+            .filter(
+                $"record_type" === ParbrinkRecordType.HouseAccounts.value && $"feed_date" === when(
+                    lit(refinedFullProcess).equalTo("true"),
+                    $"feed_date"
+                ).otherwise(date)
+            )
             .filter(fromRecordValue("$.Active") === true)
             .select(
                 col("location_id"),

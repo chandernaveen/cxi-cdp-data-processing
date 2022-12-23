@@ -7,7 +7,7 @@ import refined_zone.pos_parbrink.RawRefinedParbrinkPartnerJob.getSchemaRefinedPa
 import support.normalization.udf.LocationNormalizationUdfs.normalizeZipCode
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.sql.functions.{col, get_json_object, lit}
+import org.apache.spark.sql.functions.{col, get_json_object, lit, when}
 
 object HouseAccountsProcessor {
 
@@ -15,20 +15,30 @@ object HouseAccountsProcessor {
 
         val houseAccountTable = config.contract.prop[String](getSchemaRefinedPath("house_account_table"))
 
-        val houseAccounts = readHouseAccounts(spark, config.dateRaw, s"${config.srcDbName}.${config.srcTable}")
+        val houseAccounts = readHouseAccounts(
+            spark,
+            config.dateRaw,
+            config.refinedFullProcess,
+            s"${config.srcDbName}.${config.srcTable}"
+        )
 
         val processedHouseAccounts = transformHouseAccounts(houseAccounts, config.cxiPartnerId)
 
         writeHouseAccounts(processedHouseAccounts, config.cxiPartnerId, s"$destDbName.$houseAccountTable")
     }
 
-    def readHouseAccounts(spark: SparkSession, date: String, table: String): DataFrame = {
+    def readHouseAccounts(spark: SparkSession, date: String, refinedFullProcess: String, table: String): DataFrame = {
         import spark.implicits._
         val fromRecordValue = path => get_json_object($"record_value", path)
 
         spark
             .table(table)
-            .filter($"record_type" === ParbrinkRecordType.HouseAccounts.value && $"feed_date" === date)
+            .filter(
+                $"record_type" === ParbrinkRecordType.HouseAccounts.value && $"feed_date" === when(
+                    lit(refinedFullProcess).equalTo("true"),
+                    $"feed_date"
+                ).otherwise(date)
+            )
             .filter(col("record_value").isNotNull)
             .filter(fromRecordValue("$.Active") === true)
             .select(

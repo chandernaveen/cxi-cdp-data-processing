@@ -149,7 +149,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest {
         rawData.createOrReplaceTempView(rawTable)
 
         // when
-        val destinationsOnRead = OrderSummaryProcessor.readDestinations(spark, "2022-02-24", rawTable)
+        val destinationsOnRead = OrderSummaryProcessor.readDestinations(spark, "2022-02-24", "false", rawTable)
 
         // then
         withClue("read Parbrink destinations data does not match") {
@@ -242,7 +242,7 @@ class OrderSummaryProcessorTest extends BaseSparkBatchJobTest {
         rawData.createOrReplaceTempView(rawTable)
 
         // when
-        val ordersOnRead = OrderSummaryProcessor.readOrders(spark, "2022-02-24", rawTable)
+        val ordersOnRead = OrderSummaryProcessor.readOrders(spark, "2022-02-24", "false", rawTable)
 
         // then
         withClue("read Parbrink orders data does not match") {

@@ -56,6 +56,7 @@ object MenuItemsProcessor {
                 "variations",
                 from_json(col("variations"), DataTypes.createArrayType(Encoders.product[Variation].schema))
             )
+            .withColumn("category_array", split(col("category_array"), ","))
             .withColumn("variation_array", col("variations.id"))
             .withColumn("item_type", lit("food"))
             .drop("variations")

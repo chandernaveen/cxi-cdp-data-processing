@@ -127,7 +127,7 @@ class MenuItemsProcessorTest extends BaseSparkBatchJobTest {
         rawData.createOrReplaceTempView(rawTable)
 
         // when
-        val menuItemsOnRead = MenuItemsProcessor.readMenuItems(spark, "2022-02-24", rawTable)
+        val menuItemsOnRead = MenuItemsProcessor.readMenuItems(spark, "2022-02-24", "false", rawTable)
 
         // then
         withClue("read Parbrink menu items data does not match") {
@@ -193,7 +193,7 @@ class MenuItemsProcessorTest extends BaseSparkBatchJobTest {
         rawData.createOrReplaceTempView(rawTable)
 
         // when
-        val categoriesOnRead = MenuItemsProcessor.readCategories(spark, "2022-02-24", rawTable)
+        val categoriesOnRead = MenuItemsProcessor.readCategories(spark, "2022-02-24", "false", rawTable)
 
         // then
         withClue("read Parbrink categories data does not match") {
@@ -253,7 +253,6 @@ class MenuItemsProcessorTest extends BaseSparkBatchJobTest {
         withClue("transformed Parbrink menu items data does not match") {
             val expected = Seq(
                 MenuItemTransformed(
-                    location_id = "loc_id_1",
                     item_id = "1",
                     item_nm = "Sauce",
                     item_type = "Normal",
@@ -266,7 +265,6 @@ class MenuItemsProcessorTest extends BaseSparkBatchJobTest {
                     main_category_name = "22"
                 ),
                 MenuItemTransformed(
-                    location_id = "loc_id_1",
                     item_id = "2",
                     item_nm = "Bacon",
                     item_type = "Normal",
@@ -279,7 +277,6 @@ class MenuItemsProcessorTest extends BaseSparkBatchJobTest {
                     main_category_name = "22"
                 ),
                 MenuItemTransformed(
-                    location_id = "loc_id_1",
                     item_id = "3",
                     item_nm = "Pizza",
                     item_type = "Composite",
@@ -324,7 +321,6 @@ object MenuItemsProcessorTest {
     case class CategoryTransformed(location_id: String, item_id: String, category_array: Seq[String])
 
     case class MenuItemTransformed(
-        location_id: String,
         item_id: String,
         item_nm: String,
         item_type: String,

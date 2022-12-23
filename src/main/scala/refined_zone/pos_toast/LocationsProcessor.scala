@@ -45,7 +45,16 @@ object LocationsProcessor {
                 col("urls.website").as("location_website"),
                 col("general.timeZone").as("timezone"),
                 col("location.country").as("country_code"),
-                concat(col("general.locationName"), lit(","), col("general.name")).as("location_nm")
+                concat(
+                    coalesce(col("general.locationName"), col("general.name")),
+                    when(
+                        col("general.locationName").isNotNull,
+                        when(col("general.name").isNotNull, lit(",")).otherwise(lit(""))
+                    ).otherwise(lit("")),
+                    when(col("general.locationName").isNotNull, coalesce(col("general.name"), lit("")))
+                        .otherwise(lit(""))
+                )
+                    .as("location_nm")
             )
     }
 
