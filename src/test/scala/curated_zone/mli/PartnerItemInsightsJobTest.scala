@@ -1,6 +1,7 @@
 package com.cxi.cdp.data_processing
 package curated_zone.mli
 
+import refined_zone.hub.model.OrderStateType
 import support.BaseSparkBatchJobTest
 
 import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
@@ -8,6 +9,216 @@ import org.apache.spark.sql.DataFrame
 import org.scalatest.Matchers.{contain, convertToAnyShouldWrapper, equal}
 
 class PartnerItemInsightsJobTest extends BaseSparkBatchJobTest {
+
+    test("test readOrderSummary") {
+        // given
+        import spark.implicits._
+
+        val orderSummaryDf = List(
+            (
+                "39mqG77OEGjaf4HH2",
+                sqlDate(2022, 12, 20),
+                "cxi-usa-goldbowl",
+                "L04HB3ZDYYD2M",
+                OrderStateType.Completed.code,
+                "KYYDC4ULFYATEZ7XY",
+                1,
+                1,
+                9.01,
+                Array(
+                    Map(
+                        "identity_type" -> "phone",
+                        "cxi_identity_id" -> "fa3998a6b3d42d65ebabb3fdf11f67ace7e2a419902db7673194ec8e80f4126f"
+                    )
+                )
+            ),
+            (
+                "XHlPQnEKH74HHB7ioKD0xayeV",
+                sqlDate(2022, 12, 23),
+                "cxi-usa-goldbowl",
+                "L0P0DJ340FXF0",
+                OrderStateType.Cancelled.code,
+                "YY7ZT6JP2YTZK2DXZNLUSW5S",
+                1,
+                2,
+                2.11,
+                Array(
+                    Map(
+                        "identity_type" -> "phone",
+                        "cxi_identity_id" -> "ef9ff3c6122618676c42c40f009862264e0e947e2a5916354572aa0d97b43f11"
+                    )
+                )
+            ),
+            (
+                "dMWbKnd3gbnqJNpiACKhEFzeV",
+                sqlDate(2022, 12, 23),
+                "cxi-usa-goldbowl",
+                "L18BR1P2QB88W",
+                OrderStateType.Completed.code,
+                "S2FOIIUKBCS47GLJBY5ET5WC",
+                1,
+                1,
+                9.49,
+                Array(
+                    Map(
+                        "identity_type" -> "phone",
+                        "cxi_identity_id" -> "9e4b7049ee2d413583fb575d9536d43a90d0c45510d479be95f14df3766d89d6"
+                    )
+                )
+            )
+        ).toDF(
+            "ord_id",
+            "ord_date",
+            "cxi_partner_id",
+            "location_id",
+            "ord_state_id",
+            "item_id",
+            "transaction_quantity",
+            "item_quantity",
+            "item_total",
+            "cxi_identity_ids"
+        )
+
+        val orderSummaryTable = "newOrderSummary"
+        orderSummaryDf.createOrReplaceTempView(orderSummaryTable)
+
+        // when
+        val actualOrderSummary =
+            PartnerItemInsightsJob.readOrderSummary(Set("2022-12-23"), orderSummaryTable)(spark)
+
+        // then
+        val actualOrderFieldsReturned = actualOrderSummary.schema.fields.map(f => f.name)
+
+        withClue("Actual fields returned:\n" + actualOrderSummary.schema.treeString) {
+            actualOrderFieldsReturned should contain theSameElementsAs
+                Seq(
+                    "ord_id",
+                    "ord_date",
+                    "cxi_partner_id",
+                    "location_id",
+                    "item_id",
+                    "item_quantity",
+                    "item_total",
+                    "cxi_identity_ids"
+                )
+        }
+
+        val actualOrderSummaryData = actualOrderSummary.collect()
+        withClue("Read order summary do not match") {
+            val expectedOrderSummary = List(
+                (
+                    "dMWbKnd3gbnqJNpiACKhEFzeV",
+                    sqlDate(2022, 12, 23),
+                    "cxi-usa-goldbowl",
+                    "L18BR1P2QB88W",
+                    "S2FOIIUKBCS47GLJBY5ET5WC",
+                    1,
+                    9.49,
+                    Array(
+                        Map(
+                            "identity_type" -> "phone",
+                            "cxi_identity_id" -> "9e4b7049ee2d413583fb575d9536d43a90d0c45510d479be95f14df3766d89d6"
+                        )
+                    )
+                )
+            ).toDF(
+                "ord_id",
+                "ord_date",
+                "cxi_partner_id",
+                "location_id",
+                "item_id",
+                "item_quantity",
+                "item_total",
+                "cxi_identity_ids"
+            ).collect()
+            actualOrderSummaryData.length should equal(expectedOrderSummary.length)
+            actualOrderSummaryData should contain theSameElementsAs expectedOrderSummary
+        }
+    }
+
+    test("test readItem") {
+        // given
+        import spark.implicits._
+
+        val itemDf = List(
+            (
+                "KYYDC4ULFYATEZ7XY",
+                "cxi-usa-goldbowl",
+                "item-nm1",
+                "food"
+            ),
+            (
+                "YY7ZT6JP2YTZK2DXZNLUSW5S",
+                "cxi-usa-goldbowl",
+                "item_nm2",
+                "variation"
+            ),
+            (
+                "S2FOIIUKBCS47GLJBY5ET5WC",
+                "cxi-usa-goldbowl",
+                "item_nm3",
+                "Normal"
+            ),
+            (
+                "LYYDC4ULFYATEZ7XY",
+                "cxi-usa-goldbowl",
+                "Small",
+                "food"
+            ),
+            (
+                "MYYDC4ULFYATEZ7XY",
+                "cxi-usa-goldbowl",
+                "Add origano",
+                "Normal"
+            )
+        ).toDF(
+            "item_id",
+            "cxi_partner_id",
+            "item_nm",
+            "item_type"
+        )
+
+        val itemTable = "newItem"
+        itemDf.createOrReplaceTempView(itemTable)
+
+        // when
+        val actualItem =
+            PartnerItemInsightsJob.readItem(itemTable)(spark)
+
+        // then
+        val actualItemFieldsReturned = actualItem.schema.fields.map(f => f.name)
+
+        withClue("Actual fields returned:\n" + actualItem.schema.treeString) {
+            actualItemFieldsReturned should contain theSameElementsAs
+                Seq(
+                    "item_id",
+                    "cxi_partner_id",
+                    "item_nm"
+                )
+        }
+
+        val actualItemData = actualItem.collect()
+        withClue("Read item do not match") {
+            val expectedItem = List(
+                (
+                    "KYYDC4ULFYATEZ7XY",
+                    "cxi-usa-goldbowl",
+                    "item-nm1"
+                ),
+                (
+                    "S2FOIIUKBCS47GLJBY5ET5WC",
+                    "cxi-usa-goldbowl",
+                    "item_nm3"
+                )
+            ).toDF(
+                "item_id",
+                "cxi_partner_id",
+                "item_nm"
+            ).collect()
+            actualItemData.length should equal(expectedItem.length)
+            actualItemData should contain theSameElementsAs expectedItem
+        }
+    }
 
     test("test transformOrderSummary") {
         // given
