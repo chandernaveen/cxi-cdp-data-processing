@@ -131,7 +131,6 @@ class PartnerItemInsightsJobTest extends BaseSparkBatchJobTest {
         val actualOrderSummary =
             PartnerItemInsightsJob.transformOrderSummary(orderSummaryDf, locationDf, itemDf, customer360Df)
 
-
         // then
         val actualOrderFieldsReturned = actualOrderSummary.schema.fields.map(f => f.name)
 
