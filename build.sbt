@@ -56,7 +56,8 @@ libraryDependencies ++= Seq(
     exclude("org.scala-lang", "scala-reflect"),
   "org.apache.sedona" %% "sedona-viz-3.0" % "1.1.1-incubating" % Provided,
   "org.apache.sedona" %% "sedona-python-adapter-3.0" % "1.1.1-incubating" % Provided,
-  "org.datasyslab" % "geotools-wrapper" % "1.1.0-25.2" % Provided
+  "org.datasyslab" % "geotools-wrapper" % "1.1.0-25.2" % Provided,
+  "me.xdrop" % "fuzzywuzzy" % "1.4.0"
 )
 
 dependencyOverrides ++= Seq(
